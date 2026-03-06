@@ -234,6 +234,7 @@ export interface LeaderboardEntry {
   score: number;
   battlesWon: number;
   votesCast: number;
+  streak?: number;
 }
 
 export interface LeaderboardResponse {

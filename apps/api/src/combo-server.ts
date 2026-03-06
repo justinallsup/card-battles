@@ -306,6 +306,27 @@ app.get('/api/v1/battles/trending', async (c) => {
   }));
   return c.json({ items });
 });
+// ── SEARCH (must be before /:id) ─────────────────────────────────────────────
+app.get('/api/v1/battles/search', async (c) => {
+  const q = c.req.query('q') || '';
+  const sport = c.req.query('sport') || '';
+  let query = `SELECT b.*,la.id as lid,la.title as lt,la.image_url as li,la.player_name as lp,ra.id as rid,ra.title as rt,ra.image_url as ri,ra.player_name as rp,u.username as creator FROM battles b LEFT JOIN card_assets la ON la.id=b.left_asset_id LEFT JOIN card_assets ra ON ra.id=b.right_asset_id LEFT JOIN users u ON u.id=b.created_by_user_id WHERE b.status='live'`;
+  const params: string[] = [];
+  if (q) { params.push(`%${q}%`); query += ` AND (b.title ILIKE $${params.length} OR la.player_name ILIKE $${params.length} OR ra.player_name ILIKE $${params.length})`; }
+  if (sport) { params.push(sport); query += ` AND (la.sport=$${params.length} OR ra.sport=$${params.length})`; }
+  query += ' ORDER BY b.total_votes_cached DESC LIMIT 20';
+  const r = await pg.query(query, params);
+  const items = (r.rows as Record<string,unknown>[]).map(row => ({
+    id:row.id, title:row.title, status:row.status, categories:JSON.parse(row.categories as string),
+    endsAt:row.ends_at, startsAt:row.starts_at, totalVotesCached:row.total_votes_cached,
+    isSponsored:!!row.is_sponsored, sponsorCta:row.sponsor_cta?JSON.parse(row.sponsor_cta as string):null,
+    createdByUsername:row.creator,
+    left:{assetId:row.lid, title:row.lt, imageUrl:row.li, playerName:row.lp},
+    right:{assetId:row.rid, title:row.rt, imageUrl:row.ri, playerName:row.rp},
+    myVotes:{},
+  }));
+  return c.json({ items, total: items.length });
+});
 app.get('/api/v1/battles/:id', async (c) => {
   const u=uid(c.req.header('Authorization'));const{id}=c.req.param();
   const r=await pg.query(`SELECT b.*,la.id as lid,la.title as lt,la.image_url as li,la.player_name as lp,ra.id as rid,ra.title as rt,ra.image_url as ri,ra.player_name as rp,usr.username as creator FROM battles b LEFT JOIN card_assets la ON la.id=b.left_asset_id LEFT JOIN card_assets ra ON ra.id=b.right_asset_id LEFT JOIN users usr ON usr.id=b.created_by_user_id WHERE b.id=$1`,[id]);
@@ -667,37 +688,6 @@ app.post('/api/v1/battles/:id/comments/:commentId/like', async (c) => {
   if (!comment) return c.json({ error: 'Not found' }, 404);
   comment.likes++;
   return c.json(comment);
-});
-
-// ── SEARCH (must be before /:id) ─────────────────────────────────────────────
-app.get('/api/v1/battles/search', async (c) => {
-  const q = c.req.query('q') || '';
-  const sport = c.req.query('sport') || '';
-
-  let query = `SELECT b.*,la.id as lid,la.title as lt,la.image_url as li,la.player_name as lp,ra.id as rid,ra.title as rt,ra.image_url as ri,ra.player_name as rp,u.username as creator FROM battles b LEFT JOIN card_assets la ON la.id=b.left_asset_id LEFT JOIN card_assets ra ON ra.id=b.right_asset_id LEFT JOIN users u ON u.id=b.created_by_user_id WHERE b.status='live'`;
-  const params: string[] = [];
-
-  if (q) {
-    params.push(`%${q}%`);
-    query += ` AND (b.title ILIKE $${params.length} OR la.player_name ILIKE $${params.length} OR ra.player_name ILIKE $${params.length})`;
-  }
-  if (sport) {
-    params.push(sport);
-    query += ` AND (la.sport=$${params.length} OR ra.sport=$${params.length})`;
-  }
-  query += ' ORDER BY b.total_votes_cached DESC LIMIT 20';
-
-  const r = await pg.query(query, params);
-  const items = (r.rows as Record<string,unknown>[]).map(row => ({
-    id:row.id, title:row.title, status:row.status, categories:JSON.parse(row.categories as string),
-    endsAt:row.ends_at, startsAt:row.starts_at, totalVotesCached:row.total_votes_cached,
-    isSponsored:!!row.is_sponsored, sponsorCta:row.sponsor_cta?JSON.parse(row.sponsor_cta as string):null,
-    createdByUsername:row.creator,
-    left:{assetId:row.lid, title:row.lt, imageUrl:row.li, playerName:row.lp},
-    right:{assetId:row.rid, title:row.rt, imageUrl:row.ri, playerName:row.rp},
-    myVotes:{},
-  }));
-  return c.json({ items, total: items.length });
 });
 
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────
