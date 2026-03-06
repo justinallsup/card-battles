@@ -133,6 +133,12 @@ export const users = {
   battles: (username: string) => request<{ items: unknown[]; total: number }>(`/users/${username}/battles`),
   updateMe: (data: { bio?: string }) =>
     request<User>('/auth/me', { method: 'PATCH', body: JSON.stringify(data), auth: true }),
+  followStatus: (username: string) =>
+    request<{ isFollowing: boolean; followerCount: number; followingCount: number }>(`/users/${username}/follow-status`, { auth: true }),
+  follow: (username: string) =>
+    request<{ following: boolean; targetId: string }>(`/users/${username}/follow`, { method: 'POST', auth: true }),
+  unfollow: (username: string) =>
+    request<{ following: boolean }>(`/users/${username}/unfollow`, { method: 'POST', auth: true }),
 };
 
 // ─── Fantasy ──────────────────────────────────────────────────────────────────

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { users as usersApi, getToken } from '../../../../lib/api';
 import { LoadingSpinner } from '../../../../components/ui/LoadingSpinner';
 import { Badge } from '../../../../components/ui/Badge';
-import { Trophy, Sword, Target, Flame, Star, Crown, Zap, Edit2, X, Check, Swords, Settings, UserPlus, UserMinus } from 'lucide-react';
+import { Trophy, Sword, Target, Flame, Star, Zap, Edit2, X, Check, Swords, Settings, UserPlus, UserMinus } from 'lucide-react';
 import Link from 'next/link';
 import type { UserStats } from '@card-battles/types';
 import { useAuth } from '../../../../hooks/useAuth';
