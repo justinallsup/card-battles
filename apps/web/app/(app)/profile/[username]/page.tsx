@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { users as usersApi } from '../../../../lib/api';
 import { LoadingSpinner } from '../../../../components/ui/LoadingSpinner';
 import { Badge } from '../../../../components/ui/Badge';
-import { Trophy, Sword, Target, Flame, Star, Crown, Zap, Edit2, X, Check, Swords } from 'lucide-react';
+import { Trophy, Sword, Target, Flame, Star, Crown, Zap, Edit2, X, Check, Swords, Settings } from 'lucide-react';
+import Link from 'next/link';
 import type { UserStats } from '@card-battles/types';
 import { useAuth } from '../../../../hooks/useAuth';
 
@@ -218,12 +219,20 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
           </div>
         </div>
         {isOwnProfile && (
-          <button
-            onClick={() => setShowEdit(true)}
-            className="mt-4 w-full py-2 rounded-xl border border-[#1e1e2e] text-[#64748b] text-sm font-semibold flex items-center justify-center gap-2 hover:border-[#6c47ff] hover:text-[#6c47ff] transition-colors"
-          >
-            <Edit2 size={13}/> Edit Profile
-          </button>
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={() => setShowEdit(true)}
+              className="flex-1 py-2 rounded-xl border border-[#1e1e2e] text-[#64748b] text-sm font-semibold flex items-center justify-center gap-2 hover:border-[#6c47ff] hover:text-[#6c47ff] transition-colors"
+            >
+              <Edit2 size={13}/> Edit Profile
+            </button>
+            <Link
+              href="/settings"
+              className="w-10 h-10 rounded-xl border border-[#1e1e2e] text-[#64748b] flex items-center justify-center hover:border-[#6c47ff] hover:text-[#6c47ff] transition-colors"
+            >
+              <Settings size={15} />
+            </Link>
+          </div>
         )}
       </div>
 
