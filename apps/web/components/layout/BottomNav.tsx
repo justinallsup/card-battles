@@ -1,15 +1,15 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Swords, Plus, Trophy, Package, User } from 'lucide-react';
+import { Swords, Plus, Trophy, Target, User } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 const NAV_ITEMS = [
-  { href: '/feed', label: 'Feed', icon: Swords },
-  { href: '/leaderboards', label: 'Ranks', icon: Trophy },
-  { href: '/create', label: 'Create', icon: Plus, accent: true },
-  { href: '/pull-arena', label: 'Pulls', icon: Package },
-  { href: '/profile', label: 'Profile', icon: User },
+  { href: '/feed',        label: 'Feed',    icon: Swords  },
+  { href: '/leaderboards', label: 'Ranks',  icon: Target  },
+  { href: '/create',      label: 'Create',  icon: Plus,   accent: true },
+  { href: '/fantasy',     label: 'Fantasy', icon: Trophy  },
+  { href: '/profile',     label: 'Profile', icon: User    },
 ];
 
 export function BottomNav() {
