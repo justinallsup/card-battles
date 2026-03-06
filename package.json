@@ -1,0 +1,18 @@
+{
+  "name": "card-battles",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "typecheck": "pnpm -r run typecheck",
+    "db:migrate": "pnpm --filter @card-battles/api run db:migrate",
+    "db:seed": "pnpm --filter @card-battles/api run db:seed",
+    "db:generate": "pnpm --filter @card-battles/api run db:generate",
+    "db:studio": "pnpm --filter @card-battles/api run db:studio"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
