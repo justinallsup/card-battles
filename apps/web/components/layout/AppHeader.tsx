@@ -1,15 +1,85 @@
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, Search } from 'lucide-react';
+import { Bell, Search, Settings, User, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { Avatar } from '../ui/Avatar';
 import { useNotificationStore } from '../../lib/notificationStore';
+import { useState, useRef, useEffect } from 'react';
+
+function UserDropdown({ username, avatarUrl, onClose }: {
+  username: string;
+  avatarUrl?: string | null;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const { logout } = useAuth();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [onClose]);
+
+  const handleLogout = () => {
+    onClose();
+    if (typeof logout === 'function') logout();
+    router.push('/login');
+  };
+
+  return (
+    <div
+      ref={ref}
+      className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-[#1e1e2e] overflow-hidden z-50 shadow-xl"
+      style={{ background: '#12121a', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}
+    >
+      <div className="px-3 py-2.5 border-b border-[#1e1e2e]">
+        <p className="text-xs font-bold text-white truncate">@{username}</p>
+        <p className="text-[10px] text-[#64748b]">Card Collector</p>
+      </div>
+
+      <div className="py-1">
+        <Link
+          href={`/profile/${username}`}
+          onClick={onClose}
+          className="flex items-center gap-2.5 px-3 py-2 text-sm text-[#94a3b8] hover:text-white hover:bg-[#1e1e2e] transition-colors"
+        >
+          <User size={14} className="text-[#6c47ff]" />
+          Profile
+        </Link>
+        <Link
+          href="/settings"
+          onClick={onClose}
+          className="flex items-center gap-2.5 px-3 py-2 text-sm text-[#94a3b8] hover:text-white hover:bg-[#1e1e2e] transition-colors"
+        >
+          <Settings size={14} className="text-[#6c47ff]" />
+          Settings
+        </Link>
+      </div>
+
+      <div className="py-1 border-t border-[#1e1e2e]">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-[#ef4444] hover:bg-[#ef4444]/10 transition-colors"
+        >
+          <LogOut size={14} />
+          Sign Out
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function AppHeader() {
   const { user } = useAuth();
   const router = useRouter();
   const { unreadCount } = useNotificationStore();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-40 bg-[#0a0a0f]/95 backdrop-blur border-b border-[#1e1e2e]"
@@ -73,9 +143,30 @@ export function AppHeader() {
                   </span>
                 )}
               </Link>
-              <Link href={`/profile/${user.username}`}>
-                <Avatar username={user.username} avatarUrl={user.avatarUrl} size="sm" />
-              </Link>
+
+              {/* Avatar with dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setDropdownOpen((v) => !v)}
+                  className="flex items-center gap-1 group"
+                  aria-label="User menu"
+                >
+                  <Avatar username={user.username} avatarUrl={user.avatarUrl} size="sm" />
+                  <ChevronDown
+                    size={12}
+                    className="text-[#64748b] group-hover:text-white transition-colors"
+                    style={{ transform: dropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                  />
+                </button>
+
+                {dropdownOpen && (
+                  <UserDropdown
+                    username={user.username}
+                    avatarUrl={user.avatarUrl}
+                    onClose={() => setDropdownOpen(false)}
+                  />
+                )}
+              </div>
             </>
           ) : (
             <div className="flex items-center gap-2">

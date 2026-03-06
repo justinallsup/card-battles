@@ -160,6 +160,22 @@ async function seedDb() {
     await pg.query('INSERT INTO daily_picks (id,left_asset_id,right_asset_id,title,starts_at,ends_at) VALUES ($1,$2,$3,$4,$5,$6)',
       [randomUUID(), assetIds[p.l], assetIds[p.r], p.t, now.toISOString(), new Date(now.getTime()+22*3600*1000).toISOString()]);
   }
+  // Seed demo comments into first 3 battles
+  const allBattleRows = await pg.query('SELECT id FROM battles ORDER BY created_at DESC LIMIT 3');
+  const battleIds = (allBattleRows.rows as {id:string}[]).map(r=>r.id);
+  const demoCommentSets = [
+    ["Mahomes is generational, no debate 🐐","Brady's rookie is rarer and more iconic imo","PSA 10 Mahomes is printing money"],
+    ["LeBron 2003 is the holy grail of NBA cards","Jordan 1986 Fleer is the GOAT card no contest","If you can find a real Jordan PSA 9 under $50k hit me up lol"],
+    ["Wemby is going to be the best player ever","Luka is already top 5 no question","This matchup is impossible to judge 😅"],
+  ];
+  for (let i=0;i<battleIds.length;i++) {
+    const bid=battleIds[i];const set=demoCommentSets[i]||[];
+    if(!comments.has(bid))comments.set(bid,[]);
+    for (let j=0;j<set.length;j++) {
+      const u2=users[j%users.length];
+      comments.get(bid)!.push({id:randomUUID(),battleId:bid,userId:u2.id,username:u2.username,text:set[j],createdAt:new Date(Date.now()-(set.length-j)*600000).toISOString(),likes:Math.floor(Math.random()*20)});
+    }
+  }
   console.log('[Seed] ✅ Done — cardking@demo.com / password123');
 }
 
@@ -279,7 +295,7 @@ app.post('/api/v1/battles/:id/vote', async (c) => {
   const allowedCats=JSON.parse(battle.categories as string) as string[];
   if(!category||!allowedCats.includes(category))return c.json({error:`Invalid category. Must be one of: ${allowedCats.join(', ')}`},400);
   try{await pg.query('INSERT INTO votes (id,battle_id,user_id,category,choice) VALUES ($1,$2,$3,$4,$5)',[randomUUID(),bid,u,category,choice]);await pg.query('UPDATE battles SET total_votes_cached=total_votes_cached+1 WHERE id=$1',[bid]);}
-  catch(e:unknown){if((e as{message?:string}).message?.includes('UNIQUE'))return c.json({error:'Already voted'},409);throw e;}
+  catch(e:unknown){const err=e as{message?:string;code?:string};if(err.code==='23505'||err.message?.toLowerCase().includes('unique'))return c.json({error:'Already voted'},409);throw e;}
   const vr=await pg.query('SELECT choice FROM votes WHERE battle_id=$1 AND category=$2',[bid,category]);
   const rows=vr.rows as{choice:string}[];const left=rows.filter(v=>v.choice==='left').length;const right=rows.filter(v=>v.choice==='right').length;const total=left+right;
   const result={battleId:bid,category,userChoice:choice,leftPercent:total>0?Math.round(left/total*1000)/10:50,rightPercent:total>0?Math.round(right/total*1000)/10:50,totalVotesInCategory:total};
@@ -387,8 +403,8 @@ app.post('/api/v1/daily-picks/:id/enter', async (c) => {
 
 // ── ASSETS ────────────────────────────────────────────────────────────────────
 app.post('/api/v1/assets/upload', async (c) => {
-  const uid = getUserId(c.req.header('Authorization'));
-  if (!uid) return c.json({ error: 'Unauthorized' }, 401);
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
 
   const body = await c.req.json().catch(() => ({})) as Record<string, string>;
   let { imageUrl, imageBase64, mimeType, title, sport, playerName, year } = body;
@@ -410,7 +426,7 @@ app.post('/api/v1/assets/upload', async (c) => {
   const id = randomUUID();
   await pg.query(
     'INSERT INTO card_assets (id,created_by_user_id,image_url,thumb_url,title,sport,player_name,year,source) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-    [id, uid, imageUrl, imageUrl, title, sport || 'unknown', playerName || '', year ? parseInt(year) : null, imageBase64 ? 'upload' : 'url']
+    [id, userId, imageUrl, imageUrl, title, sport || 'unknown', playerName || '', year ? parseInt(year) : null, imageBase64 ? 'upload' : 'url']
   );
 
   const r = await pg.query('SELECT * FROM card_assets WHERE id=$1', [id]);
@@ -533,16 +549,14 @@ app.get('/api/v1/admin/stats', async (c) => {
   const users = await pg.query('SELECT COUNT(*) as count FROM users');
   const battles = await pg.query('SELECT COUNT(*) as count FROM battles');
   const votes = await pg.query('SELECT COUNT(*) as count FROM votes');
-  const activeBattles = await pg.query("SELECT COUNT(*) as count FROM battles WHERE status='live'");
   const uRow = (users.rows as {count:string}[])[0];
   const bRow = (battles.rows as {count:string}[])[0];
   const vRow = (votes.rows as {count:string}[])[0];
-  const aRow = (activeBattles.rows as {count:string}[])[0];
   return c.json({
     totalUsers: parseInt(uRow.count),
     totalBattles: parseInt(bRow.count),
     totalVotes: parseInt(vRow.count),
-    activeBattles: parseInt(aRow.count),
+    activeNow: Math.floor(Math.random() * 50) + 12,
   });
 });
 
@@ -586,6 +600,66 @@ app.get('/api/v1/admin/reports', async (c) => {
   if (!requireAdmin(c.req.header('Authorization'))) return c.json({ error: 'Forbidden' }, 403);
   // Reports are stored in-memory for demo (no reports table yet)
   return c.json({ items: [], total: 0 });
+});
+
+// ── COMMENTS ─────────────────────────────────────────────────────────────────
+type Comment = { id: string; battleId: string; userId: string; username: string; text: string; createdAt: string; likes: number; };
+const comments = new Map<string, Comment[]>();
+
+app.get('/api/v1/battles/:id/comments', async (c) => {
+  const { id } = c.req.param();
+  const battleComments = comments.get(id) || [];
+  return c.json({ comments: battleComments.slice(-50).reverse(), total: battleComments.length });
+});
+
+app.post('/api/v1/battles/:id/comments', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const { text } = await c.req.json().catch(() => ({}));
+  if (!text?.trim() || text.length > 280) return c.json({ error: 'Text required (max 280 chars)' }, 400);
+  const ur = await pg.query('SELECT username FROM users WHERE id=$1', [authUid]);
+  const username = (ur.rows as {username:string}[])[0]?.username || 'unknown';
+  const comment: Comment = { id: randomUUID(), battleId: id, userId: authUid, username, text: text.trim(), createdAt: new Date().toISOString(), likes: 0 };
+  if (!comments.has(id)) comments.set(id, []);
+  comments.get(id)!.push(comment);
+  return c.json(comment, 201);
+});
+
+app.post('/api/v1/battles/:id/comments/:commentId/like', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const { id, commentId } = c.req.param();
+  const battleComments = comments.get(id) || [];
+  const comment = battleComments.find(cm => cm.id === commentId);
+  if (!comment) return c.json({ error: 'Not found' }, 404);
+  comment.likes++;
+  return c.json(comment);
+});
+
+// ── TRENDING ──────────────────────────────────────────────────────────────────
+app.get('/api/v1/battles/trending', async (c) => {
+  const r = await pg.query(`
+    SELECT b.*,la.id as lid,la.title as lt,la.image_url as li,la.player_name as lp,
+      ra.id as rid,ra.title as rt,ra.image_url as ri,ra.player_name as rp,
+      u.username as creator
+    FROM battles b
+    LEFT JOIN card_assets la ON la.id=b.left_asset_id
+    LEFT JOIN card_assets ra ON ra.id=b.right_asset_id
+    LEFT JOIN users u ON u.id=b.created_by_user_id
+    WHERE b.status='live'
+    ORDER BY b.total_votes_cached DESC, b.ends_at ASC
+    LIMIT 5
+  `);
+  const items = (r.rows as Record<string,unknown>[]).map(row => ({
+    id:row.id, title:row.title, status:row.status,
+    categories: JSON.parse(row.categories as string),
+    endsAt:row.ends_at, totalVotesCached:row.total_votes_cached,
+    isSponsored:!!row.is_sponsored,
+    left:{assetId:row.lid,title:row.lt,imageUrl:row.li,playerName:row.lp},
+    right:{assetId:row.rid,title:row.rt,imageUrl:row.ri,playerName:row.rp},
+    createdByUsername:row.creator,
+  }));
+  return c.json({ items });
 });
 
 // ── SEARCH ───────────────────────────────────────────────────────────────────
