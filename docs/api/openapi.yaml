@@ -1,0 +1,2151 @@
+openapi: 3.0.0
+info:
+  title: Card Battles API
+  version: 0.1.0
+  description: |
+    Sports card battle platform API.
+
+    Upload cards, create head-to-head battles, vote, and compete for the leaderboard.
+
+    **Demo credentials:** `cardking@demo.com` / `password123`
+
+    Other demo accounts: `slabmaster`, `rookiehunter`, `packripper`, `gradegod` — all `@demo.com` / `password123`
+  contact:
+    name: Card Battles Team
+    url: https://cardbattles.app
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development (production API with real Postgres)
+  - url: http://localhost:3333/api/v1
+    description: Local demo (combo-server with in-memory PGlite)
+  - url: https://api.cardbattles.app/api/v1
+    description: Production
+
+tags:
+  - name: Auth
+    description: User registration, login, and profile management
+  - name: Battles
+    description: Card battle creation, feed, voting, and results
+  - name: Assets
+    description: Card image upload and management
+  - name: Users
+    description: User profiles, stats, and following
+  - name: Leaderboards
+    description: Creator and voter leaderboards
+  - name: Daily Picks
+    description: Daily prediction contests
+  - name: Comments
+    description: Battle comments and likes
+  - name: Collections
+    description: User card collections and watchlists
+  - name: Following
+    description: User follow/unfollow relationships
+  - name: Fantasy
+    description: Fantasy card leagues
+  - name: Tournaments
+    description: Card tournament brackets
+  - name: Analytics
+    description: Sponsor click tracking
+  - name: Admin
+    description: Administrative endpoints (admin-only)
+  - name: Billing
+    description: Subscription plans and checkout
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token obtained from /auth/login or /auth/register
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        details:
+          type: object
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+          minLength: 3
+          maxLength: 32
+        email:
+          type: string
+          format: email
+        avatarUrl:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        isAdmin:
+          type: boolean
+        isMod:
+          type: boolean
+        proStatus:
+          type: string
+          enum: [none, pro]
+        createdAt:
+          type: string
+          format: date-time
+
+    UserStats:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        votesCast:
+          type: integer
+        battlesCreated:
+          type: integer
+        battlesWon:
+          type: integer
+        battlesLost:
+          type: integer
+        currentStreak:
+          type: integer
+        bestStreak:
+          type: integer
+        dailyPickWins:
+          type: integer
+        dailyPickLosses:
+          type: integer
+        updatedAt:
+          type: string
+          format: date-time
+
+    CardAsset:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        imageUrl:
+          type: string
+        thumbUrl:
+          type: string
+          nullable: true
+        title:
+          type: string
+        sport:
+          type: string
+          nullable: true
+        playerName:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          nullable: true
+        source:
+          type: string
+          enum: [upload, url, scraped]
+        createdAt:
+          type: string
+          format: date-time
+
+    CardValuation:
+      type: object
+      properties:
+        low:
+          type: number
+        mid:
+          type: number
+        high:
+          type: number
+        trend:
+          type: string
+          enum: [up, down, stable]
+        player:
+          type: string
+        year:
+          type: integer
+        gradeAssumed:
+          type: string
+        lastUpdated:
+          type: string
+          format: date-time
+
+    BattleCard:
+      type: object
+      properties:
+        assetId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        imageUrl:
+          type: string
+        thumbUrl:
+          type: string
+          nullable: true
+        playerName:
+          type: string
+          nullable: true
+
+    Battle:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          type: string
+          enum: [live, ended, removed]
+        categories:
+          type: array
+          items:
+            type: string
+          example: [investment, coolest, rarity]
+        endsAt:
+          type: string
+          format: date-time
+        startsAt:
+          type: string
+          format: date-time
+        totalVotesCached:
+          type: integer
+        isSponsored:
+          type: boolean
+        sponsorCta:
+          type: object
+          nullable: true
+          properties:
+            label:
+              type: string
+            url:
+              type: string
+        createdByUsername:
+          type: string
+          nullable: true
+        left:
+          $ref: '#/components/schemas/BattleCard'
+        right:
+          $ref: '#/components/schemas/BattleCard'
+        myVotes:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [left, right]
+
+    VoteResult:
+      type: object
+      properties:
+        battleId:
+          type: string
+          format: uuid
+        category:
+          type: string
+        userChoice:
+          type: string
+          enum: [left, right]
+        leftPercent:
+          type: number
+        rightPercent:
+          type: number
+        totalVotesInCategory:
+          type: integer
+
+    CategoryResult:
+      type: object
+      properties:
+        leftPercent:
+          type: number
+        rightPercent:
+          type: number
+        winner:
+          type: string
+          enum: [left, right, draw]
+        total:
+          type: integer
+
+    BattleResults:
+      type: object
+      properties:
+        battleId:
+          type: string
+          format: uuid
+        status:
+          type: string
+        result:
+          type: object
+          nullable: true
+        live:
+          type: object
+          properties:
+            byCategory:
+              type: object
+              additionalProperties:
+                $ref: '#/components/schemas/CategoryResult'
+            overall:
+              type: object
+              properties:
+                winner:
+                  type: string
+                  enum: [left, right, draw]
+
+    LeaderboardItem:
+      type: object
+      properties:
+        rank:
+          type: integer
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        score:
+          type: integer
+        battlesWon:
+          type: integer
+        votesCast:
+          type: integer
+        streak:
+          type: integer
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        battleId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+        text:
+          type: string
+          maxLength: 280
+        createdAt:
+          type: string
+          format: date-time
+        likes:
+          type: integer
+
+    DailyPick:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        result:
+          type: string
+          nullable: true
+        myEntry:
+          type: string
+          enum: [left, right]
+          nullable: true
+        left:
+          $ref: '#/components/schemas/BattleCard'
+        right:
+          $ref: '#/components/schemas/BattleCard'
+
+    Tournament:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sport:
+          type: string
+        status:
+          type: string
+          enum: [open, active, complete]
+        participants:
+          type: array
+          items:
+            type: string
+        bracket:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    FantasyLeague:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        createdByUserId:
+          type: string
+          format: uuid
+        maxTeams:
+          type: integer
+        draftStatus:
+          type: string
+          enum: [open, drafting, active, complete]
+        members:
+          type: array
+          items:
+            type: string
+        picks:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    Tokens:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token (60 minute expiry)
+        refreshToken:
+          type: string
+          description: JWT refresh token (30 day expiry)
+
+paths:
+
+  # ── AUTH ──────────────────────────────────────────────────────────────────────
+
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, email, password]
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 32
+                  pattern: '^[a-zA-Z0-9_]+$'
+                  example: cardking
+                email:
+                  type: string
+                  format: email
+                  example: cardking@demo.com
+                password:
+                  type: string
+                  minLength: 8
+                  example: password123
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                  - $ref: '#/components/schemas/Tokens'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Username or email already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      summary: Login with email and password
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: cardking@demo.com
+                password:
+                  type: string
+                  example: password123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                  - $ref: '#/components/schemas/Tokens'
+        '400':
+          description: Missing fields
+        '401':
+          description: Invalid credentials
+
+  /auth/me:
+    get:
+      summary: Get current authenticated user
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Not authenticated
+    patch:
+      summary: Update current user profile
+      tags: [Auth]
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bio:
+                  type: string
+                  maxLength: 500
+                  nullable: true
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Not authenticated
+
+  # ── BATTLES ───────────────────────────────────────────────────────────────────
+
+  /battles:
+    post:
+      summary: Create a new battle
+      tags: [Battles]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, leftAssetId, rightAssetId, categories, durationSeconds]
+              properties:
+                title:
+                  type: string
+                  minLength: 3
+                  maxLength: 200
+                  example: Mahomes vs Brady — GOAT Rookie Debate
+                description:
+                  type: string
+                  maxLength: 500
+                leftAssetId:
+                  type: string
+                  format: uuid
+                rightAssetId:
+                  type: string
+                  format: uuid
+                categories:
+                  type: array
+                  minItems: 1
+                  maxItems: 4
+                  items:
+                    type: string
+                  example: [investment, coolest, rarity]
+                durationSeconds:
+                  type: integer
+                  minimum: 3600
+                  maximum: 172800
+                  example: 86400
+      responses:
+        '201':
+          description: Battle created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Battle'
+        '400':
+          description: Validation error
+        '401':
+          description: Not authenticated
+        '404':
+          description: Card assets not found
+
+  /battles/feed:
+    get:
+      summary: Get paginated battle feed
+      tags: [Battles]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: cursor
+          schema:
+            type: string
+          description: Pagination cursor
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - in: query
+          name: sport
+          schema:
+            type: string
+            enum: [nfl, nba, mlb, nhl, soccer]
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [live, ended]
+            default: live
+      responses:
+        '200':
+          description: Battle feed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Battle'
+                  nextCursor:
+                    type: string
+                    nullable: true
+                  total:
+                    type: integer
+
+  /battles/trending:
+    get:
+      summary: Get top 5 trending battles
+      tags: [Battles]
+      responses:
+        '200':
+          description: Trending battles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Battle'
+
+  /battles/search:
+    get:
+      summary: Search battles
+      tags: [Battles]
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+          example: Mahomes
+        - in: query
+          name: sport
+          schema:
+            type: string
+            enum: [nfl, nba, mlb, nhl, soccer]
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Battle'
+                  total:
+                    type: integer
+
+  /battles/{id}:
+    get:
+      summary: Get battle details
+      tags: [Battles]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Battle details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Battle'
+        '404':
+          description: Not found
+
+  /battles/{id}/vote:
+    post:
+      summary: Cast a vote on a battle category
+      tags: [Battles]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category, choice]
+              properties:
+                category:
+                  type: string
+                  example: investment
+                choice:
+                  type: string
+                  enum: [left, right]
+      responses:
+        '200':
+          description: Vote recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoteResult'
+        '400':
+          description: Invalid choice, category, or battle not live
+        '401':
+          description: Not authenticated
+        '404':
+          description: Battle not found
+        '409':
+          description: Already voted in this category
+        '429':
+          description: Rate limit exceeded
+
+  /battles/{id}/results:
+    get:
+      summary: Get battle vote results by category
+      tags: [Battles]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Battle results with percentages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BattleResults'
+        '404':
+          description: Not found
+
+  /battles/{id}/report:
+    post:
+      summary: Report a battle
+      tags: [Battles]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  maxLength: 100
+                notes:
+                  type: string
+                  maxLength: 500
+      responses:
+        '201':
+          description: Report submitted
+        '401':
+          description: Not authenticated
+
+  /battles/{id}/live:
+    get:
+      summary: Server-sent events stream for live vote updates
+      tags: [Battles]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /battles/{id}/valuations:
+    get:
+      summary: Get card valuations for a battle
+      tags: [Battles]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Card valuations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  left:
+                    $ref: '#/components/schemas/CardValuation'
+                  right:
+                    $ref: '#/components/schemas/CardValuation'
+
+  /battles/{id}/comments:
+    get:
+      summary: Get comments for a battle
+      tags: [Comments, Battles]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Battle comments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  comments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+                  total:
+                    type: integer
+    post:
+      summary: Post a comment on a battle
+      tags: [Comments, Battles]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  maxLength: 280
+      responses:
+        '201':
+          description: Comment posted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '400':
+          description: Invalid text
+        '401':
+          description: Not authenticated
+
+  /battles/{id}/comments/{commentId}/like:
+    post:
+      summary: Like a comment
+      tags: [Comments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: commentId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Comment liked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+        '401':
+          description: Not authenticated
+        '404':
+          description: Comment not found
+
+  # ── ASSETS ────────────────────────────────────────────────────────────────────
+
+  /assets/upload:
+    post:
+      summary: Upload a card asset
+      tags: [Assets]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  example: Mahomes 2017 Prizm RC PSA 10
+                imageUrl:
+                  type: string
+                imageBase64:
+                  type: string
+                mimeType:
+                  type: string
+                  example: image/jpeg
+                sport:
+                  type: string
+                  example: nfl
+                playerName:
+                  type: string
+                  example: Patrick Mahomes
+                year:
+                  type: integer
+                  example: 2017
+      responses:
+        '201':
+          description: Asset created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardAsset'
+        '400':
+          description: Title required
+        '401':
+          description: Not authenticated
+
+  /cards/search:
+    get:
+      summary: Search card assets
+      tags: [Assets]
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+            minLength: 2
+          example: Mahomes
+      responses:
+        '200':
+          description: Matching cards
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cards:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CardAsset'
+
+  /cards/{id}/valuation:
+    get:
+      summary: Get market valuation for a card
+      tags: [Assets]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Valuation estimate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardValuation'
+        '404':
+          description: Card not found
+
+  # ── USERS ─────────────────────────────────────────────────────────────────────
+
+  /users/{username}:
+    get:
+      summary: Get user profile
+      tags: [Users]
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+          example: cardking
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+
+  /users/{username}/stats:
+    get:
+      summary: Get user stats
+      tags: [Users]
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStats'
+        '404':
+          description: User not found
+
+  /users/{username}/battles:
+    get:
+      summary: Get battles created by a user
+      tags: [Users]
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: User's battles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Battle'
+                  total:
+                    type: integer
+        '404':
+          description: User not found
+
+  /users/{username}/follow:
+    post:
+      summary: Follow a user
+      tags: [Users, Following]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Now following
+        '400':
+          description: Cannot follow yourself
+        '401':
+          description: Not authenticated
+        '404':
+          description: User not found
+        '409':
+          description: Already following
+
+  /users/{username}/unfollow:
+    post:
+      summary: Unfollow a user
+      tags: [Users, Following]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Unfollowed
+        '401':
+          description: Not authenticated
+        '404':
+          description: User not found
+
+  /users/{username}/follow-status:
+    get:
+      summary: Get follow status for a user
+      tags: [Users, Following]
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Follow status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isFollowing:
+                    type: boolean
+                  followerCount:
+                    type: integer
+                  followingCount:
+                    type: integer
+        '404':
+          description: User not found
+
+  /users/{username}/followers:
+    get:
+      summary: List followers
+      tags: [Following]
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Followers list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  total:
+                    type: integer
+
+  /users/{username}/following:
+    get:
+      summary: List who user follows
+      tags: [Following]
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Following list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  total:
+                    type: integer
+
+  # ── LEADERBOARDS ──────────────────────────────────────────────────────────────
+
+  /leaderboards:
+    get:
+      summary: Get leaderboard
+      tags: [Leaderboards]
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [creators, voters]
+            default: creators
+        - in: query
+          name: period
+          schema:
+            type: string
+            enum: [day, week, month, all]
+            default: week
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  period:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LeaderboardItem'
+
+  # ── DAILY PICKS ───────────────────────────────────────────────────────────────
+
+  /daily-picks/current:
+    get:
+      summary: Get today's daily pick contests
+      tags: [Daily Picks]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current daily picks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DailyPick'
+
+  /daily-picks/{id}/enter:
+    post:
+      summary: Enter a daily pick contest
+      tags: [Daily Picks]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [choice]
+              properties:
+                choice:
+                  type: string
+                  enum: [left, right]
+      responses:
+        '201':
+          description: Entry submitted
+        '400':
+          description: Invalid choice
+        '401':
+          description: Not authenticated
+        '409':
+          description: Already entered
+
+  /daily-picks/{id}/results:
+    get:
+      summary: Get daily pick results
+      tags: [Daily Picks]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Daily pick results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pickId:
+                    type: string
+                  leftPercent:
+                    type: number
+                  rightPercent:
+                    type: number
+                  totalVotes:
+                    type: integer
+
+  # ── COLLECTIONS ───────────────────────────────────────────────────────────────
+
+  /collections:
+    get:
+      summary: Get user's saved card collection
+      tags: [Collections]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User collection
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CardAsset'
+                  total:
+                    type: integer
+        '401':
+          description: Not authenticated
+
+  /collections/save:
+    post:
+      summary: Save a card to collection
+      tags: [Collections]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cardAssetId]
+              properties:
+                cardAssetId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Card saved
+        '400':
+          description: cardAssetId required
+        '401':
+          description: Not authenticated
+        '404':
+          description: Card not found
+        '409':
+          description: Already saved
+
+  /collections/save/{cardAssetId}:
+    delete:
+      summary: Remove a card from collection
+      tags: [Collections]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: cardAssetId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Card removed
+        '401':
+          description: Not authenticated
+
+  /collections/watchlist:
+    get:
+      summary: Get user's battle watchlist
+      tags: [Collections]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Watchlist
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Battle'
+                  total:
+                    type: integer
+        '401':
+          description: Not authenticated
+    post:
+      summary: Add a battle to watchlist
+      tags: [Collections]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [battleId]
+              properties:
+                battleId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Battle added to watchlist
+        '401':
+          description: Not authenticated
+        '409':
+          description: Already watching
+
+  /collections/watchlist/{battleId}:
+    delete:
+      summary: Remove a battle from watchlist
+      tags: [Collections]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: battleId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Removed from watchlist
+        '401':
+          description: Not authenticated
+
+  # ── TOURNAMENTS ───────────────────────────────────────────────────────────────
+
+  /tournaments:
+    get:
+      summary: List tournaments
+      tags: [Tournaments]
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [open, active, complete]
+        - in: query
+          name: sport
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Tournaments list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tournaments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tournament'
+                  total:
+                    type: integer
+    post:
+      summary: Create a new tournament
+      tags: [Tournaments]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  example: NFL GOAT Card Tournament
+                sport:
+                  type: string
+                  example: nfl
+                maxParticipants:
+                  type: integer
+                  default: 8
+                startDate:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Tournament created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tournament'
+        '400':
+          description: Name required
+        '401':
+          description: Not authenticated
+
+  /tournaments/{id}:
+    get:
+      summary: Get tournament details
+      tags: [Tournaments]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tournament details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tournament'
+        '404':
+          description: Not found
+
+  /tournaments/{id}/join:
+    post:
+      summary: Join an open tournament
+      tags: [Tournaments]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Joined tournament
+        '400':
+          description: Tournament not open
+        '401':
+          description: Not authenticated
+        '404':
+          description: Not found
+        '409':
+          description: Already joined
+
+  /tournaments/{id}/bracket:
+    get:
+      summary: Get tournament bracket
+      tags: [Tournaments]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Tournament bracket
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tournamentId:
+                    type: string
+                  bracket:
+                    type: object
+                  rounds:
+                    type: array
+                    items:
+                      type: object
+
+  # ── FANTASY ───────────────────────────────────────────────────────────────────
+
+  /fantasy/leagues:
+    get:
+      summary: List fantasy leagues (my leagues + open leagues)
+      tags: [Fantasy]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Leagues
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  myLeagues:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FantasyLeague'
+                  openLeagues:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FantasyLeague'
+    post:
+      summary: Create a fantasy league
+      tags: [Fantasy]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  example: Card Kings League
+                maxTeams:
+                  type: integer
+                  default: 8
+                pickDeadline:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: League created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FantasyLeague'
+        '400':
+          description: Name required
+        '401':
+          description: Not authenticated
+
+  /fantasy/leagues/{id}:
+    get:
+      summary: Get fantasy league details
+      tags: [Fantasy]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: League details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FantasyLeague'
+        '404':
+          description: Not found
+
+  /fantasy/leagues/{id}/join:
+    post:
+      summary: Join a fantasy league
+      tags: [Fantasy]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Joined league
+        '400':
+          description: League not open
+        '401':
+          description: Not authenticated
+        '404':
+          description: Not found
+        '409':
+          description: Already a member
+
+  /fantasy/leagues/{id}/pick:
+    post:
+      summary: Add a card to your fantasy roster
+      tags: [Fantasy]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assetId]
+              properties:
+                assetId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Card added to roster
+        '400':
+          description: Max 5 picks reached or assetId required
+        '401':
+          description: Not authenticated
+        '403':
+          description: Not a member of this league
+        '404':
+          description: League not found
+
+  /fantasy/leagues/{id}/pick/{assetId}:
+    delete:
+      summary: Remove a card from your fantasy roster
+      tags: [Fantasy]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: assetId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Card removed
+        '401':
+          description: Not authenticated
+
+  /fantasy/leagues/{id}/standings:
+    get:
+      summary: Get fantasy league standings
+      tags: [Fantasy]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: League standings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leagueId:
+                    type: string
+                  standings:
+                    type: array
+                    items:
+                      type: object
+
+  # ── ANALYTICS ─────────────────────────────────────────────────────────────────
+
+  /analytics/sponsor-click:
+    post:
+      summary: Track a sponsor CTA click
+      tags: [Analytics]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                battleId:
+                  type: string
+                  format: uuid
+                sponsorId:
+                  type: string
+                  format: uuid
+                destinationUrl:
+                  type: string
+      responses:
+        '200':
+          description: Click tracked
+
+  # ── BILLING ───────────────────────────────────────────────────────────────────
+
+  /billing/plans:
+    get:
+      summary: Get available subscription plans
+      tags: [Billing]
+      responses:
+        '200':
+          description: Available plans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plans:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        price:
+                          type: integer
+                          description: Price in cents
+                        interval:
+                          type: string
+                          enum: [month, year]
+                        features:
+                          type: array
+                          items:
+                            type: string
+
+  /billing/subscribe:
+    post:
+      summary: Create a checkout session for a subscription
+      tags: [Billing]
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                planId:
+                  type: string
+                  example: pro_monthly
+      responses:
+        '200':
+          description: Checkout URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checkoutUrl:
+                    type: string
+        '401':
+          description: Not authenticated
+
+  # ── SHARE ─────────────────────────────────────────────────────────────────────
+
+  /share/{battleId}/og:
+    get:
+      summary: Get OG share image (SVG) for a battle
+      tags: [Battles]
+      parameters:
+        - in: path
+          name: battleId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: SVG open graph image
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+        '404':
+          description: Battle not found
+
+  # ── ADMIN ─────────────────────────────────────────────────────────────────────
+
+  /admin/stats:
+    get:
+      summary: Get platform stats (admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Platform stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalUsers:
+                    type: integer
+                  totalBattles:
+                    type: integer
+                  totalVotes:
+                    type: integer
+                  activeNow:
+                    type: integer
+        '403':
+          description: Forbidden (admin only)
+
+  /admin/battles:
+    get:
+      summary: List all battles (admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: All battles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Battle'
+                  total:
+                    type: integer
+        '403':
+          description: Forbidden
+
+  /admin/battles/{id}:
+    delete:
+      summary: Remove a battle (admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Battle removed
+        '403':
+          description: Forbidden
+
+  /admin/users:
+    get:
+      summary: List all users (admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: All users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  total:
+                    type: integer
+        '403':
+          description: Forbidden
+
+  /admin/users/{id}/suspend:
+    post:
+      summary: Suspend a user (admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User suspended
+        '403':
+          description: Forbidden
+
+  /admin/users/{id}/unsuspend:
+    post:
+      summary: Unsuspend a user (admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User unsuspended
+        '403':
+          description: Forbidden
+
+  /admin/users/{id}/make-admin:
+    post:
+      summary: Promote user to admin (admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User promoted
+        '403':
+          description: Forbidden
+
+  /admin/reports:
+    get:
+      summary: List all reports (admin only)
+      tags: [Admin]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Reports
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+        '403':
+          description: Forbidden

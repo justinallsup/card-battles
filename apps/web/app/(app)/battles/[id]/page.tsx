@@ -578,7 +578,7 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
               />
             </button>
             <div className="flex justify-center">
-              <SaveCardButton assetId={asset.id} cardName={asset.playerName ?? asset.title} />
+              <SaveCardButton assetId={asset.assetId} cardName={asset.playerName ?? asset.title} />
             </div>
           </div>
         ))}
