@@ -1,52 +1,28 @@
 'use client';
-import { use, useState, useCallback } from 'react';
+import { use, useState } from 'react';
 import { useBattle } from '../../../../hooks/useBattles';
-import { useBattleSSE } from '../../../../hooks/useSSE';
 import { BattleCard } from '../../../../components/battle/BattleCard';
 import { PageSpinner } from '../../../../components/ui/LoadingSpinner';
-import { Share2, Flag, Zap } from 'lucide-react';
+import { Flag, Copy, Check } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import { battles as battlesApi } from '../../../../lib/api';
-import { useQueryClient } from '@tanstack/react-query';
-
-interface SSEVoteEvent {
-  type: 'vote';
-  battleId: string;
-  category: string;
-  leftPercent: number;
-  rightPercent: number;
-  totalVotesInCategory: number;
-}
 
 export default function BattleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { data: battle, isLoading } = useBattle(id);
   const [reported, setReported] = useState(false);
-  const [liveIndicator, setLiveIndicator] = useState(false);
-  const queryClient = useQueryClient();
-
-  // Wire up SSE for real-time vote updates
-  const handleSSEUpdate = useCallback((data: unknown) => {
-    const event = data as { type?: string };
-    if (event.type === 'vote') {
-      const voteEvent = data as SSEVoteEvent;
-      // Flash live indicator
-      setLiveIndicator(true);
-      setTimeout(() => setLiveIndicator(false), 800);
-      // Invalidate query to refetch fresh vote data
-      queryClient.invalidateQueries({ queryKey: ['battle', voteEvent.battleId] });
-    }
-  }, [queryClient]);
-
-  useBattleSSE(id, handleSSEUpdate);
+  const [copied, setCopied] = useState(false);
 
   const handleShare = async () => {
     const url = window.location.href;
-    if (navigator.share) {
-      await navigator.share({ title: battle?.title, url });
-    } else {
+    try {
       await navigator.clipboard.writeText(url);
-      alert('Link copied!');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      if (navigator.share) {
+        await navigator.share({ title: battle?.title, url });
+      }
     }
   };
 
@@ -61,34 +37,44 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="space-y-4">
-      {/* Live indicator */}
-      {battle.status === 'live' && (
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full transition-all ${liveIndicator ? 'bg-[#22c55e] scale-125 shadow-[0_0_6px_#22c55e]' : 'bg-[#22c55e]'} animate-pulse`} />
-          <span className="text-xs text-[#22c55e] font-semibold flex items-center gap-1">
-            <Zap size={11} />
-            Live — votes update in real-time
-          </span>
-        </div>
-      )}
-
       <BattleCard battle={battle} />
 
       {/* Action row */}
       <div className="flex gap-3">
-        <Button variant="secondary" size="sm" className="flex-1" onClick={handleShare}>
-          <Share2 size={14} /> Share
-        </Button>
+        {/* Share button */}
+        <button
+          onClick={handleShare}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all"
+          style={{
+            background: copied ? 'rgba(34, 197, 94, 0.1)' : 'rgba(108, 71, 255, 0.1)',
+            border: copied ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(108, 71, 255, 0.3)',
+            color: copied ? '#22c55e' : '#6c47ff',
+          }}
+        >
+          {copied ? (
+            <>
+              <Check size={14} />
+              Copied!
+            </>
+          ) : (
+            <>
+              <Copy size={14} />
+              Share Battle
+            </>
+          )}
+        </button>
+
         {battle.sponsorCta && (
           <a
             href={(battle.sponsorCta as { url: string; label: string }).url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-1 py-2 px-3 bg-[#f59e0b]/10 border border-[#f59e0b]/30 text-[#f59e0b] text-sm font-semibold rounded-lg hover:bg-[#f59e0b]/15 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1 py-2.5 px-3 bg-[#f59e0b]/10 border border-[#f59e0b]/30 text-[#f59e0b] text-sm font-semibold rounded-xl hover:bg-[#f59e0b]/15 transition-colors"
           >
             Buy this card →
           </a>
         )}
+
         <Button
           variant="ghost"
           size="sm"
@@ -99,6 +85,31 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
           <Flag size={14} />
           {reported ? 'Reported' : 'Report'}
         </Button>
+      </div>
+
+      {/* Stats panel */}
+      <div
+        className="rounded-xl p-4 space-y-3"
+        style={{
+          background: '#12121a',
+          border: '1px solid #1e1e2e',
+        }}
+      >
+        <h2 className="text-sm font-bold text-[#94a3b8] uppercase tracking-wider">Battle Stats</h2>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="text-center">
+            <p className="text-2xl font-black text-white">
+              {battle.totalVotesCached?.toLocaleString() ?? '0'}
+            </p>
+            <p className="text-xs text-[#64748b] mt-0.5">Total Votes</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-black" style={{ color: battle.status === 'live' ? '#22c55e' : '#6c47ff' }}>
+              {battle.status === 'live' ? '🟢 Live' : '⚡ Ended'}
+            </p>
+            <p className="text-xs text-[#64748b] mt-0.5">Status</p>
+          </div>
+        </div>
       </div>
     </div>
   );
