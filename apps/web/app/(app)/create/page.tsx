@@ -127,9 +127,10 @@ function CardSlot({
       <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-[#1e1e2e] overflow-hidden bg-[#0d0d18] flex items-center justify-center relative">
         {card.previewSrc ? (
           <>
-            <img src={card.previewSrc} alt={card.title} className="w-full h-full object-cover" />
+            <img src={card.previewSrc} alt={card.title || `${label} card preview`} className="w-full h-full object-cover" />
             <button
               onClick={clearImage}
+              aria-label="Remove image"
               className="absolute top-2 right-2 w-7 h-7 bg-black/70 rounded-full flex items-center justify-center text-[#ef4444] hover:bg-[#ef4444]/20 transition-colors"
             >
               <X size={13} />
@@ -221,7 +222,7 @@ function CardSlot({
                   onClick={() => handleSelectCard(result)}
                   className="w-full flex items-center gap-2 p-2 rounded-lg bg-[#0a0a0f] border border-[#1e1e2e] hover:border-[#6c47ff]/50 transition-colors text-left"
                 >
-                  <img src={result.image_url} alt={result.title} className="w-8 h-10 object-cover rounded flex-shrink-0" />
+                  <img src={result.image_url} alt={result.player_name || result.title} className="w-8 h-10 object-cover rounded flex-shrink-0" />
                   <div className="min-w-0">
                     <p className="text-[10px] font-semibold text-white truncate">{result.player_name || result.title}</p>
                     <p className="text-[9px] text-[#64748b] truncate">{result.year} · {result.sport?.toUpperCase()}</p>
@@ -237,29 +238,41 @@ function CardSlot({
       )}
 
       {/* Card fields */}
-      <input
-        type="text"
-        placeholder="Card title *"
-        value={card.title}
-        onChange={(e) => onChange({ ...card, title: e.target.value })}
-        className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
-      />
-      <input
-        type="text"
-        placeholder="Player name"
-        value={card.playerName}
-        onChange={(e) => onChange({ ...card, playerName: e.target.value })}
-        className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
-      />
-      <select
-        value={card.sport}
-        onChange={(e) => onChange({ ...card, sport: e.target.value })}
-        className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] focus:outline-none focus:border-[#6c47ff] transition-colors"
-      >
-        {SPORTS.map((s) => (
-          <option key={s} value={s}>{s.toUpperCase()}</option>
-        ))}
-      </select>
+      <div>
+        <label htmlFor={`${label}-title`} className="sr-only">Card title</label>
+        <input
+          id={`${label}-title`}
+          type="text"
+          placeholder="Card title *"
+          value={card.title}
+          onChange={(e) => onChange({ ...card, title: e.target.value })}
+          className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
+        />
+      </div>
+      <div>
+        <label htmlFor={`${label}-player`} className="sr-only">Player name</label>
+        <input
+          id={`${label}-player`}
+          type="text"
+          placeholder="Player name"
+          value={card.playerName}
+          onChange={(e) => onChange({ ...card, playerName: e.target.value })}
+          className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
+        />
+      </div>
+      <div>
+        <label htmlFor={`${label}-sport`} className="sr-only">Sport</label>
+        <select
+          id={`${label}-sport`}
+          value={card.sport}
+          onChange={(e) => onChange({ ...card, sport: e.target.value })}
+          className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] focus:outline-none focus:border-[#6c47ff] transition-colors"
+        >
+          {SPORTS.map((s) => (
+            <option key={s} value={s}>{s.toUpperCase()}</option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 }
@@ -447,7 +460,7 @@ export default function CreatePage() {
             <div className="flex-1 text-center">
               <div className="w-20 aspect-[3/4] mx-auto rounded-xl overflow-hidden border border-[#252535] bg-[#0a0a0f]">
                 {left.previewSrc ? (
-                  <img src={left.previewSrc} alt="left" className="w-full h-full object-cover" />
+                  <img src={left.previewSrc} alt={left.playerName || left.title || 'Left card'} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-[#374151] text-xs text-center p-2 leading-tight">
                     {left.title || 'Left Card'}
@@ -469,7 +482,7 @@ export default function CreatePage() {
             <div className="flex-1 text-center">
               <div className="w-20 aspect-[3/4] mx-auto rounded-xl overflow-hidden border border-[#252535] bg-[#0a0a0f]">
                 {right.previewSrc ? (
-                  <img src={right.previewSrc} alt="right" className="w-full h-full object-cover" />
+                  <img src={right.previewSrc} alt={right.playerName || right.title || 'Right card'} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-[#374151] text-xs text-center p-2 leading-tight">
                     {right.title || 'Right Card'}

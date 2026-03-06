@@ -18,6 +18,8 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  /* Prevent tap highlight on mobile */
+  -webkit-tap-highlight-color: transparent;
 }
 
 a {
@@ -55,6 +57,17 @@ img {
 }
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+/* iOS smooth scroll */
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Focus ring for accessibility */
+:focus-visible {
+  outline: 2px solid #6c47ff;
+  outline-offset: 2px;
 }
 
 /* Custom utilities */

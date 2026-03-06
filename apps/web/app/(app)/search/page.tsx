@@ -57,6 +57,7 @@ export default function SearchPage() {
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder="Search battles, players, cards..."
+          aria-label="Search battles, players, cards"
           className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-[#64748b] focus:outline-none focus:border-[#6c47ff] transition-colors"
           autoFocus
         />

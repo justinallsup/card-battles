@@ -9,5 +9,8 @@ const config = {
       { protocol: 'http', hostname: 'localhost' },
     ],
   },
+  experimental: {
+    optimizePackageImports: ['lucide-react'],
+  },
 };
 export default config;

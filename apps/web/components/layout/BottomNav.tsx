@@ -56,6 +56,7 @@ function ExploreDrawer({ onClose }: { onClose: () => void }) {
           <button
             onClick={onClose}
             className="w-8 h-8 rounded-full bg-[#1e1e2e] flex items-center justify-center text-[#64748b] hover:text-white transition-colors"
+            aria-label="Close explore menu"
           >
             <X size={15} />
           </button>
@@ -171,6 +172,7 @@ export function BottomNav() {
                 <button
                   key={key}
                   onClick={action}
+                  aria-label={label}
                   className="flex flex-col items-center gap-1 py-3 px-3 min-w-0 flex-1 transition-colors relative"
                 >
                   {content}
@@ -182,6 +184,7 @@ export function BottomNav() {
               <Link
                 key={key}
                 href={href!}
+                aria-label={label}
                 className="flex flex-col items-center gap-1 py-3 px-3 min-w-0 flex-1 transition-colors relative"
               >
                 {content}

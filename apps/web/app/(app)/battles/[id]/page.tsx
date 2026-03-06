@@ -80,7 +80,7 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
             <Share2 size={15} className="text-[#6c47ff]" />
             <h3 className="text-sm font-bold text-white">Share Battle</h3>
           </div>
-          <button onClick={onClose} className="text-[#64748b] hover:text-white transition-colors">
+          <button onClick={onClose} aria-label="Close share dialog" className="text-[#64748b] hover:text-white transition-colors">
             <X size={16} />
           </button>
         </div>
@@ -192,6 +192,7 @@ function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClos
       <div className="relative max-w-sm w-full" onClick={e => e.stopPropagation()}>
         <button
           onClick={onClose}
+          aria-label="Close lightbox"
           className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-[#1e1e2e] border border-[#374151] flex items-center justify-center text-[#64748b] hover:text-white transition-colors"
         >
           <X size={14} />
@@ -444,6 +445,7 @@ function PriceAlertWidget({ cardId, playerName }: { cardId: string; playerName: 
           <span className="text-xs text-white flex-1">Alert at <span className="font-bold text-[#6c47ff]">${myAlert.threshold}</span></span>
           <button
             onClick={handleRemove}
+            aria-label="Remove price alert"
             className="p-1 rounded-lg hover:bg-[#ef4444]/10 text-[#64748b] hover:text-[#ef4444] transition-colors"
             title="Remove alert"
           >
@@ -487,10 +489,10 @@ function MiniBattleCard({ battle }: { battle: Battle }) {
     >
       <div className="flex gap-1 shrink-0">
         <div className="w-8 h-10 rounded-lg overflow-hidden border border-[#252535]">
-          <img src={battle.left.imageUrl} alt="" className="w-full h-full object-cover" />
+          <img src={battle.left.imageUrl} alt={battle.left.playerName ?? battle.left.title} className="w-full h-full object-cover" />
         </div>
         <div className="w-8 h-10 rounded-lg overflow-hidden border border-[#252535]">
-          <img src={battle.right.imageUrl} alt="" className="w-full h-full object-cover" />
+          <img src={battle.right.imageUrl} alt={battle.right.playerName ?? battle.right.title} className="w-full h-full object-cover" />
         </div>
       </div>
       <div className="min-w-0 flex-1">
@@ -650,6 +652,7 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
             <button
               className="w-full rounded-xl overflow-hidden border border-[#1e1e2e] hover:border-[#6c47ff]/40 transition-all cursor-zoom-in"
               onClick={() => setLightboxSrc({ src: asset.imageUrl, alt: asset.playerName ?? asset.title })}
+              aria-label={`View ${asset.playerName ?? asset.title} full screen`}
               title="Tap to view full screen"
             >
               <img
@@ -766,6 +769,7 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
           href={twitterShareUrl}
           target="_blank"
           rel="noopener noreferrer"
+          aria-label="Share on Twitter/X"
           className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition-all"
           style={{ background: 'rgba(29,161,242,0.1)', border: '1px solid rgba(29,161,242,0.3)', color: '#1da1f2' }}
           title="Share on Twitter/X"
@@ -826,6 +830,7 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
                 {!comment.id.startsWith('temp-') && (
                   <button
                     onClick={() => likeComment(comment.id)}
+                    aria-label="Like comment"
                     className="flex-shrink-0 flex flex-col items-center gap-0.5 text-[#374151] hover:text-[#ef4444] transition-colors"
                   >
                     <Heart size={13} />
@@ -852,6 +857,7 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
                 onChange={(e) => setCommentText(e.target.value.slice(0, 280))}
                 onKeyDown={handleKeyDown}
                 placeholder="Add a comment..."
+                aria-label="Add a comment"
                 className="w-full bg-[#0a0a0f] border border-[#1e1e2e] rounded-lg px-3 py-2 text-sm text-white placeholder-[#374151] focus:outline-none focus:border-[#6c47ff]/50 pr-16"
               />
               <div className="absolute right-10 top-1/2 -translate-y-1/2 text-[10px] text-[#374151]">
@@ -860,6 +866,7 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
               <button
                 onClick={handleSubmitComment}
                 disabled={!commentText.trim() || isPosting}
+                aria-label="Submit comment"
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-[#6c47ff] disabled:text-[#374151] hover:text-[#a78bfa] transition-colors"
               >
                 <Send size={14} />
