@@ -5,17 +5,17 @@ import { useAuth } from '../../../hooks/useAuth';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 
 export default function ProfileRedirectPage() {
-  const { user, isLoading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (loading) return;
     if (user?.username) {
       router.replace(`/profile/${user.username}`);
     } else {
       router.replace('/login');
     }
-  }, [user, isLoading, router]);
+  }, [user, loading, router]);
 
   return (
     <div className="flex items-center justify-center min-h-[60vh]">

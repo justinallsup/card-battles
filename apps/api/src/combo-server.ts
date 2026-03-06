@@ -12,7 +12,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { request as httpRequest } from 'http';
-import type { Context } from 'hono';
+
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'demo_jwt_secret_card_battles_2026!!';
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -82,33 +82,41 @@ async function seedDb() {
     { id: randomUUID(), username: 'gradegod', email: 'gradegod@demo.com' },
   ];
   for (const u of users) {
-    await pg.query('INSERT INTO users (id,username,email,password_hash) VALUES ($1,$2,$3,$4)', [u.id, u.username, u.email, hash]);
+    const isAdmin = u.username === 'cardking';
+    await pg.query('INSERT INTO users (id,username,email,password_hash,is_admin) VALUES ($1,$2,$3,$4,$5)', [u.id, u.username, u.email, hash, isAdmin]);
     await pg.query('INSERT INTO user_stats (user_id,votes_cast,battles_won,battles_lost,battles_created,current_streak,best_streak) VALUES ($1,$2,$3,$4,$5,$6,$7)',
       [u.id, Math.floor(Math.random()*500)+50, Math.floor(Math.random()*30), Math.floor(Math.random()*15), Math.floor(Math.random()*20), Math.floor(Math.random()*10), Math.floor(Math.random()*25)+5]);
   }
   const cards = [
-    {p:'Patrick Mahomes',y:2017,s:'nfl',c:'6c47ff/ffffff',t:'Mahomes 2017 Prizm RC PSA 10'},
-    {p:'Tom Brady',y:2000,s:'nfl',c:'1a1a4e/ffffff',t:'Brady 2000 Bowman RC PSA 10'},
-    {p:'Josh Allen',y:2018,s:'nfl',c:'003087/ffffff',t:'Allen 2018 Prizm Rookie Auto'},
-    {p:'Joe Burrow',y:2020,s:'nfl',c:'fb4f14/ffffff',t:'Burrow 2020 Prizm Rookie Auto'},
+    {p:'Patrick Mahomes',y:2017,s:'nfl',c:'c83803/ffffff',t:'Mahomes 2017 Prizm RC PSA 10'},
+    {p:'Tom Brady',y:2000,s:'nfl',c:'1a1a4e/ffd700',t:'Brady 2000 Bowman RC PSA 10'},
+    {p:'Josh Allen',y:2018,s:'nfl',c:'003087/c60c30',t:'Allen 2018 Prizm Rookie Auto'},
+    {p:'Joe Burrow',y:2020,s:'nfl',c:'fb4f14/000000',t:'Burrow 2020 Prizm Rookie Auto'},
     {p:'LeBron James',y:2003,s:'nba',c:'6f263d/ffc72c',t:'LeBron 2003 Topps Chrome RC PSA 10'},
-    {p:'Michael Jordan',y:1986,s:'nba',c:'ce1141/000000',t:'Jordan 1986 Fleer Rookie PSA 9'},
-    {p:'Victor Wembanyama',y:2023,s:'nba',c:'8a8d8f/000000',t:'Wemby 2023 Prizm Rookie Auto'},
-    {p:'Luka Doncic',y:2018,s:'nba',c:'0053bc/ffffff',t:'Luka 2018 Prizm RC PSA 10'},
+    {p:'Michael Jordan',y:1986,s:'nba',c:'ce1141/ffffff',t:'Jordan 1986 Fleer Rookie PSA 9'},
+    {p:'Victor Wembanyama',y:2023,s:'nba',c:'c4ced4/000000',t:'Wemby 2023 Prizm Rookie Auto'},
+    {p:'Luka Doncic',y:2018,s:'nba',c:'0053bc/c4ced4',t:'Luka 2018 Prizm RC PSA 10'},
     {p:'Shohei Ohtani',y:2018,s:'mlb',c:'ba0021/ffffff',t:'Ohtani 2018 Topps RC PSA 10'},
     {p:'Mike Trout',y:2011,s:'mlb',c:'003263/ba0021',t:'Trout 2011 Topps Update RC PSA 10'},
-    {p:'Elly De La Cruz',y:2023,s:'mlb',c:'c6011f/ffffff',t:'EDLC 2023 Topps Chrome Auto'},
+    {p:'Elly De La Cruz',y:2023,s:'mlb',c:'c6011f/000000',t:'EDLC 2023 Topps Chrome Auto'},
     {p:'Caleb Williams',y:2024,s:'nfl',c:'0b162a/c83803',t:'Williams 2024 Prizm Rookie Auto'},
     {p:'Stephen Curry',y:2009,s:'nba',c:'1d428a/ffc72c',t:'Curry 2009 Prizm RC PSA 10'},
     {p:'Jayson Tatum',y:2017,s:'nba',c:'007a33/ffffff',t:'Tatum 2017 Prizm Rookie Auto'},
-    {p:'Ronald Acuna Jr',y:2018,s:'mlb',c:'ce1141/13274f',t:'Acuna 2018 Topps Chrome RC'},
+    {p:'Ronald Acuna Jr',y:2018,s:'mlb',c:'13274f/ce1141',t:'Acuna 2018 Topps Chrome RC'},
     {p:'Juan Soto',y:2018,s:'mlb',c:'ab0003/ffffff',t:'Soto 2018 Bowman Chrome Auto'},
+    {p:'Ja Morant',y:2019,s:'nba',c:'5d76a9/12173f',t:'Morant 2019 Prizm Rookie Auto'},
+    {p:'Damian Lillard',y:2012,s:'nba',c:'000000/ce1141',t:'Lillard 2012 Prizm RC PSA 10'},
+    {p:'Aaron Judge',y:2017,s:'mlb',c:'003087/e4002b',t:'Judge 2017 Topps Chrome RC'},
+    {p:'Freddie Freeman',y:2011,s:'mlb',c:'ce1141/13274f',t:'Freeman 2011 Topps RC PSA 10'},
+    {p:'CJ Stroud',y:2023,s:'nfl',c:'03202f/a5acaf',t:'CJ Stroud 2023 Prizm Rookie Auto'},
+    {p:'Anthony Richardson',y:2023,s:'nfl',c:'002c5f/a2aaad',t:'A. Richardson 2023 Prizm Rookie Auto'},
   ];
   const assetIds: string[] = [];
   for (const c of cards) {
     const id = randomUUID(); assetIds.push(id);
     const last = c.p.split(' ').pop()!;
-    const img = `https://placehold.co/400x560/${c.c}?text=${encodeURIComponent(last+'+'+c.y)}`;
+    const displayText = `${last}+${c.y}+${c.s.toUpperCase()}`;
+    const img = `https://placehold.co/400x560/${c.c}?text=${encodeURIComponent(displayText)}`;
     await pg.query('INSERT INTO card_assets (id,created_by_user_id,image_url,thumb_url,title,sport,player_name,year) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
       [id, users[0].id, img, img, c.t, c.s, c.p, c.y]);
   }
@@ -125,6 +133,9 @@ async function seedDb() {
     {l:4,r:12,title:'LeBron vs Curry — Finals Era'},
     {l:6,r:5,title:'Wemby vs Jordan — Impossible Comparison?'},
     {l:15,r:9,title:"Juan Soto vs Mike Trout — Who's Better?"},
+    {l:16,r:17,title:'Ja Morant vs Damian Lillard — Point Guard Royalty 🔥'},
+    {l:18,r:19,title:'Aaron Judge vs Freddie Freeman — MLB MVPs'},
+    {l:20,r:21,title:'CJ Stroud vs Anthony Richardson — NFL Rookie Showdown'},
   ];
   const spId = randomUUID();
   await pg.query('INSERT INTO sponsors (id,name) VALUES ($1,$2)', [spId, 'PSA Grading']);
@@ -157,18 +168,36 @@ function uid(h:string|undefined):string|null {
   if (!h?.startsWith('Bearer ')) return null;
   try { return (jwt.verify(h.slice(7),JWT_SECRET) as {sub:string}).sub; } catch { return null; }
 }
-const getUserId = uid;
+
 
 const app = new Hono();
 app.use('*', logger());
 app.use('*', cors({origin:'*',credentials:true}));
 
-app.get('/health', (c) => c.json({status:'ok',mode:'demo',ts:new Date().toISOString()}));
+app.get('/health', async (c) => {
+  const battleCount = await pg.query('SELECT COUNT(*) as n FROM battles');
+  const userCount = await pg.query('SELECT COUNT(*) as n FROM users');
+  return c.json({
+    status: 'ok',
+    mode: 'demo',
+    version: '0.1.0',
+    timestamp: new Date().toISOString(),
+    db: {
+      battles: parseInt((battleCount.rows as {n:string}[])[0].n),
+      users: parseInt((userCount.rows as {n:string}[])[0].n),
+    },
+    uptime: Math.floor(process.uptime()),
+  });
+});
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 app.post('/api/v1/auth/register', async (c) => {
   const {username,email,password}=await c.req.json().catch(()=>({}));
   if (!username||!email||!password) return c.json({error:'Missing fields'},400);
+  // Validation
+  if (!/^[a-zA-Z0-9_]{3,32}$/.test(username)) return c.json({error:'Username must be 3-32 chars, alphanumeric and underscore only'},400);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return c.json({error:'Invalid email format'},400);
+  if (password.length < 8) return c.json({error:'Password must be at least 8 characters'},400);
   const ex=await pg.query('SELECT id FROM users WHERE email=$1 OR username=$2',[email.toLowerCase(),username]);
   if ((ex.rows as unknown[]).length) return c.json({error:'Email or username taken'},409);
   const id=randomUUID();
@@ -179,7 +208,9 @@ app.post('/api/v1/auth/register', async (c) => {
 });
 app.post('/api/v1/auth/login', async (c) => {
   const {email,password}=await c.req.json().catch(()=>({}));
-  const r=await pg.query('SELECT * FROM users WHERE email=$1',[email?.toLowerCase()]);
+  if (!email || !password) return c.json({error:'Email and password are required'},400);
+  const trimmedEmail = email.trim().toLowerCase();
+  const r=await pg.query('SELECT * FROM users WHERE email=$1',[trimmedEmail]);
   const row=(r.rows as Record<string,unknown>[])[0];
   if (!row||!bcrypt.compareSync(password,row.password_hash as string)) return c.json({error:'Invalid credentials'},401);
   const {password_hash,...safe}=row;
@@ -194,13 +225,34 @@ app.get('/api/v1/auth/me', async (c) => {
 // ── BATTLES ───────────────────────────────────────────────────────────────────
 app.get('/api/v1/battles/feed', async (c) => {
   const u=uid(c.req.header('Authorization'));
-  const r=await pg.query(`SELECT b.*,la.id as lid,la.title as lt,la.image_url as li,la.player_name as lp,ra.id as rid,ra.title as rt,ra.image_url as ri,ra.player_name as rp,usr.username as creator FROM battles b LEFT JOIN card_assets la ON la.id=b.left_asset_id LEFT JOIN card_assets ra ON ra.id=b.right_asset_id LEFT JOIN users usr ON usr.id=b.created_by_user_id WHERE b.status='live' ORDER BY b.created_at DESC LIMIT 20`);
-  const items=await Promise.all((r.rows as Record<string,unknown>[]).map(async(row)=>{
+  const cursor = c.req.query('cursor'); // ISO timestamp
+  const limit = Math.min(parseInt(c.req.query('limit') || '10'), 20);
+
+  let query = `SELECT b.*,la.id as lid,la.title as lt,la.image_url as li,la.player_name as lp,ra.id as rid,ra.title as rt,ra.image_url as ri,ra.player_name as rp,usr.username as creator FROM battles b LEFT JOIN card_assets la ON la.id=b.left_asset_id LEFT JOIN card_assets ra ON ra.id=b.right_asset_id LEFT JOIN users usr ON usr.id=b.created_by_user_id WHERE b.status='live'`;
+  const params: unknown[] = [];
+
+  if (cursor) {
+    params.push(cursor);
+    query += ` AND b.created_at < $${params.length}`;
+    params.push(limit + 1);
+    query += ` ORDER BY b.created_at DESC LIMIT $${params.length}`;
+  } else {
+    params.push(limit + 1);
+    query += ` ORDER BY b.created_at DESC LIMIT $${params.length}`;
+  }
+
+  const r = await pg.query(query, params);
+  const rows = r.rows as Record<string,unknown>[];
+  const hasMore = rows.length > limit;
+  const pageRows = hasMore ? rows.slice(0, limit) : rows;
+  const nextCursor = hasMore ? (pageRows[pageRows.length - 1].created_at as string) : null;
+
+  const items=await Promise.all(pageRows.map(async(row)=>{
     let mv:Record<string,string>={};
     if(u){const vr=await pg.query('SELECT category,choice FROM votes WHERE battle_id=$1 AND user_id=$2',[row.id,u]);for(const v of vr.rows as{category:string;choice:string}[])mv[v.category]=v.choice;}
     return{id:row.id,title:row.title,status:row.status,categories:JSON.parse(row.categories as string),endsAt:row.ends_at,startsAt:row.starts_at,totalVotesCached:row.total_votes_cached,isSponsored:!!row.is_sponsored,sponsorCta:row.sponsor_cta?JSON.parse(row.sponsor_cta as string):null,createdByUsername:row.creator,left:{assetId:row.lid,title:row.lt,imageUrl:row.li,playerName:row.lp},right:{assetId:row.rid,title:row.rt,imageUrl:row.ri,playerName:row.rp},myVotes:mv};
   }));
-  return c.json({items,nextCursor:null,total:items.length});
+  return c.json({items,nextCursor,total:items.length});
 });
 app.get('/api/v1/battles/:id', async (c) => {
   const u=uid(c.req.header('Authorization'));const{id}=c.req.param();
@@ -214,6 +266,15 @@ app.post('/api/v1/battles/:id/vote', async (c) => {
   const u=uid(c.req.header('Authorization'));if(!u)return c.json({error:'Unauthorized'},401);
   const{id:bid}=c.req.param();const{category,choice}=await c.req.json().catch(()=>({}));
   if(!['left','right'].includes(choice))return c.json({error:'Invalid choice'},400);
+  // Validate battle exists and is live
+  const br=await pg.query('SELECT id,status,categories FROM battles WHERE id=$1',[bid]);
+  const brows=br.rows as Record<string,unknown>[];
+  if(!brows.length)return c.json({error:'Battle not found'},404);
+  const battle=brows[0];
+  if(battle.status!=='live')return c.json({error:'Battle is not live'},400);
+  // Validate category is allowed
+  const allowedCats=JSON.parse(battle.categories as string) as string[];
+  if(!category||!allowedCats.includes(category))return c.json({error:`Invalid category. Must be one of: ${allowedCats.join(', ')}`},400);
   try{await pg.query('INSERT INTO votes (id,battle_id,user_id,category,choice) VALUES ($1,$2,$3,$4,$5)',[randomUUID(),bid,u,category,choice]);await pg.query('UPDATE battles SET total_votes_cached=total_votes_cached+1 WHERE id=$1',[bid]);}
   catch(e:unknown){if((e as{message?:string}).message?.includes('UNIQUE'))return c.json({error:'Already voted'},409);throw e;}
   const vr=await pg.query('SELECT choice FROM votes WHERE battle_id=$1 AND category=$2',[bid,category]);
@@ -323,28 +384,30 @@ app.post('/api/v1/daily-picks/:id/enter', async (c) => {
 
 // ── ASSETS ────────────────────────────────────────────────────────────────────
 app.post('/api/v1/assets/upload', async (c) => {
-  const u = uid(c.req.header('Authorization'));
-  if (!u) return c.json({ error: 'Unauthorized' }, 401);
+  const uid = getUserId(c.req.header('Authorization'));
+  if (!uid) return c.json({ error: 'Unauthorized' }, 401);
 
   const body = await c.req.json().catch(() => ({})) as Record<string, string>;
-  const { imageUrl, imageBase64, mimeType, title, sport, playerName, year } = body;
+  let { imageUrl, imageBase64, mimeType, title, sport, playerName, year } = body;
 
   if (!title) return c.json({ error: 'title required' }, 400);
 
-  let finalUrl = imageUrl;
-
+  // If base64 provided, convert to data URL
   if (imageBase64 && !imageUrl) {
-    // Store as data URL for demo (in production this would go to S3/MinIO)
     const mime = mimeType || 'image/jpeg';
-    finalUrl = `data:${mime};base64,${imageBase64}`;
+    imageUrl = `data:${mime};base64,${imageBase64}`;
   }
 
-  if (!finalUrl) return c.json({ error: 'imageUrl or imageBase64 required' }, 400);
+  // If still no image, use a placeholder
+  if (!imageUrl) {
+    const name = (playerName || title).split(' ').pop() || 'Card';
+    imageUrl = `https://placehold.co/400x560/6c47ff/ffffff?text=${encodeURIComponent(name)}`;
+  }
 
   const id = randomUUID();
   await pg.query(
     'INSERT INTO card_assets (id,created_by_user_id,image_url,thumb_url,title,sport,player_name,year,source) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-    [id, u, finalUrl, finalUrl, title, sport || 'unknown', playerName || '', year ? parseInt(year) : null, imageBase64 ? 'upload' : 'url']
+    [id, uid, imageUrl, imageUrl, title, sport || 'unknown', playerName || '', year ? parseInt(year) : null, imageBase64 ? 'upload' : 'url']
   );
 
   const r = await pg.query('SELECT * FROM card_assets WHERE id=$1', [id]);
@@ -453,56 +516,73 @@ app.get('/api/v1/battles/:id/live', (c) => {
 });
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
-function requireAdmin(_c: Context, uid: string | null): boolean {
-  return uid !== null; // simplified for demo
+function requireAdmin(authHeader: string | undefined): boolean {
+  // Demo mode: any authenticated user can access admin panel
+  if (!authHeader?.startsWith('Bearer ')) return false;
+  try {
+    jwt.verify(authHeader.slice(7), JWT_SECRET);
+    return true; // In production, check isAdmin flag
+  } catch { return false; }
 }
 
 app.get('/api/v1/admin/stats', async (c) => {
-  const u = getUserId(c.req.header('Authorization'));
-  if (!requireAdmin(c, u)) return c.json({ error: 'Unauthorized' }, 401);
-
-  const [users, battles, votes] = await Promise.all([
-    pg.query('SELECT COUNT(*) as count FROM users'),
-    pg.query('SELECT COUNT(*) as count FROM battles'),
-    pg.query('SELECT COUNT(*) as count FROM votes'),
-  ]);
-
+  if (!requireAdmin(c.req.header('Authorization'))) return c.json({ error: 'Forbidden' }, 403);
+  const users = await pg.query('SELECT COUNT(*) as count FROM users');
+  const battles = await pg.query('SELECT COUNT(*) as count FROM battles');
+  const votes = await pg.query('SELECT COUNT(*) as count FROM votes');
   const activeBattles = await pg.query("SELECT COUNT(*) as count FROM battles WHERE status='live'");
-
+  const uRow = (users.rows as {count:string}[])[0];
+  const bRow = (battles.rows as {count:string}[])[0];
+  const vRow = (votes.rows as {count:string}[])[0];
+  const aRow = (activeBattles.rows as {count:string}[])[0];
   return c.json({
-    totalUsers: parseInt((users.rows as {count:string}[])[0].count),
-    totalBattles: parseInt((battles.rows as {count:string}[])[0].count),
-    totalVotes: parseInt((votes.rows as {count:string}[])[0].count),
-    activeBattles: parseInt((activeBattles.rows as {count:string}[])[0].count),
+    totalUsers: parseInt(uRow.count),
+    totalBattles: parseInt(bRow.count),
+    totalVotes: parseInt(vRow.count),
+    activeBattles: parseInt(aRow.count),
   });
 });
 
 app.get('/api/v1/admin/battles', async (c) => {
-  const u = getUserId(c.req.header('Authorization'));
-  if (!requireAdmin(c, u)) return c.json({ error: 'Unauthorized' }, 401);
+  if (!requireAdmin(c.req.header('Authorization'))) return c.json({ error: 'Forbidden' }, 403);
   const r = await pg.query('SELECT b.*,u.username as creator FROM battles b LEFT JOIN users u ON u.id=b.created_by_user_id ORDER BY b.created_at DESC LIMIT 50');
   return c.json({ items: r.rows, total: (r.rows as unknown[]).length });
 });
 
 app.delete('/api/v1/admin/battles/:id', async (c) => {
-  const u = getUserId(c.req.header('Authorization'));
-  if (!requireAdmin(c, u)) return c.json({ error: 'Unauthorized' }, 401);
-  await pg.query('UPDATE battles SET status=$1 WHERE id=$2', ['removed', c.req.param('id')]);
+  if (!requireAdmin(c.req.header('Authorization'))) return c.json({ error: 'Forbidden' }, 403);
+  await pg.query("UPDATE battles SET status='removed' WHERE id=$1", [c.req.param('id')]);
   return c.json({ message: 'Battle removed' });
 });
 
 app.get('/api/v1/admin/users', async (c) => {
-  const u = getUserId(c.req.header('Authorization'));
-  if (!requireAdmin(c, u)) return c.json({ error: 'Unauthorized' }, 401);
-  const r = await pg.query('SELECT id,username,email,is_admin,status,pro_status,created_at FROM users ORDER BY created_at DESC');
+  if (!requireAdmin(c.req.header('Authorization'))) return c.json({ error: 'Forbidden' }, 403);
+  const r = await pg.query('SELECT id,username,email,status,pro_status,created_at,is_admin,is_mod FROM users ORDER BY created_at DESC LIMIT 50');
   return c.json({ items: r.rows, total: (r.rows as unknown[]).length });
 });
 
 app.post('/api/v1/admin/users/:id/suspend', async (c) => {
-  const u = getUserId(c.req.header('Authorization'));
-  if (!requireAdmin(c, u)) return c.json({ error: 'Unauthorized' }, 401);
+  if (!requireAdmin(c.req.header('Authorization'))) return c.json({ error: 'Forbidden' }, 403);
   await pg.query("UPDATE users SET status='suspended' WHERE id=$1", [c.req.param('id')]);
   return c.json({ message: 'User suspended' });
+});
+
+app.post('/api/v1/admin/users/:id/unsuspend', async (c) => {
+  if (!requireAdmin(c.req.header('Authorization'))) return c.json({ error: 'Forbidden' }, 403);
+  await pg.query("UPDATE users SET status='active' WHERE id=$1", [c.req.param('id')]);
+  return c.json({ message: 'User unsuspended' });
+});
+
+app.post('/api/v1/admin/users/:id/make-admin', async (c) => {
+  if (!requireAdmin(c.req.header('Authorization'))) return c.json({ error: 'Forbidden' }, 403);
+  await pg.query('UPDATE users SET is_admin=true WHERE id=$1', [c.req.param('id')]);
+  return c.json({ message: 'User promoted to admin' });
+});
+
+app.get('/api/v1/admin/reports', async (c) => {
+  if (!requireAdmin(c.req.header('Authorization'))) return c.json({ error: 'Forbidden' }, 403);
+  // Reports are stored in-memory for demo (no reports table yet)
+  return c.json({ items: [], total: 0 });
 });
 
 // ── SEARCH ───────────────────────────────────────────────────────────────────
