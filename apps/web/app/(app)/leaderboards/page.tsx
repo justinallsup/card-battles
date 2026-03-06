@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 import { leaderboards as lbApi } from '../../../lib/api';
 import { Avatar } from '../../../components/ui/Avatar';
 import { Trophy } from 'lucide-react';
@@ -10,6 +11,21 @@ type LbType = 'creators' | 'voters';
 type LbPeriod = 'week' | 'month' | 'all';
 
 const MEDAL = ['🥇', '🥈', '🥉'];
+
+function StreakDots({ streak }: { streak: number }) {
+  const dots = Math.min(streak, 5);
+  const empty = 5 - dots;
+  return (
+    <div className="flex gap-0.5 items-center" title={`${streak} win streak`}>
+      {Array.from({ length: dots }).map((_, i) => (
+        <span key={`filled-${i}`} className="text-[10px]">🟢</span>
+      ))}
+      {Array.from({ length: empty }).map((_, i) => (
+        <span key={`empty-${i}`} className="text-[10px] opacity-20">⚫</span>
+      ))}
+    </div>
+  );
+}
 
 export default function LeaderboardsPage() {
   const [type, setType] = useState<LbType>('creators');
@@ -61,27 +77,53 @@ export default function LeaderboardsPage() {
       <div className="space-y-2">
         {isLoading
           ? Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="h-14 bg-[#12121a] rounded-xl border border-[#1e1e2e] animate-pulse" />
+              <div key={i} className="h-16 bg-[#12121a] rounded-xl border border-[#1e1e2e] animate-pulse" />
             ))
           : data?.items.map((entry) => (
               <div
                 key={entry.userId}
-                className="flex items-center gap-3 bg-[#12121a] rounded-xl border border-[#1e1e2e] px-4 py-3"
+                className="flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors hover:border-[#374151]"
+                style={{
+                  background: entry.rank <= 3 ? 'rgba(108,71,255,0.05)' : '#12121a',
+                  border: entry.rank <= 3 ? '1px solid rgba(108,71,255,0.2)' : '1px solid #1e1e2e',
+                }}
               >
-                <span className="w-8 text-center text-lg">
-                  {entry.rank <= 3 ? MEDAL[entry.rank - 1] : `#${entry.rank}`}
+                {/* Rank */}
+                <span className="w-8 text-center text-lg flex-shrink-0">
+                  {entry.rank <= 3 ? MEDAL[entry.rank - 1] : (
+                    <span className="text-sm font-bold text-[#374151]">#{entry.rank}</span>
+                  )}
                 </span>
+
+                {/* Avatar */}
                 <Avatar username={entry.username} avatarUrl={entry.avatarUrl} size="sm" />
+
+                {/* Name + streak */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-white truncate">{entry.username}</p>
-                  <p className="text-xs text-[#64748b]">
-                    {type === 'creators' ? `${entry.battlesWon} wins` : `${formatNumber(entry.votesCast)} votes`}
-                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-xs text-[#64748b]">
+                      {type === 'creators' ? `${entry.battlesWon} wins` : `${formatNumber(entry.votesCast)} votes`}
+                    </p>
+                    {(entry.streak ?? 0) > 0 && (
+                      <StreakDots streak={entry.streak ?? 0} />
+                    )}
+                  </div>
                 </div>
-                <div className="text-right">
+
+                {/* Score */}
+                <div className="text-right flex-shrink-0 mr-2">
                   <p className="text-sm font-black text-[#6c47ff]">{formatNumber(entry.score)}</p>
                   <p className="text-xs text-[#374151]">pts</p>
                 </div>
+
+                {/* View Profile */}
+                <Link
+                  href={`/profile/${entry.username}`}
+                  className="text-[10px] text-[#374151] hover:text-[#6c47ff] transition-colors whitespace-nowrap font-medium"
+                >
+                  View →
+                </Link>
               </div>
             ))
         }

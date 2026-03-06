@@ -281,6 +281,31 @@ app.get('/api/v1/battles/feed', async (c) => {
   }));
   return c.json({items,nextCursor,total:items.length});
 });
+// ── TRENDING (must be before /:id) ───────────────────────────────────────────
+app.get('/api/v1/battles/trending', async (c) => {
+  const r = await pg.query(`
+    SELECT b.*,la.id as lid,la.title as lt,la.image_url as li,la.player_name as lp,
+      ra.id as rid,ra.title as rt,ra.image_url as ri,ra.player_name as rp,
+      u.username as creator
+    FROM battles b
+    LEFT JOIN card_assets la ON la.id=b.left_asset_id
+    LEFT JOIN card_assets ra ON ra.id=b.right_asset_id
+    LEFT JOIN users u ON u.id=b.created_by_user_id
+    WHERE b.status='live'
+    ORDER BY b.total_votes_cached DESC, b.ends_at ASC
+    LIMIT 5
+  `);
+  const items = (r.rows as Record<string,unknown>[]).map(row => ({
+    id:row.id, title:row.title, status:row.status,
+    categories: JSON.parse(row.categories as string),
+    endsAt:row.ends_at, totalVotesCached:row.total_votes_cached,
+    isSponsored:!!row.is_sponsored,
+    left:{assetId:row.lid,title:row.lt,imageUrl:row.li,playerName:row.lp},
+    right:{assetId:row.rid,title:row.rt,imageUrl:row.ri,playerName:row.rp},
+    createdByUsername:row.creator,
+  }));
+  return c.json({ items });
+});
 app.get('/api/v1/battles/:id', async (c) => {
   const u=uid(c.req.header('Authorization'));const{id}=c.req.param();
   const r=await pg.query(`SELECT b.*,la.id as lid,la.title as lt,la.image_url as li,la.player_name as lp,ra.id as rid,ra.title as rt,ra.image_url as ri,ra.player_name as rp,usr.username as creator FROM battles b LEFT JOIN card_assets la ON la.id=b.left_asset_id LEFT JOIN card_assets ra ON ra.id=b.right_asset_id LEFT JOIN users usr ON usr.id=b.created_by_user_id WHERE b.id=$1`,[id]);
@@ -644,33 +669,7 @@ app.post('/api/v1/battles/:id/comments/:commentId/like', async (c) => {
   return c.json(comment);
 });
 
-// ── TRENDING ──────────────────────────────────────────────────────────────────
-app.get('/api/v1/battles/trending', async (c) => {
-  const r = await pg.query(`
-    SELECT b.*,la.id as lid,la.title as lt,la.image_url as li,la.player_name as lp,
-      ra.id as rid,ra.title as rt,ra.image_url as ri,ra.player_name as rp,
-      u.username as creator
-    FROM battles b
-    LEFT JOIN card_assets la ON la.id=b.left_asset_id
-    LEFT JOIN card_assets ra ON ra.id=b.right_asset_id
-    LEFT JOIN users u ON u.id=b.created_by_user_id
-    WHERE b.status='live'
-    ORDER BY b.total_votes_cached DESC, b.ends_at ASC
-    LIMIT 5
-  `);
-  const items = (r.rows as Record<string,unknown>[]).map(row => ({
-    id:row.id, title:row.title, status:row.status,
-    categories: JSON.parse(row.categories as string),
-    endsAt:row.ends_at, totalVotesCached:row.total_votes_cached,
-    isSponsored:!!row.is_sponsored,
-    left:{assetId:row.lid,title:row.lt,imageUrl:row.li,playerName:row.lp},
-    right:{assetId:row.rid,title:row.rt,imageUrl:row.ri,playerName:row.rp},
-    createdByUsername:row.creator,
-  }));
-  return c.json({ items });
-});
-
-// ── SEARCH ───────────────────────────────────────────────────────────────────
+// ── SEARCH (must be before /:id) ─────────────────────────────────────────────
 app.get('/api/v1/battles/search', async (c) => {
   const q = c.req.query('q') || '';
   const sport = c.req.query('sport') || '';

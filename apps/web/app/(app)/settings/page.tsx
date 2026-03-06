@@ -332,6 +332,49 @@ export default function SettingsPage() {
         <p className="text-[10px] text-[#374151]">Notification preferences are saved locally (demo mode)</p>
       </Section>
 
+      {/* Preferences section */}
+      <Section title="Sport Preferences" icon={Star} iconColor="text-[#22c55e]">
+        <p className="text-xs text-[#64748b] mb-2">Choose which sports appear in your feed.</p>
+        <div className="flex gap-3">
+          {SPORTS.map((sport) => {
+            const active = sportPrefs.includes(sport.id);
+            return (
+              <button
+                key={sport.id}
+                onClick={() => toggleSport(sport.id)}
+                className="flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl border-2 transition-all text-xs font-bold"
+                style={active
+                  ? { background: 'rgba(108,71,255,0.12)', borderColor: '#6c47ff', color: 'white' }
+                  : { background: '#0a0a0f', borderColor: '#1e1e2e', color: '#64748b' }}
+              >
+                <span className="text-xl">{sport.emoji}</span>
+                {sport.label}
+                {active && <span className="text-[10px] text-[#a78bfa]">✓</span>}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-[#374151] mt-1">Preferences saved to your browser.</p>
+      </Section>
+
+      {/* Appearance section */}
+      <Section title="Appearance" icon={Palette} iconColor="text-[#a78bfa]">
+        <div className="flex items-center justify-between gap-3 py-1">
+          <div>
+            <p className="text-sm text-white font-medium">Dark Mode</p>
+            <p className="text-xs text-[#64748b] mt-0.5">Card Battles is always dark — it's who we are</p>
+          </div>
+          <div
+            className="relative w-10 h-6 rounded-full bg-[#6c47ff] cursor-not-allowed opacity-80"
+            title="Dark mode is always enabled"
+          >
+            <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-white shadow" />
+            <span className="sr-only">Dark mode (always on)</span>
+          </div>
+        </div>
+        <p className="text-[10px] text-[#374151]">Light mode not available — embrace the dark side 🌑</p>
+      </Section>
+
       {/* Danger zone */}
       <Section title="Danger Zone" icon={AlertTriangle} iconColor="text-[#ef4444]">
         <div className="space-y-2">
@@ -348,6 +391,24 @@ export default function SettingsPage() {
             <Trash2 size={15} /> Delete Account
           </button>
         </div>
+      </Section>
+
+      {/* About section */}
+      <Section title="About" icon={Info} iconColor="text-[#64748b]">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-[#94a3b8]">Version</span>
+          <span className="text-sm text-white font-mono font-bold">0.1.0</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-[#94a3b8]">Build</span>
+          <span className="text-sm text-[#374151] font-mono">weekend-sprint</span>
+        </div>
+        <div className="pt-1 flex gap-4">
+          <Link href="/privacy" className="text-xs text-[#6c47ff] hover:underline">Privacy Policy</Link>
+          <Link href="/terms" className="text-xs text-[#6c47ff] hover:underline">Terms of Service</Link>
+          <Link href="/feed" className="text-xs text-[#6c47ff] hover:underline">Back to Feed</Link>
+        </div>
+        <p className="text-[10px] text-[#374151]">© 2026 CardBattles. For demo purposes only.</p>
       </Section>
 
       {showDeleteModal && <DeleteModal onClose={() => setShowDeleteModal(false)} />}

@@ -173,6 +173,40 @@ export const leaderboards = {
     request<LeaderboardResponse>(`/leaderboards?type=${type}&period=${period}`),
 };
 
+// ─── Trending ─────────────────────────────────────────────────────────────────
+
+export const trending = {
+  get: () => request<{ items: Battle[] }>('/battles/trending', { auth: true }),
+};
+
+// ─── Comments ─────────────────────────────────────────────────────────────────
+
+export interface CommentType {
+  id: string;
+  battleId: string;
+  userId: string;
+  username: string;
+  text: string;
+  createdAt: string;
+  likes: number;
+}
+
+export const comments = {
+  list: (battleId: string) =>
+    request<{ comments: CommentType[]; total: number }>(`/battles/${battleId}/comments`),
+  post: (battleId: string, text: string) =>
+    request<CommentType>(`/battles/${battleId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+      auth: true,
+    }),
+  like: (battleId: string, commentId: string) =>
+    request<CommentType>(`/battles/${battleId}/comments/${commentId}/like`, {
+      method: 'POST',
+      auth: true,
+    }),
+};
+
 // ─── Daily Picks ──────────────────────────────────────────────────────────────
 
 export const dailyPicks = {
