@@ -2,7 +2,7 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../../../components/ui/Button';
-import { X, Image as ImageIcon, Swords, Upload, Link } from 'lucide-react';
+import { X, Image as ImageIcon, Swords, Upload, Link, Search } from 'lucide-react';
 import { getToken } from '../../../lib/api';
 
 const SPORTS = ['nfl', 'nba', 'mlb', 'nhl', 'soccer', 'other'];
@@ -19,7 +19,16 @@ const DURATIONS = [
   { label: '72h', value: 259200 },
 ];
 
-type InputMode = 'url' | 'upload';
+type InputMode = 'url' | 'upload' | 'search';
+
+interface CardSearchResult {
+  id: string;
+  title: string;
+  image_url: string;
+  player_name: string;
+  year: number;
+  sport: string;
+}
 
 interface CardInput {
   imageUrl: string;
@@ -30,6 +39,7 @@ interface CardInput {
   playerName: string;
   sport: string;
   mode: InputMode;
+  existingAssetId?: string; // if selected from search
 }
 
 const emptyCard = (): CardInput => ({
@@ -53,8 +63,14 @@ function CardSlot({
   onChange: (c: CardInput) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<CardSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const clearImage = () => onChange({ ...card, imageUrl: '', imageBase64: '', mimeType: '', previewSrc: '' });
+  const BASE_URL_SEARCH = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
+
+  const clearImage = () => onChange({ ...card, imageUrl: '', imageBase64: '', mimeType: '', previewSrc: '', existingAssetId: undefined });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -62,15 +78,45 @@ function CardSlot({
     const reader = new FileReader();
     reader.onload = (ev) => {
       const dataUrl = ev.target?.result as string;
-      // Extract base64 portion (after "data:image/xxx;base64,")
       const base64 = dataUrl.split(',')[1] ?? '';
-      onChange({ ...card, imageBase64: base64, mimeType: file.type, previewSrc: dataUrl, imageUrl: '' });
+      onChange({ ...card, imageBase64: base64, mimeType: file.type, previewSrc: dataUrl, imageUrl: '', existingAssetId: undefined });
     };
     reader.readAsDataURL(file);
   };
 
   const handleUrlChange = (url: string) => {
-    onChange({ ...card, imageUrl: url, previewSrc: url, imageBase64: '', mimeType: '' });
+    onChange({ ...card, imageUrl: url, previewSrc: url, imageBase64: '', mimeType: '', existingAssetId: undefined });
+  };
+
+  const handleSearchChange = (q: string) => {
+    setSearchQuery(q);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    if (q.length < 2) { setSearchResults([]); return; }
+    setSearching(true);
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`${BASE_URL_SEARCH}/cards/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        setSearchResults(data.cards || []);
+      } catch { setSearchResults([]); }
+      setSearching(false);
+    }, 300);
+  };
+
+  const handleSelectCard = (result: CardSearchResult) => {
+    onChange({
+      ...card,
+      imageUrl: result.image_url,
+      previewSrc: result.image_url,
+      imageBase64: '',
+      mimeType: '',
+      title: result.title,
+      playerName: result.player_name || '',
+      sport: result.sport || 'nfl',
+      existingAssetId: result.id,
+    });
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   return (
@@ -95,7 +141,7 @@ function CardSlot({
             onClick={() => card.mode === 'upload' && fileInputRef.current?.click()}
           >
             <ImageIcon size={28} className="mx-auto mb-2" />
-            <p className="text-xs">{card.mode === 'url' ? 'Paste URL below' : 'Click to upload'}</p>
+            <p className="text-xs">{card.mode === 'url' ? 'Paste URL below' : card.mode === 'search' ? 'Search below' : 'Click to upload'}</p>
           </div>
         )}
       </div>
@@ -108,7 +154,7 @@ function CardSlot({
             card.mode === 'url' ? 'bg-[#6c47ff]/20 text-[#6c47ff]' : 'text-[#64748b]'
           }`}
         >
-          <Link size={11} /> Paste URL
+          <Link size={11} /> URL
         </button>
         <button
           onClick={() => onChange({ ...card, mode: 'upload' })}
@@ -118,9 +164,17 @@ function CardSlot({
         >
           <Upload size={11} /> Upload
         </button>
+        <button
+          onClick={() => onChange({ ...card, mode: 'search' })}
+          className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-xs font-semibold transition-all ${
+            card.mode === 'search' ? 'bg-[#6c47ff]/20 text-[#6c47ff]' : 'text-[#64748b]'
+          }`}
+        >
+          <Search size={11} /> Search
+        </button>
       </div>
 
-      {/* URL input or file input */}
+      {/* URL input or file input or search */}
       {card.mode === 'url' ? (
         <input
           type="url"
@@ -129,7 +183,7 @@ function CardSlot({
           onChange={(e) => handleUrlChange(e.target.value)}
           className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
         />
-      ) : (
+      ) : card.mode === 'upload' ? (
         <>
           <input
             ref={fileInputRef}
@@ -146,6 +200,40 @@ function CardSlot({
             {card.imageBase64 ? 'Replace image' : 'Choose image file'}
           </button>
         </>
+      ) : (
+        <div className="space-y-2">
+          <div className="relative">
+            <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#374151]" />
+            <input
+              type="text"
+              placeholder="Search cards by player or title..."
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg pl-8 pr-3 py-2 text-xs text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
+            />
+          </div>
+          {searching && <p className="text-[10px] text-[#64748b] text-center">Searching…</p>}
+          {searchResults.length > 0 && (
+            <div className="space-y-1 max-h-40 overflow-y-auto">
+              {searchResults.map(result => (
+                <button
+                  key={result.id}
+                  onClick={() => handleSelectCard(result)}
+                  className="w-full flex items-center gap-2 p-2 rounded-lg bg-[#0a0a0f] border border-[#1e1e2e] hover:border-[#6c47ff]/50 transition-colors text-left"
+                >
+                  <img src={result.image_url} alt={result.title} className="w-8 h-10 object-cover rounded flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold text-white truncate">{result.player_name || result.title}</p>
+                    <p className="text-[9px] text-[#64748b] truncate">{result.year} · {result.sport?.toUpperCase()}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+          {!searching && searchQuery.length >= 2 && searchResults.length === 0 && (
+            <p className="text-[10px] text-[#64748b] text-center">No cards found for &quot;{searchQuery}&quot;</p>
+          )}
+        </div>
       )}
 
       {/* Card fields */}
@@ -179,6 +267,11 @@ function CardSlot({
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
 async function uploadAsset(card: CardInput): Promise<{ id: string }> {
+  // If card was selected from search (has an existing asset ID), skip upload
+  if (card.existingAssetId) {
+    return { id: card.existingAssetId };
+  }
+
   const token = getToken();
   const body: Record<string, string | undefined> = {
     title: card.title,

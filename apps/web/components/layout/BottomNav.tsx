@@ -1,14 +1,14 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Swords, Plus, Trophy, Activity, User } from 'lucide-react';
+import { Swords, Plus, Trophy, User } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 const NAV_ITEMS = [
   { href: '/feed',         label: 'Feed',     icon: Swords   },
   { href: '/leaderboards', label: 'Ranks',    icon: Trophy   },
   { href: '/create',       label: 'Create',   icon: Plus,    accent: true },
-  { href: '/activity',     label: 'Activity', icon: Activity },
+  { href: '/tournaments',  label: 'Brackets', icon: Trophy   },
   { href: '/profile',      label: 'Profile',  icon: User     },
 ];
 

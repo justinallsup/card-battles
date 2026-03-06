@@ -1,13 +1,92 @@
 'use client';
-import { use, useState } from 'react';
+import { use, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { users as usersApi } from '../../../../lib/api';
+import { users as usersApi, getToken } from '../../../../lib/api';
 import { LoadingSpinner } from '../../../../components/ui/LoadingSpinner';
 import { Badge } from '../../../../components/ui/Badge';
-import { Trophy, Sword, Target, Flame, Star, Crown, Zap, Edit2, X, Check, Swords, Settings } from 'lucide-react';
+import { Trophy, Sword, Target, Flame, Star, Crown, Zap, Edit2, X, Check, Swords, Settings, UserPlus, UserMinus } from 'lucide-react';
 import Link from 'next/link';
 import type { UserStats } from '@card-battles/types';
 import { useAuth } from '../../../../hooks/useAuth';
+
+// ── Follow Button ─────────────────────────────────────────────────────────────
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
+
+function FollowButton({ username }: { username: string }) {
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const token = getToken();
+    fetch(`${BASE_URL}/users/${username}/follow-status`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then(r => r.json())
+      .then(data => {
+        setIsFollowing(data.isFollowing ?? false);
+        setFollowerCount(data.followerCount ?? 0);
+        setFollowingCount(data.followingCount ?? 0);
+      })
+      .catch(() => {});
+  }, [username]);
+
+  const handleToggle = async () => {
+    const token = getToken();
+    if (!token) return;
+    setLoading(true);
+    // Optimistic update
+    const newFollowing = !isFollowing;
+    setIsFollowing(newFollowing);
+    setFollowerCount(prev => newFollowing ? prev + 1 : Math.max(0, prev - 1));
+    try {
+      const endpoint = newFollowing ? 'follow' : 'unfollow';
+      await fetch(`${BASE_URL}/users/${username}/${endpoint}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      // Revert on error
+      setIsFollowing(!newFollowing);
+      setFollowerCount(prev => newFollowing ? Math.max(0, prev - 1) : prev + 1);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-4 text-sm">
+        <div className="text-center">
+          <p className="text-lg font-black text-white">{followerCount}</p>
+          <p className="text-[10px] text-[#64748b] uppercase tracking-widest">Followers</p>
+        </div>
+        <div className="w-px h-8 bg-[#1e1e2e]" />
+        <div className="text-center">
+          <p className="text-lg font-black text-white">{followingCount}</p>
+          <p className="text-[10px] text-[#64748b] uppercase tracking-widest">Following</p>
+        </div>
+      </div>
+      <button
+        onClick={handleToggle}
+        disabled={loading}
+        className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all border ${
+          isFollowing
+            ? 'border-[#374151] text-[#64748b] hover:border-[#ef4444]/50 hover:text-[#ef4444]'
+            : 'border-[#6c47ff] text-[#6c47ff] bg-[#6c47ff]/10 hover:bg-[#6c47ff]/20'
+        } disabled:opacity-50`}
+      >
+        {loading ? (
+          <LoadingSpinner className="w-4 h-4" />
+        ) : isFollowing ? (
+          <><UserMinus size={14} /> Unfollow</>
+        ) : (
+          <><UserPlus size={14} /> Follow</>
+        )}
+      </button>
+    </div>
+  );
+}
 
 // ── Avatar util ────────────────────────────────────────────────────────────────
 function hashUsername(s: string): number {
@@ -232,6 +311,12 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             >
               <Settings size={15} />
             </Link>
+          </div>
+        )}
+        {/* Follow section for other users' profiles */}
+        {!isOwnProfile && (
+          <div className="mt-4">
+            <FollowButton username={username} />
           </div>
         )}
       </div>

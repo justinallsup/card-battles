@@ -110,6 +110,26 @@ async function seedDb() {
     {p:'Freddie Freeman',y:2011,s:'mlb',c:'ce1141/13274f',t:'Freeman 2011 Topps RC PSA 10'},
     {p:'CJ Stroud',y:2023,s:'nfl',c:'03202f/a5acaf',t:'CJ Stroud 2023 Prizm Rookie Auto'},
     {p:'Anthony Richardson',y:2023,s:'nfl',c:'002c5f/a2aaad',t:'A. Richardson 2023 Prizm Rookie Auto'},
+    // New cards — NFL
+    {p:'Lamar Jackson',y:2018,s:'nfl',c:'241773/000000',t:'Lamar 2018 Prizm Rookie PSA 10'},
+    {p:'Jalen Hurts',y:2020,s:'nfl',c:'004953/a5acaf',t:'Hurts 2020 Prizm Rookie Auto'},
+    {p:'Justin Herbert',y:2020,s:'nfl',c:'002a5e/ffc20e',t:'Herbert 2020 Prizm Rookie Auto'},
+    {p:'Tua Tagovailoa',y:2020,s:'nfl',c:'008e97/fc4c02',t:'Tua 2020 Prizm Rookie Auto'},
+    {p:'Drake Maye',y:2024,s:'nfl',c:'002244/c60c30',t:'Maye 2024 Prizm Rookie Auto'},
+    {p:'Jayden Daniels',y:2024,s:'nfl',c:'773141/ffb612',t:'Daniels 2024 Prizm Rookie Auto'},
+    // New cards — NBA
+    {p:'Nikola Jokic',y:2015,s:'nba',c:'0e2240/fec524',t:'Jokic 2015 Prizm RC PSA 10'},
+    {p:'Giannis Antetokounmpo',y:2013,s:'nba',c:'00471b/eee1c6',t:'Giannis 2013 Panini RC PSA 10'},
+    {p:'Kevin Durant',y:2007,s:'nba',c:'007ac1/ef3b24',t:'KD 2007 Topps Chrome RC PSA 10'},
+    {p:'Devin Booker',y:2015,s:'nba',c:'1d1160/e56020',t:'Booker 2015 Prizm RC PSA 10'},
+    {p:'Anthony Edwards',y:2020,s:'nba',c:'0c2340/78be20',t:'Ant 2020 Prizm Rookie Auto'},
+    {p:'Paolo Banchero',y:2022,s:'nba',c:'0077c0/c4ced4',t:'Paolo 2022 Prizm Rookie Auto'},
+    // New cards — MLB
+    {p:'Bryce Harper',y:2012,s:'mlb',c:'e81828/002d72',t:'Harper 2012 Topps Chrome RC PSA 10'},
+    {p:'Mookie Betts',y:2014,s:'mlb',c:'ef3e42/041e42',t:'Betts 2014 Topps Chrome RC PSA 10'},
+    {p:'Fernando Tatis Jr',y:2019,s:'mlb',c:'2f241d/fd5a1e',t:'Tatis 2019 Bowman Chrome Auto'},
+    {p:'Julio Rodriguez',y:2022,s:'mlb',c:'005c5c/0052a5',t:'JRod 2022 Topps Chrome RC PSA 10'},
+    {p:'Jackson Holliday',y:2024,s:'mlb',c:'df4601/000000',t:'Holliday 2024 Topps RC Auto'},
   ];
   const assetIds: string[] = [];
   for (const c of cards) {
@@ -120,6 +140,13 @@ async function seedDb() {
     await pg.query('INSERT INTO card_assets (id,created_by_user_id,image_url,thumb_url,title,sport,player_name,year) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
       [id, users[0].id, img, img, c.t, c.s, c.p, c.y]);
   }
+  // Card index reference (0-based):
+  // 0=Mahomes, 1=Brady, 2=Allen, 3=Burrow, 4=LeBron, 5=Jordan, 6=Wemby, 7=Luka, 8=Ohtani, 9=Trout
+  // 10=EDLC, 11=CWilliams, 12=Curry, 13=Tatum, 14=Acuna, 15=Soto, 16=Morant, 17=Lillard
+  // 18=Judge, 19=Freeman, 20=Stroud, 21=ARichardson
+  // 22=Lamar, 23=Hurts, 24=Herbert, 25=Tua, 26=Drake Maye, 27=Daniels
+  // 28=Jokic, 29=Giannis, 30=KD, 31=Booker, 32=Edwards, 33=Paolo
+  // 34=Harper, 35=Betts, 36=Tatis, 37=JRod, 38=Holliday
   const battles = [
     {l:0,r:1,title:'Mahomes vs Brady — GOAT Rookie Debate 🐐',sp:true},
     {l:4,r:5,title:'LeBron vs Jordan — The Greatest Debate Ever',sp:true},
@@ -136,6 +163,22 @@ async function seedDb() {
     {l:16,r:17,title:'Ja Morant vs Damian Lillard — Point Guard Royalty 🔥'},
     {l:18,r:19,title:'Aaron Judge vs Freddie Freeman — MLB MVPs'},
     {l:20,r:21,title:'CJ Stroud vs Anthony Richardson — NFL Rookie Showdown'},
+    // New battles — Wave 5
+    {l:22,r:0,title:'Lamar Jackson vs Mahomes — MVP Battle 🏈'},
+    {l:23,r:2,title:'Jalen Hurts vs Josh Allen — Eagles vs Bills'},
+    {l:24,r:3,title:'Justin Herbert vs Joe Burrow — AFC West vs East'},
+    {l:29,r:4,title:'Giannis vs LeBron — Two-Way Monster Showdown 🏀'},
+    {l:28,r:6,title:'Jokic vs Wemby — Center of the Universe 🃏'},
+    {l:30,r:4,title:'Kevin Durant vs LeBron — Scoring Kings'},
+    {l:32,r:7,title:'Anthony Edwards vs Luka — Young Guns Showdown'},
+    {l:31,r:13,title:'Devin Booker vs Jayson Tatum — Wing Battle'},
+    {l:34,r:15,title:'Bryce Harper vs Juan Soto — NL Sluggers ⚾'},
+    {l:36,r:14,title:'Fernando Tatis Jr vs Acuna — NL West Rivals'},
+    {l:37,r:8,title:'Julio Rodriguez vs Ohtani — AL Stars'},
+    {l:26,r:11,title:'Drake Maye vs Caleb Williams — 2024 QBs Battle'},
+    {l:27,r:20,title:'Jayden Daniels vs CJ Stroud — NFC East Rising'},
+    {l:33,r:6,title:'Paolo Banchero vs Wemby — Next Gen Bigs 🏀'},
+    {l:35,r:9,title:'Mookie Betts vs Mike Trout — Outfield GOATs'},
   ];
   const spId = randomUUID();
   await pg.query('INSERT INTO sponsors (id,name) VALUES ($1,$2)', [spId, 'PSA Grading']);
@@ -455,6 +498,21 @@ app.post('/api/v1/daily-picks/:id/enter', async (c) => {
   return c.json({message:'Entry submitted',choice},201);
 });
 
+app.get('/api/v1/daily-picks/:id/results', async (c) => {
+  const { id } = c.req.param();
+  const r = await pg.query('SELECT choice FROM daily_pick_entries WHERE daily_pick_id=$1', [id]);
+  const rows = r.rows as { choice: string }[];
+  const total = rows.length;
+  const left = rows.filter(r => r.choice === 'left').length;
+  const right = rows.filter(r => r.choice === 'right').length;
+  return c.json({
+    pickId: id,
+    leftPercent: total > 0 ? Math.round(left / total * 1000) / 10 : 50,
+    rightPercent: total > 0 ? Math.round(right / total * 1000) / 10 : 50,
+    totalVotes: total,
+  });
+});
+
 // ── ASSETS ────────────────────────────────────────────────────────────────────
 app.post('/api/v1/assets/upload', async (c) => {
   const userId = uid(c.req.header('Authorization'));
@@ -551,6 +609,162 @@ app.post('/api/v1/billing/subscribe', async (c) => {
 });
 
 app.post('/api/v1/analytics/sponsor-click', async (c) => c.json({tracked:true}));
+
+// ── CARD VALUATIONS ───────────────────────────────────────────────────────────
+const CARD_VALUATIONS: Record<string, { low: number; mid: number; high: number; trend: 'up'|'down'|'stable' }> = {
+  'Patrick Mahomes': { low: 180, mid: 280, high: 450, trend: 'up' },
+  'Tom Brady': { low: 320, mid: 520, high: 900, trend: 'stable' },
+  'LeBron James': { low: 850, mid: 1400, high: 2200, trend: 'up' },
+  'Michael Jordan': { low: 8000, mid: 15000, high: 28000, trend: 'stable' },
+  'Victor Wembanyama': { low: 95, mid: 180, high: 340, trend: 'up' },
+  'Shohei Ohtani': { low: 220, mid: 380, high: 620, trend: 'up' },
+  'Mike Trout': { low: 450, mid: 780, high: 1200, trend: 'down' },
+  'Luka Doncic': { low: 280, mid: 460, high: 780, trend: 'up' },
+  'Stephen Curry': { low: 190, mid: 340, high: 580, trend: 'stable' },
+  'Josh Allen': { low: 120, mid: 210, high: 380, trend: 'up' },
+};
+
+app.get('/api/v1/cards/:id/valuation', async (c) => {
+  const r = await pg.query('SELECT player_name, year, set_name FROM card_assets WHERE id=$1', [c.req.param('id')]);
+  const rows = r.rows as { player_name: string; year: number }[];
+  if (!rows.length) return c.json({ error: 'Not found' }, 404);
+  const { player_name, year } = rows[0];
+  const base = CARD_VALUATIONS[player_name];
+  if (!base) return c.json({ low: 25, mid: 45, high: 90, trend: 'stable', player: player_name, year, note: 'Estimated value' });
+  const ageMult = year < 2000 ? 3 : year < 2010 ? 1.8 : year < 2020 ? 1.2 : 1;
+  return c.json({
+    low: Math.round(base.low * ageMult),
+    mid: Math.round(base.mid * ageMult),
+    high: Math.round(base.high * ageMult),
+    trend: base.trend,
+    player: player_name,
+    year,
+    gradeAssumed: 'PSA 10',
+    lastUpdated: new Date().toISOString(),
+  });
+});
+
+app.get('/api/v1/battles/:id/valuations', async (c) => {
+  const r = await pg.query('SELECT left_asset_id, right_asset_id FROM battles WHERE id=$1', [c.req.param('id')]);
+  const rows = r.rows as { left_asset_id: string; right_asset_id: string }[];
+  if (!rows.length) return c.json({ error: 'Not found' }, 404);
+  const { left_asset_id, right_asset_id } = rows[0];
+  const getVal = async (id: string) => {
+    const cr = await pg.query('SELECT player_name, year FROM card_assets WHERE id=$1', [id]);
+    const crows = cr.rows as { player_name: string; year: number }[];
+    if (!crows.length) return null;
+    const { player_name, year } = crows[0];
+    const base = CARD_VALUATIONS[player_name];
+    const ageMult = year < 2000 ? 3 : year < 2010 ? 1.8 : year < 2020 ? 1.2 : 1;
+    return base ? { low: Math.round(base.low * ageMult), mid: Math.round(base.mid * ageMult), high: Math.round(base.high * ageMult), trend: base.trend } : { low: 25, mid: 45, high: 90, trend: 'stable' as const };
+  };
+  return c.json({ left: await getVal(left_asset_id), right: await getVal(right_asset_id) });
+});
+
+// ── CARD SEARCH ───────────────────────────────────────────────────────────────
+app.get('/api/v1/cards/search', async (c) => {
+  const q = (c.req.query('q') || '').toLowerCase();
+  if (!q || q.length < 2) return c.json({ cards: [] });
+  const r = await pg.query(
+    "SELECT id, title, image_url, player_name, year, sport FROM card_assets WHERE LOWER(title) LIKE $1 OR LOWER(player_name) LIKE $1 LIMIT 10",
+    [`%${q}%`]
+  );
+  return c.json({ cards: r.rows });
+});
+
+// ── USER FOLLOWING ────────────────────────────────────────────────────────────
+const following = new Map<string, Set<string>>(); // userId → Set of userIds they follow
+
+app.post('/api/v1/users/:username/follow', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const ur = await pg.query('SELECT id FROM users WHERE username=$1', [c.req.param('username')]);
+  const target = (ur.rows as {id:string}[])[0];
+  if (!target) return c.json({ error: 'Not found' }, 404);
+  if (!following.has(authUid)) following.set(authUid, new Set());
+  following.get(authUid)!.add(target.id);
+  return c.json({ following: true, targetId: target.id });
+});
+
+app.post('/api/v1/users/:username/unfollow', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const ur = await pg.query('SELECT id FROM users WHERE username=$1', [c.req.param('username')]);
+  const target = (ur.rows as {id:string}[])[0];
+  if (!target) return c.json({ error: 'Not found' }, 404);
+  following.get(authUid)?.delete(target.id);
+  return c.json({ following: false });
+});
+
+app.get('/api/v1/users/:username/follow-status', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  const ur = await pg.query('SELECT id FROM users WHERE username=$1', [c.req.param('username')]);
+  const target = (ur.rows as {id:string}[])[0];
+  if (!target) return c.json({ error: 'Not found' }, 404);
+  const isFollowing = authUid ? (following.get(authUid)?.has(target.id) ?? false) : false;
+  const followerCount = Array.from(following.values()).filter(s => s.has(target.id)).length;
+  const followingCount = following.get(target.id)?.size ?? 0;
+  return c.json({ isFollowing, followerCount, followingCount });
+});
+
+// ── OG SHARE IMAGE ────────────────────────────────────────────────────────────
+app.get('/api/v1/share/:battleId/og', async (c) => {
+  const { battleId } = c.req.param();
+  const r = await pg.query(
+    `SELECT b.*,la.title as lt,la.image_url as li,la.player_name as lp,ra.title as rt,ra.image_url as ri,ra.player_name as rp
+     FROM battles b
+     LEFT JOIN card_assets la ON la.id=b.left_asset_id
+     LEFT JOIN card_assets ra ON ra.id=b.right_asset_id
+     WHERE b.id=$1`,
+    [battleId]
+  );
+  const rows = r.rows as Record<string,unknown>[];
+  if (!rows.length) return c.json({ error: 'Not found' }, 404);
+  const row = rows[0];
+  const leftName = (row.lp as string) || (row.lt as string) || 'Card A';
+  const rightName = (row.rp as string) || (row.rt as string) || 'Card B';
+  const title = (row.title as string) || 'Card Battle';
+  const votes = (row.total_votes_cached as number) || 0;
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a0f"/>
+      <stop offset="100%" style="stop-color:#12121a"/>
+    </linearGradient>
+    <linearGradient id="purple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6c47ff"/>
+      <stop offset="100%" style="stop-color:#a78bfa"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <!-- Border glow -->
+  <rect x="2" y="2" width="1196" height="626" rx="16" fill="none" stroke="#6c47ff" stroke-width="2" opacity="0.4"/>
+  <!-- Left card panel -->
+  <rect x="40" y="80" width="480" height="470" rx="16" fill="#1a1a2e" stroke="#252535" stroke-width="1.5"/>
+  <text x="280" y="200" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="52" fill="#f1f5f9" font-weight="900">${leftName.slice(0,14)}</text>
+  <text x="280" y="260" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="22" fill="#94a3b8">${(row.lt as string || '').slice(0,30)}</text>
+  <!-- Right card panel -->
+  <rect x="680" y="80" width="480" height="470" rx="16" fill="#1a1a2e" stroke="#252535" stroke-width="1.5"/>
+  <text x="920" y="200" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="52" fill="#f1f5f9" font-weight="900">${rightName.slice(0,14)}</text>
+  <text x="920" y="260" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="22" fill="#94a3b8">${(row.rt as string || '').slice(0,30)}</text>
+  <!-- VS Badge -->
+  <circle cx="600" cy="315" r="52" fill="url(#purple)" opacity="0.9"/>
+  <text x="600" y="328" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="36" fill="white" font-weight="900">VS</text>
+  <!-- Title -->
+  <text x="600" y="50" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="26" fill="#a78bfa" font-weight="700">${title.slice(0,60)}</text>
+  <!-- Footer -->
+  <text x="600" y="590" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="18" fill="#64748b">⚔️ Card Battles · ${votes.toLocaleString()} votes · cardbattles.app</text>
+</svg>`;
+
+  return new Response(svg, {
+    headers: {
+      'Content-Type': 'image/svg+xml',
+      'Cache-Control': 'public, max-age=300',
+    },
+  });
+});
 
 // ── SSE LIVE VOTES ────────────────────────────────────────────────────────────
 const sseClients = new Map<string, Set<(data: string) => void>>();
@@ -656,6 +870,79 @@ app.get('/api/v1/admin/reports', async (c) => {
   return c.json({ items: [], total: 0 });
 });
 
+// ── TOURNAMENTS ───────────────────────────────────────────────────────────────
+type Tournament = {
+  id: string;
+  name: string;
+  sport: string;
+  status: 'open' | 'active' | 'complete';
+  participants: string[]; // battle IDs
+  bracket: Record<string, string>; // round -> winner battle ID
+  createdAt: string;
+};
+const tournaments = new Map<string, Tournament>();
+
+// Seed 1 demo tournament
+const demoTournament: Tournament = {
+  id: randomUUID(),
+  name: 'NFL GOAT Card Tournament 🏈',
+  sport: 'nfl',
+  status: 'active',
+  participants: [],
+  bracket: { 'round1': 'TBD', 'semifinal': 'TBD', 'final': 'TBD' },
+  createdAt: new Date().toISOString(),
+};
+tournaments.set(demoTournament.id, demoTournament);
+
+const nbaTournament: Tournament = {
+  id: randomUUID(),
+  name: 'NBA Greatest of All Time 🏀',
+  sport: 'nba',
+  status: 'open',
+  participants: [],
+  bracket: {},
+  createdAt: new Date().toISOString(),
+};
+tournaments.set(nbaTournament.id, nbaTournament);
+
+const mlbTournament: Tournament = {
+  id: randomUUID(),
+  name: 'MLB Legends Showdown ⚾',
+  sport: 'mlb',
+  status: 'complete',
+  participants: [],
+  bracket: { 'round1': 'done', 'semifinal': 'done', 'final': 'done' },
+  createdAt: new Date(Date.now() - 7 * 86400 * 1000).toISOString(),
+};
+tournaments.set(mlbTournament.id, mlbTournament);
+
+app.get('/api/v1/tournaments', (c) => {
+  return c.json({ tournaments: Array.from(tournaments.values()) });
+});
+
+app.get('/api/v1/tournaments/:id', (c) => {
+  const t = tournaments.get(c.req.param('id'));
+  return t ? c.json(t) : c.json({ error: 'Not found' }, 404);
+});
+
+app.post('/api/v1/tournaments', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const { name, sport } = await c.req.json().catch(() => ({}));
+  if (!name) return c.json({ error: 'name required' }, 400);
+  const t: Tournament = {
+    id: randomUUID(),
+    name,
+    sport: sport || 'mixed',
+    status: 'open',
+    participants: [],
+    bracket: {},
+    createdAt: new Date().toISOString(),
+  };
+  tournaments.set(t.id, t);
+  return c.json(t, 201);
+});
+
 // ── COMMENTS ─────────────────────────────────────────────────────────────────
 type Comment = { id: string; battleId: string; userId: string; username: string; text: string; createdAt: string; likes: number; };
 const comments = new Map<string, Comment[]>();
@@ -669,13 +956,14 @@ app.get('/api/v1/battles/:id/comments', async (c) => {
 app.post('/api/v1/battles/:id/comments', async (c) => {
   const authUid = uid(c.req.header('Authorization'));
   if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const { id: battleId } = c.req.param();
   const { text } = await c.req.json().catch(() => ({}));
   if (!text?.trim() || text.length > 280) return c.json({ error: 'Text required (max 280 chars)' }, 400);
   const ur = await pg.query('SELECT username FROM users WHERE id=$1', [authUid]);
   const username = (ur.rows as {username:string}[])[0]?.username || 'unknown';
-  const comment: Comment = { id: randomUUID(), battleId: id, userId: authUid, username, text: text.trim(), createdAt: new Date().toISOString(), likes: 0 };
-  if (!comments.has(id)) comments.set(id, []);
-  comments.get(id)!.push(comment);
+  const comment: Comment = { id: randomUUID(), battleId: battleId, userId: authUid, username, text: text.trim(), createdAt: new Date().toISOString(), likes: 0 };
+  if (!comments.has(battleId)) comments.set(battleId, []);
+  comments.get(battleId)!.push(comment);
   return c.json(comment, 201);
 });
 

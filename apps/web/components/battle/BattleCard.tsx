@@ -15,7 +15,7 @@ interface BattleCardProps {
   compact?: boolean;
 }
 
-function CardImage({ imageUrl, title, playerName, onVoted }: { imageUrl: string; title: string; playerName?: string | null; onVoted?: boolean }) {
+function CardImage({ imageUrl, title, playerName, onVoted, midValue }: { imageUrl: string; title: string; playerName?: string | null; onVoted?: boolean; midValue?: number | null }) {
   const [loaded, setLoaded] = useState(false);
 
   return (
@@ -43,6 +43,12 @@ function CardImage({ imageUrl, title, playerName, onVoted }: { imageUrl: string;
             <p className="text-white text-xs font-bold text-center truncate drop-shadow-lg">
               {playerName}
             </p>
+          </div>
+        )}
+        {/* Price tag */}
+        {midValue != null && (
+          <div className="absolute top-1.5 left-1.5 bg-black/70 backdrop-blur-sm rounded-md px-1.5 py-0.5 flex items-center gap-0.5">
+            <span className="text-[#f59e0b] text-[10px] font-black">💰 ${midValue >= 1000 ? `${(midValue/1000).toFixed(1)}k` : midValue}</span>
           </div>
         )}
       </div>
@@ -94,19 +100,25 @@ export function BattleCard({ battle, compact = false }: BattleCardProps) {
     battle.myVotes as Record<string, VoteChoice>
   );
   const [justVoted, setJustVoted] = useState<'left' | 'right' | null>(null);
+  const [valuations, setValuations] = useState<{ left: { mid: number; trend: string } | null; right: { mid: number; trend: string } | null } | null>(null);
   const isFirstRender = useRef(true);
 
   const categories = battle.categories as string[];
   const isHot = (battle.totalVotesCached ?? 0) > 5000;
 
+  useEffect(() => {
+    fetch(`/api/v1/battles/${battle.id}/valuations`)
+      .then(r => r.json())
+      .then(data => setValuations(data))
+      .catch(() => {});
+  }, [battle.id]);
+
   const handleVote = async (category: string, side: 'left' | 'right') => {
     setJustVoted(side);
     await vote(category, side);
-    // Reset pulse after animation
     setTimeout(() => setJustVoted(null), 400);
   };
 
-  // Only show swipe hint on first card render
   const showSwipeHint = isFirstRender.current;
   if (isFirstRender.current) isFirstRender.current = false;
 
@@ -126,7 +138,11 @@ export function BattleCard({ battle, compact = false }: BattleCardProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-1">
         <div className="flex items-center gap-2 min-w-0">
-          {battle.isSponsored && <Badge variant="sponsored">Sponsored</Badge>}
+          {battle.isSponsored && (
+            <span className="text-[10px] font-black text-[#f59e0b] bg-[#f59e0b]/10 border border-[#f59e0b]/30 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+              🏷️ SPONSORED
+            </span>
+          )}
           {isHot && (
             <span className="text-xs font-black text-[#f97316] bg-[#f97316]/10 border border-[#f97316]/20 px-2 py-0.5 rounded-full flex items-center gap-1">
               🔥 HOT
@@ -147,6 +163,7 @@ export function BattleCard({ battle, compact = false }: BattleCardProps) {
           title={battle.left.title}
           playerName={battle.left.playerName}
           onVoted={justVoted === 'left'}
+          midValue={valuations?.left?.mid ?? null}
         />
 
         <VsDivider />
@@ -156,6 +173,7 @@ export function BattleCard({ battle, compact = false }: BattleCardProps) {
           title={battle.right.title}
           playerName={battle.right.playerName}
           onVoted={justVoted === 'right'}
+          midValue={valuations?.right?.mid ?? null}
         />
       </div>
 
@@ -184,16 +202,19 @@ export function BattleCard({ battle, compact = false }: BattleCardProps) {
           </div>
         )}
 
-        {/* Sponsor CTA */}
+        {/* Sponsor CTA — full-width banner */}
         {battle.isSponsored && battle.sponsorCta && (
           <a
             href={(battle.sponsorCta as { url: string; label: string }).url}
             onClick={() => { import("../../lib/analytics").then(m => m.trackSponsorClick(battle.id, (battle.sponsorCta as { url: string; label: string }).url)); }}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-3 flex w-full items-center justify-center gap-2 py-2 rounded-lg bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#f59e0b] text-sm font-semibold hover:bg-[#f59e0b]/15 transition-colors"
+            className="mt-3 flex w-full items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-opacity"
+            style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0a0a0f', boxShadow: '0 2px 12px rgba(245,158,11,0.3)' }}
           >
-            {(battle.sponsorCta as { url: string; label: string }).label} →
+            <span>🏷️</span>
+            <span>{(battle.sponsorCta as { url: string; label: string }).label}</span>
+            <span>→</span>
           </a>
         )}
 

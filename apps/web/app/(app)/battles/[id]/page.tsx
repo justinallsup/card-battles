@@ -5,7 +5,7 @@ import { useComments, usePostComment, useLikeComment } from '../../../../hooks/u
 import { useAuth } from '../../../../hooks/useAuth';
 import { BattleCard } from '../../../../components/battle/BattleCard';
 import { PageSpinner } from '../../../../components/ui/LoadingSpinner';
-import { Flag, Copy, Check, Heart, Send, Share2, Twitter, X, ExternalLink } from 'lucide-react';
+import { Flag, Copy, Check, Heart, Send, Share2, Twitter, X, ExternalLink, Download } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import { battles as battlesApi } from '../../../../lib/api';
 import Link from 'next/link';
@@ -26,13 +26,36 @@ function formatTimeAgo(iso: string): string {
 // ── Share Modal ────────────────────────────────────────────────────────────────
 function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }) {
   const shareUrl = `https://cardbattles.app/battles/${battle.id}`;
+  const ogImageUrl = `http://localhost:3333/api/v1/share/${battle.id}/og`;
   const [copied, setCopied] = useState(false);
+  const [copiedImg, setCopiedImg] = useState(false);
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+
+  const handleCopyImgUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(ogImageUrl);
+      setCopiedImg(true);
+      setTimeout(() => setCopiedImg(false), 2000);
+    } catch {}
+  };
+
+  const handleDownload = async () => {
+    try {
+      const res = await fetch(ogImageUrl);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `battle-${battle.id}.svg`;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch {}
   };
 
@@ -58,6 +81,34 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
           <button onClick={onClose} className="text-[#64748b] hover:text-white transition-colors">
             <X size={16} />
           </button>
+        </div>
+
+        {/* OG Image Preview */}
+        <div className="px-4 pt-3">
+          <p className="text-[10px] text-[#64748b] uppercase tracking-widest font-semibold mb-2">Battle Card</p>
+          <div className="rounded-xl overflow-hidden border border-[#1e1e2e] bg-[#0a0a0f] relative" style={{ aspectRatio: '1200/630' }}>
+            <img
+              src={ogImageUrl}
+              alt="Battle card preview"
+              className="w-full h-full object-cover"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+          </div>
+          <div className="flex gap-2 mt-2">
+            <button
+              onClick={handleDownload}
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold border border-[#1e1e2e] text-[#64748b] hover:border-[#6c47ff] hover:text-[#6c47ff] transition-colors"
+            >
+              <Download size={12} /> Download Card
+            </button>
+            <button
+              onClick={handleCopyImgUrl}
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold border border-[#1e1e2e] transition-colors"
+              style={{ color: copiedImg ? '#22c55e' : '#64748b', borderColor: copiedImg ? 'rgba(34,197,94,0.4)' : undefined }}
+            >
+              {copiedImg ? <><Check size={12} /> Copied!</> : <><Copy size={12} /> Copy URL</>}
+            </button>
+          </div>
         </div>
 
         {/* URL */}
@@ -251,6 +302,10 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
   const [commentText, setCommentText] = useState('');
   const [optimisticComments, setOptimisticComments] = useState<{ id: string; username: string; text: string; createdAt: string; likes: number }[]>([]);
   const [moreBattles, setMoreBattles] = useState<Battle[]>([]);
+  const [valuations, setValuations] = useState<{
+    left: { low: number; mid: number; high: number; trend: string } | null;
+    right: { low: number; mid: number; high: number; trend: string } | null;
+  } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load "more battles"
@@ -258,6 +313,14 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
     battlesApi.feed({ cursor: undefined }).then((res) => {
       setMoreBattles(res.items.filter((b) => b.id !== id).slice(0, 3));
     }).catch(() => {});
+  }, [id]);
+
+  // Load valuations
+  useEffect(() => {
+    fetch(`/api/v1/battles/${id}/valuations`)
+      .then(r => r.json())
+      .then(data => setValuations(data))
+      .catch(() => {});
   }, [id]);
 
   const handleReport = async () => {
@@ -287,7 +350,27 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
   };
 
   if (isLoading) return <PageSpinner />;
-  if (!battle) return <div className="text-center text-[#64748b] py-16">Battle not found</div>;
+  if (!battle) return (
+    <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
+      <div className="text-5xl">⚔️</div>
+      <p className="text-white font-bold text-lg">Battle not found</p>
+      <p className="text-[#64748b] text-sm">This battle may have ended or doesn&apos;t exist.</p>
+      <Link href="/feed" className="px-4 py-2 bg-[#6c47ff] text-white text-sm font-bold rounded-xl hover:bg-[#5a38e0] transition-colors">
+        Back to Feed
+      </Link>
+    </div>
+  );
+
+  const trendArrow = (trend: string) => {
+    if (trend === 'up') return '↑';
+    if (trend === 'down') return '↓';
+    return '→';
+  };
+  const trendColor = (trend: string) => {
+    if (trend === 'up') return '#22c55e';
+    if (trend === 'down') return '#ef4444';
+    return '#94a3b8';
+  };
 
   const allComments = [...optimisticComments, ...(commentsData?.comments ?? [])];
   const commentCount = (commentsData?.total ?? 0) + optimisticComments.length;
@@ -306,7 +389,7 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
           style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.08))', border: '1px solid rgba(245,158,11,0.3)' }}
         >
           <div className="flex items-center gap-2">
-            <span className="text-xs font-black text-[#f59e0b] uppercase tracking-widest">Sponsored</span>
+            <span className="text-xs font-black text-[#f59e0b] uppercase tracking-widest">🏷️ Sponsored</span>
           </div>
           <span className="text-xs font-bold text-[#f59e0b]">
             {(battle.sponsorCta as { url: string; label: string }).label} →
@@ -315,6 +398,36 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
       )}
 
       <BattleCard battle={battle} />
+
+      {/* Card Valuations */}
+      {valuations && (valuations.left || valuations.right) && (
+        <div className="rounded-xl p-4 border border-[#1e1e2e] space-y-3" style={{ background: '#12121a' }}>
+          <h3 className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider">💰 Market Valuations (PSA 10 Est.)</h3>
+          <div className="flex gap-3">
+            {valuations.left && (
+              <div className="flex-1 bg-[#0a0a0f] rounded-xl p-3 border border-[#1e1e2e]">
+                <p className="text-[10px] text-[#64748b] mb-1 truncate">{battle.left.playerName ?? battle.left.title}</p>
+                <p className="text-base font-black text-white">${valuations.left.mid >= 1000 ? `${(valuations.left.mid/1000).toFixed(1)}k` : valuations.left.mid}</p>
+                <p className="text-[10px] text-[#64748b]">${valuations.left.low} – ${valuations.left.high >= 1000 ? `${(valuations.left.high/1000).toFixed(1)}k` : valuations.left.high}</p>
+                <p className="text-xs font-bold mt-1" style={{ color: trendColor(valuations.left.trend) }}>
+                  {trendArrow(valuations.left.trend)} {valuations.left.trend}
+                </p>
+              </div>
+            )}
+            {valuations.right && (
+              <div className="flex-1 bg-[#0a0a0f] rounded-xl p-3 border border-[#1e1e2e]">
+                <p className="text-[10px] text-[#64748b] mb-1 truncate">{battle.right.playerName ?? battle.right.title}</p>
+                <p className="text-base font-black text-white">${valuations.right.mid >= 1000 ? `${(valuations.right.mid/1000).toFixed(1)}k` : valuations.right.mid}</p>
+                <p className="text-[10px] text-[#64748b]">${valuations.right.low} – ${valuations.right.high >= 1000 ? `${(valuations.right.high/1000).toFixed(1)}k` : valuations.right.high}</p>
+                <p className="text-xs font-bold mt-1" style={{ color: trendColor(valuations.right.trend) }}>
+                  {trendArrow(valuations.right.trend)} {valuations.right.trend}
+                </p>
+              </div>
+            )}
+          </div>
+          <p className="text-[10px] text-[#374151]">* Estimated values only. Not financial advice.</p>
+        </div>
+      )}
 
       {/* Stats strip */}
       <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-[#1e1e2e]"
