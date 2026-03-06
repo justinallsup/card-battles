@@ -1,6 +1,8 @@
 'use client';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useState, useEffect, useRef } from 'react';
+import { ChevronRight } from 'lucide-react';
 import { formatNumber } from '../../lib/utils';
 import { BattleTimer } from './BattleTimer';
 import { VoteButtons } from './VoteButtons';
@@ -13,17 +15,27 @@ interface BattleCardProps {
   compact?: boolean;
 }
 
-function CardImage({ imageUrl, title, playerName }: { imageUrl: string; title: string; playerName?: string | null }) {
+function CardImage({ imageUrl, title, playerName, onVoted }: { imageUrl: string; title: string; playerName?: string | null; onVoted?: boolean }) {
+  const [loaded, setLoaded] = useState(false);
+
   return (
     <div className="flex-1 min-w-0">
-      <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-[#1e1e2e] border border-[#252535] group-hover:border-[#6c47ff]/40 transition-all duration-300">
+      <div
+        className={`relative rounded-xl overflow-hidden border transition-all duration-300 group-hover:border-[#6c47ff]/40 ${onVoted ? 'animate-vote-pulse' : ''}`}
+        style={{ aspectRatio: '3/4', background: '#1e1e2e', borderColor: '#252535' }}
+      >
+        {/* Shimmer skeleton while loading */}
+        {!loaded && (
+          <div className="absolute inset-0 shimmer rounded-xl" />
+        )}
         <Image
           src={imageUrl}
           alt={title}
           fill
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
+          className={`object-cover transition-all duration-500 group-hover:scale-105 ${loaded ? 'opacity-100' : 'opacity-0'}`}
           sizes="(max-width: 480px) 45vw, 200px"
           unoptimized
+          onLoad={() => setLoaded(true)}
         />
         {/* Player name overlay */}
         {playerName && (
@@ -43,7 +55,7 @@ function CardImage({ imageUrl, title, playerName }: { imageUrl: string; title: s
 
 function VsDivider() {
   return (
-    <div className="flex items-center justify-center w-10 flex-shrink-0 mt-6">
+    <div className="flex items-center justify-center w-10 flex-shrink-0 self-center">
       <div className="relative">
         <div className="absolute inset-0 rounded-full bg-gradient-to-r from-[#6c47ff] to-[#a78bfa] animate-pulse opacity-30 blur-sm" />
         <span
@@ -57,14 +69,46 @@ function VsDivider() {
   );
 }
 
+function SwipeHint() {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(false), 2800);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div className="flex items-center gap-1 text-[#6c47ff]/60 text-[10px] font-medium mt-1 justify-center animate-swipe-hint pointer-events-none select-none">
+      <ChevronRight size={12} />
+      <span>swipe to vote</span>
+      <ChevronRight size={12} />
+    </div>
+  );
+}
+
 export function BattleCard({ battle, compact = false }: BattleCardProps) {
   const { localVotes, localPercents, vote, voting } = useVote(
     battle.id,
     battle.myVotes as Record<string, VoteChoice>
   );
+  const [justVoted, setJustVoted] = useState<'left' | 'right' | null>(null);
+  const isFirstRender = useRef(true);
 
   const categories = battle.categories as string[];
   const isHot = (battle.totalVotesCached ?? 0) > 5000;
+
+  const handleVote = async (category: string, side: 'left' | 'right') => {
+    setJustVoted(side);
+    await vote(category, side);
+    // Reset pulse after animation
+    setTimeout(() => setJustVoted(null), 400);
+  };
+
+  // Only show swipe hint on first card render
+  const showSwipeHint = isFirstRender.current;
+  if (isFirstRender.current) isFirstRender.current = false;
 
   return (
     <article
@@ -102,6 +146,7 @@ export function BattleCard({ battle, compact = false }: BattleCardProps) {
           imageUrl={battle.left.imageUrl}
           title={battle.left.title}
           playerName={battle.left.playerName}
+          onVoted={justVoted === 'left'}
         />
 
         <VsDivider />
@@ -110,8 +155,12 @@ export function BattleCard({ battle, compact = false }: BattleCardProps) {
           imageUrl={battle.right.imageUrl}
           title={battle.right.title}
           playerName={battle.right.playerName}
+          onVoted={justVoted === 'right'}
         />
       </div>
+
+      {/* Swipe hint — only on first card, fades out */}
+      {showSwipeHint && <SwipeHint />}
 
       {/* Voting area */}
       <div className="px-4 pb-4">
@@ -121,8 +170,8 @@ export function BattleCard({ battle, compact = false }: BattleCardProps) {
             localVotes={localVotes}
             localPercents={localPercents}
             voting={voting}
-            onVoteLeft={(cat) => vote(cat, 'left')}
-            onVoteRight={(cat) => vote(cat, 'right')}
+            onVoteLeft={(cat) => handleVote(cat, 'left')}
+            onVoteRight={(cat) => handleVote(cat, 'right')}
           />
         ) : (
           <div className="text-center py-3">

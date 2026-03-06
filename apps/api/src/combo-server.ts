@@ -12,6 +12,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { request as httpRequest } from 'http';
+import type { Context } from 'hono';
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'demo_jwt_secret_card_battles_2026!!';
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -156,6 +157,7 @@ function uid(h:string|undefined):string|null {
   if (!h?.startsWith('Bearer ')) return null;
   try { return (jwt.verify(h.slice(7),JWT_SECRET) as {sub:string}).sub; } catch { return null; }
 }
+const getUserId = uid;
 
 const app = new Hono();
 app.use('*', logger());
@@ -323,14 +325,28 @@ app.post('/api/v1/daily-picks/:id/enter', async (c) => {
 app.post('/api/v1/assets/upload', async (c) => {
   const u = uid(c.req.header('Authorization'));
   if (!u) return c.json({ error: 'Unauthorized' }, 401);
-  const body = await c.req.json().catch(() => ({}));
-  const { imageUrl, title, sport, playerName, year } = body as Record<string, string>;
-  if (!imageUrl || !title) return c.json({ error: 'imageUrl and title required' }, 400);
+
+  const body = await c.req.json().catch(() => ({})) as Record<string, string>;
+  const { imageUrl, imageBase64, mimeType, title, sport, playerName, year } = body;
+
+  if (!title) return c.json({ error: 'title required' }, 400);
+
+  let finalUrl = imageUrl;
+
+  if (imageBase64 && !imageUrl) {
+    // Store as data URL for demo (in production this would go to S3/MinIO)
+    const mime = mimeType || 'image/jpeg';
+    finalUrl = `data:${mime};base64,${imageBase64}`;
+  }
+
+  if (!finalUrl) return c.json({ error: 'imageUrl or imageBase64 required' }, 400);
+
   const id = randomUUID();
   await pg.query(
     'INSERT INTO card_assets (id,created_by_user_id,image_url,thumb_url,title,sport,player_name,year,source) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-    [id, u, imageUrl, imageUrl, title, sport || 'unknown', playerName || '', year ? parseInt(year) : null, 'upload']
+    [id, u, finalUrl, finalUrl, title, sport || 'unknown', playerName || '', year ? parseInt(year) : null, imageBase64 ? 'upload' : 'url']
   );
+
   const r = await pg.query('SELECT * FROM card_assets WHERE id=$1', [id]);
   return c.json((r.rows as unknown[])[0], 201);
 });
@@ -434,6 +450,59 @@ app.get('/api/v1/battles/:id/live', (c) => {
       'Access-Control-Allow-Origin': '*',
     },
   });
+});
+
+// ── ADMIN ─────────────────────────────────────────────────────────────────────
+function requireAdmin(_c: Context, uid: string | null): boolean {
+  return uid !== null; // simplified for demo
+}
+
+app.get('/api/v1/admin/stats', async (c) => {
+  const u = getUserId(c.req.header('Authorization'));
+  if (!requireAdmin(c, u)) return c.json({ error: 'Unauthorized' }, 401);
+
+  const [users, battles, votes] = await Promise.all([
+    pg.query('SELECT COUNT(*) as count FROM users'),
+    pg.query('SELECT COUNT(*) as count FROM battles'),
+    pg.query('SELECT COUNT(*) as count FROM votes'),
+  ]);
+
+  const activeBattles = await pg.query("SELECT COUNT(*) as count FROM battles WHERE status='live'");
+
+  return c.json({
+    totalUsers: parseInt((users.rows as {count:string}[])[0].count),
+    totalBattles: parseInt((battles.rows as {count:string}[])[0].count),
+    totalVotes: parseInt((votes.rows as {count:string}[])[0].count),
+    activeBattles: parseInt((activeBattles.rows as {count:string}[])[0].count),
+  });
+});
+
+app.get('/api/v1/admin/battles', async (c) => {
+  const u = getUserId(c.req.header('Authorization'));
+  if (!requireAdmin(c, u)) return c.json({ error: 'Unauthorized' }, 401);
+  const r = await pg.query('SELECT b.*,u.username as creator FROM battles b LEFT JOIN users u ON u.id=b.created_by_user_id ORDER BY b.created_at DESC LIMIT 50');
+  return c.json({ items: r.rows, total: (r.rows as unknown[]).length });
+});
+
+app.delete('/api/v1/admin/battles/:id', async (c) => {
+  const u = getUserId(c.req.header('Authorization'));
+  if (!requireAdmin(c, u)) return c.json({ error: 'Unauthorized' }, 401);
+  await pg.query('UPDATE battles SET status=$1 WHERE id=$2', ['removed', c.req.param('id')]);
+  return c.json({ message: 'Battle removed' });
+});
+
+app.get('/api/v1/admin/users', async (c) => {
+  const u = getUserId(c.req.header('Authorization'));
+  if (!requireAdmin(c, u)) return c.json({ error: 'Unauthorized' }, 401);
+  const r = await pg.query('SELECT id,username,email,is_admin,status,pro_status,created_at FROM users ORDER BY created_at DESC');
+  return c.json({ items: r.rows, total: (r.rows as unknown[]).length });
+});
+
+app.post('/api/v1/admin/users/:id/suspend', async (c) => {
+  const u = getUserId(c.req.header('Authorization'));
+  if (!requireAdmin(c, u)) return c.json({ error: 'Unauthorized' }, 401);
+  await pg.query("UPDATE users SET status='suspended' WHERE id=$1", [c.req.param('id')]);
+  return c.json({ message: 'User suspended' });
 });
 
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────
