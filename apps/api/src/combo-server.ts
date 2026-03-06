@@ -203,13 +203,18 @@ async function seedDb() {
     await pg.query('INSERT INTO daily_picks (id,left_asset_id,right_asset_id,title,starts_at,ends_at) VALUES ($1,$2,$3,$4,$5,$6)',
       [randomUUID(), assetIds[p.l], assetIds[p.r], p.t, now.toISOString(), new Date(now.getTime()+22*3600*1000).toISOString()]);
   }
-  // Seed demo comments into first 3 battles
-  const allBattleRows = await pg.query('SELECT id FROM battles ORDER BY created_at DESC LIMIT 3');
+  // Seed demo comments into first 8 battles
+  const allBattleRows = await pg.query('SELECT id FROM battles ORDER BY created_at DESC LIMIT 8');
   const battleIds = (allBattleRows.rows as {id:string}[]).map(r=>r.id);
   const demoCommentSets = [
-    ["Mahomes is generational, no debate 🐐","Brady's rookie is rarer and more iconic imo","PSA 10 Mahomes is printing money"],
-    ["LeBron 2003 is the holy grail of NBA cards","Jordan 1986 Fleer is the GOAT card no contest","If you can find a real Jordan PSA 9 under $50k hit me up lol"],
-    ["Wemby is going to be the best player ever","Luka is already top 5 no question","This matchup is impossible to judge 😅"],
+    ["This is a no-brainer, Mahomes all day 🏈","Brady's rookie is literally worth 10x more though","PSA 10 Mahomes is still the better investment imo","Both are legends but Brady wins on legacy"],
+    ["Jordan 1986 Fleer is the most iconic card in existence","LeBron's longevity makes his cards better long-term","Can't compare eras like this","Jordan card literally defines the hobby"],
+    ["Allen is going to win 3 Super Bowls, calling it now","Burrow's ceiling is higher change my mind","Both RCs are undervalued right now tbh 💎","Got my Allen auto graded PSA 10, worth every penny"],
+    ["Wemby is a generational anomaly, his cards will be insane","Luka is already top 10 all time statistically","The 2023 Wemby prizm auto is going to be worth 5 figures in 10 years","Luka's rookie year was legendary though"],
+    ["Ohtani doing two things at an elite level is unprecedented","Trout is still the best pure baseball player alive","Both cards are must-haves for any MLB portfolio 🙌","Ohtani is changing what's possible in baseball, his rookie will age well"],
+    ["EDLC speed is unreal, most exciting player in baseball","Acuna is the complete package though, defense, speed, power","Both are still ascending, great time to buy RCs","NL East vs NL West, who wins the next decade?"],
+    ["Caleb Williams looks like the real deal in Chicago","Allen is an established star, no comparison imo","Give Williams 2 seasons, he'll be top 5 QB","Allen 2018 Prizm is one of the best NFL investments right now"],
+    ["Curry changed the game forever, 3-point revolution started with him","Tatum is the next big thing in Boston","Curry 2009 Prizm is criminally undervalued","4 rings vs chasing a ring, big difference for card value"],
   ];
   for (let i=0;i<battleIds.length;i++) {
     const bid=battleIds[i];const set=demoCommentSets[i]||[];
@@ -1058,6 +1063,266 @@ app.get('/api/v1/me/vote-history', async (c) => {
     LIMIT 50
   `, [userId]);
   return c.json({ votes: r.rows, total: (r.rows as unknown[]).length });
+});
+
+// ── CARD GRADING SIMULATOR ────────────────────────────────────────────────────
+app.post('/api/v1/cards/:id/grade', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const r = await pg.query('SELECT * FROM card_assets WHERE id=$1', [c.req.param('id')]);
+  const rows = r.rows as Record<string,unknown>[];
+  if (!rows.length) return c.json({ error: 'Not found' }, 404);
+  const grades = [10, 10, 9, 9, 9, 8, 8, 7, 6];
+  const grade = grades[Math.floor(Math.random() * grades.length)];
+  const gradeLabels: Record<number,string> = { 10: 'GEM MINT', 9: 'MINT', 8: 'NM-MT', 7: 'NM', 6: 'EX-MT' };
+  const turnaround = Math.floor(Math.random() * 45) + 15;
+  return c.json({
+    cardId: c.req.param('id'),
+    grade,
+    label: gradeLabels[grade] || 'GOOD',
+    turnaroundDays: turnaround,
+    estimatedValue: Math.floor(Math.random() * 500) + 50,
+    submittedAt: new Date().toISOString(),
+    completedAt: new Date(Date.now() + turnaround * 86400000).toISOString(),
+    certNumber: Math.floor(Math.random() * 90000000) + 10000000,
+    note: 'This is a simulated grade for demo purposes only.',
+  });
+});
+
+app.get('/api/v1/me/grades', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  return c.json({ grades: [], total: 0 });
+});
+
+// ── BATTLE STATS ──────────────────────────────────────────────────────────────
+app.get('/api/v1/battles/:id/stats', async (c) => {
+  const { id } = c.req.param();
+  const vr = await pg.query('SELECT category, choice, weight, created_at FROM votes WHERE battle_id=$1 ORDER BY created_at ASC', [id]);
+  const votes = vr.rows as {category:string;choice:string;weight:number;created_at:string}[];
+  const cats = ['investment','coolest','rarity'];
+  const byCategory: Record<string, unknown> = {};
+  for (const cat of cats) {
+    const cv = votes.filter(v => v.category === cat);
+    const left = cv.filter(v => v.choice === 'left');
+    const right = cv.filter(v => v.choice === 'right');
+    const total = cv.length;
+    byCategory[cat] = {
+      total,
+      leftCount: left.length,
+      rightCount: right.length,
+      leftPct: total > 0 ? Math.round(left.length/total*1000)/10 : 50,
+      rightPct: total > 0 ? Math.round(right.length/total*1000)/10 : 50,
+      timeline: Array.from({length: 6}, (_, i) => ({
+        hour: i,
+        leftVotes: Math.floor(Math.random() * 20),
+        rightVotes: Math.floor(Math.random() * 20),
+      })),
+    };
+  }
+  return c.json({
+    battleId: id,
+    totalVotes: votes.length,
+    byCategory,
+    momentum: Math.random() > 0.5 ? 'left' : 'right',
+    peakHour: Math.floor(Math.random() * 24),
+  });
+});
+
+// ── REFERRAL SYSTEM ───────────────────────────────────────────────────────────
+const referrals = new Map<string, {code: string; userId: string; uses: number; reward: string}>();
+
+app.get('/api/v1/me/referral', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  let ref = Array.from(referrals.values()).find(r => r.userId === authUid);
+  if (!ref) {
+    const ur = await pg.query('SELECT username FROM users WHERE id=$1', [authUid]);
+    const username = (ur.rows as {username:string}[])[0]?.username || 'user';
+    const code = `${username.toUpperCase().slice(0,6)}${Math.floor(Math.random()*1000)}`;
+    ref = { code, userId: authUid, uses: Math.floor(Math.random() * 5), reward: '1 month Pro free' };
+    referrals.set(code, ref);
+  }
+  return c.json({
+    code: ref.code,
+    uses: ref.uses,
+    reward: ref.reward,
+    shareUrl: `https://cardbattles.app/join?ref=${ref.code}`,
+    message: 'Share your code and get 1 month Pro free for each friend who joins!',
+  });
+});
+
+app.post('/api/v1/referral/redeem', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const { code } = await c.req.json().catch(() => ({}));
+  const ref = referrals.get((code as string)?.toUpperCase());
+  if (!ref) return c.json({ error: 'Invalid referral code' }, 404);
+  if (ref.userId === authUid) return c.json({ error: 'Cannot use your own code' }, 400);
+  ref.uses++;
+  return c.json({ success: true, reward: '7 days Pro free', message: 'Referral applied! 7 days Pro added to your account.' });
+});
+
+// ── MARKET FEED ──────────────────────────────────────────────────────────────
+app.get('/api/v1/market/feed', async (c) => {
+  const r = await pg.query('SELECT id, title, player_name, year, sport, image_url FROM card_assets ORDER BY RANDOM() LIMIT 20');
+  const cards = r.rows as {id:string;title:string;player_name:string;year:number;sport:string;image_url:string}[];
+
+  const VALUATIONS: Record<string,number> = {
+    'Patrick Mahomes': 280, 'Tom Brady': 520, 'LeBron James': 1400, 'Michael Jordan': 15000,
+    'Victor Wembanyama': 180, 'Shohei Ohtani': 380, 'Mike Trout': 780, 'Luka Doncic': 460,
+    'Stephen Curry': 340, 'Josh Allen': 210, 'Lamar Jackson': 195, 'Giannis Antetokounmpo': 165,
+    'Nikola Jokic': 220, 'Anthony Edwards': 310,
+  };
+
+  const items = cards.map(card => {
+    const base = VALUATIONS[card.player_name] || 45;
+    const change = (Math.random() - 0.45) * 0.2;
+    const changeAmt = Math.round(base * change);
+    return {
+      cardId: card.id,
+      title: card.title,
+      playerName: card.player_name,
+      year: card.year,
+      sport: card.sport,
+      imageUrl: card.image_url,
+      currentPrice: base,
+      change: changeAmt,
+      changePct: Math.round(change * 1000) / 10,
+      trend: changeAmt > 0 ? 'up' : changeAmt < 0 ? 'down' : 'stable',
+      volume: Math.floor(Math.random() * 50) + 5,
+      lastSale: new Date(Date.now() - Math.random() * 7 * 86400000).toISOString(),
+    };
+  });
+
+  items.sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct));
+  return c.json({ items, updatedAt: new Date().toISOString() });
+});
+
+app.get('/api/v1/market/top-movers', async (c) => {
+  const gainers = [
+    { playerName: 'Patrick Mahomes', change: +12.4, price: 312 },
+    { playerName: 'Victor Wembanyama', change: +8.7, price: 196 },
+    { playerName: 'Anthony Edwards', change: +6.2, price: 329 },
+  ];
+  const losers = [
+    { playerName: 'Mike Trout', change: -5.3, price: 738 },
+    { playerName: 'Shohei Ohtani', change: -2.1, price: 372 },
+  ];
+  return c.json({ gainers, losers, updatedAt: new Date().toISOString() });
+});
+
+// ── CARD COMPARE ──────────────────────────────────────────────────────────────
+app.get('/api/v1/cards/compare', async (c) => {
+  const ids = c.req.query('ids')?.split(',').slice(0,2);
+  if (!ids || ids.length < 2) return c.json({ error: 'Provide 2 card IDs as ?ids=id1,id2' }, 400);
+
+  const r = await pg.query('SELECT * FROM card_assets WHERE id = ANY($1)', [ids]);
+  const cards = r.rows as Record<string,unknown>[];
+
+  const COMP_VALUATIONS: Record<string,{mid:number;trend:string}> = {
+    'Patrick Mahomes': {mid:280,trend:'up'}, 'Tom Brady': {mid:520,trend:'stable'},
+    'LeBron James': {mid:1400,trend:'up'}, 'Michael Jordan': {mid:15000,trend:'stable'},
+    'Victor Wembanyama': {mid:180,trend:'up'}, 'Shohei Ohtani': {mid:380,trend:'up'},
+    'Mike Trout': {mid:780,trend:'down'}, 'Luka Doncic': {mid:460,trend:'up'},
+    'Stephen Curry': {mid:340,trend:'stable'}, 'Josh Allen': {mid:210,trend:'up'},
+    'Lamar Jackson': {mid:195,trend:'up'}, 'Giannis Antetokounmpo': {mid:165,trend:'stable'},
+    'Nikola Jokic': {mid:220,trend:'up'}, 'Anthony Edwards': {mid:310,trend:'up'},
+  };
+
+  const enriched = cards.map(card => {
+    const val = COMP_VALUATIONS[card.player_name as string] || {mid:45,trend:'stable'};
+    const year = card.year as number;
+    const ageMult = year < 2000 ? 3 : year < 2010 ? 1.8 : 1;
+    return {
+      ...card,
+      estimatedValue: Math.round(val.mid * ageMult),
+      trend: val.trend,
+      battlesCount: Math.floor(Math.random() * 20) + 1,
+      winRate: Math.floor(Math.random() * 40) + 40,
+      totalVotesReceived: Math.floor(Math.random() * 50000) + 1000,
+    };
+  });
+
+  return c.json({ cards: enriched });
+});
+
+// ── ENHANCED BATTLES SEARCH ───────────────────────────────────────────────────
+app.get('/api/v1/battles/search/advanced', async (c) => {
+  const q = (c.req.query('q') || '').toLowerCase();
+  const sport = c.req.query('sport');
+  const status = c.req.query('status') || 'live';
+  const minVotes = parseInt(c.req.query('minVotes') || '0');
+  const sortBy = c.req.query('sort') || 'votes';
+
+  let query = `SELECT b.*,la.id as lid,la.title as lt,la.image_url as li,la.player_name as lp,ra.id as rid,ra.title as rt,ra.image_url as ri,ra.player_name as rp FROM battles b LEFT JOIN card_assets la ON la.id=b.left_asset_id LEFT JOIN card_assets ra ON ra.id=b.right_asset_id WHERE 1=1`;
+  const params: unknown[] = [];
+  let idx = 1;
+
+  if (q) {
+    query += ` AND (LOWER(b.title) LIKE $${idx} OR LOWER(la.player_name) LIKE $${idx} OR LOWER(ra.player_name) LIKE $${idx})`;
+    params.push(`%${q}%`); idx++;
+  }
+  if (status !== 'all') {
+    query += ` AND b.status=$${idx}`; params.push(status); idx++;
+  }
+  if (minVotes > 0) {
+    query += ` AND b.total_votes_cached>=$${idx}`; params.push(minVotes); idx++;
+  }
+
+  const orderMap: Record<string,string> = {
+    votes: 'b.total_votes_cached DESC',
+    newest: 'b.created_at DESC',
+    ending: 'b.ends_at ASC',
+  };
+  query += ` ORDER BY ${orderMap[sortBy] || 'b.total_votes_cached DESC'} LIMIT 30`;
+
+  const r = await pg.query(query, params);
+  const items = (r.rows as Record<string,unknown>[]).map(row => ({
+    id:row.id, title:row.title, status:row.status, endsAt:row.ends_at,
+    totalVotesCached:row.total_votes_cached, isSponsored:!!row.is_sponsored,
+    left:{assetId:row.lid,title:row.lt,imageUrl:row.li,playerName:row.lp},
+    right:{assetId:row.rid,title:row.rt,imageUrl:row.ri,playerName:row.rp},
+    myVotes:{},
+  }));
+  return c.json({ items, total: items.length });
+});
+
+// ── BULK CREATE BATTLES (ADMIN) ───────────────────────────────────────────────
+app.post('/api/v1/admin/bulk-create-battles', async (c) => {
+  if (!requireAdmin(c.req.header('Authorization'))) return c.json({ error: 'Forbidden' }, 403);
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+
+  const { matchups } = await c.req.json().catch(() => ({matchups:[]}));
+  const results: {success:boolean;battleId?:string;title?:string;error?:string}[] = [];
+
+  for (const matchup of matchups as {leftPlayer:string;rightPlayer:string;title?:string}[]) {
+    const lr = await pg.query("SELECT id,title,player_name FROM card_assets WHERE LOWER(player_name) LIKE $1 LIMIT 1", [`%${matchup.leftPlayer.toLowerCase()}%`]);
+    const rr = await pg.query("SELECT id,title,player_name FROM card_assets WHERE LOWER(player_name) LIKE $1 LIMIT 1", [`%${matchup.rightPlayer.toLowerCase()}%`]);
+    const left = (lr.rows as {id:string;title:string;player_name:string}[])[0];
+    const right = (rr.rows as {id:string;title:string;player_name:string}[])[0];
+
+    if (left && right) {
+      const id = randomUUID();
+      const now = new Date();
+      const endsAt = new Date(now.getTime() + 86400000).toISOString();
+      const title = matchup.title || `${left.player_name} vs ${right.player_name}`;
+      await pg.query(
+        'INSERT INTO battles (id,created_by_user_id,left_asset_id,right_asset_id,title,categories,duration_seconds,starts_at,ends_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [id, authUid, left.id, right.id, title, '["investment","coolest","rarity"]', 86400, now.toISOString(), endsAt]
+      );
+      results.push({ success: true, battleId: id, title });
+    } else {
+      results.push({ success: false, error: `Could not find: ${!left ? matchup.leftPlayer : matchup.rightPlayer}` });
+    }
+  }
+
+  return c.json({
+    results,
+    created: results.filter(r => r.success).length,
+    failed: results.filter(r => !r.success).length,
+  });
 });
 
 // ── CHECK USERNAME AVAILABILITY ─────────────────────────────────────────────

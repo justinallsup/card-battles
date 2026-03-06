@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Shield, Flag, Users, Sword, BarChart2, Trash2, Ban, CheckCircle } from 'lucide-react';
+import { Shield, Flag, Users, Sword, BarChart2, Trash2, Ban, CheckCircle, Zap } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { getToken } from '../../../lib/api';
@@ -275,13 +275,167 @@ function UsersTab() {
 }
 
 // ── Main admin page ────────────────────────────────────────────────────────────
-type AdminTab = 'overview' | 'reports' | 'battles' | 'users';
+// ── Bulk Create tab ────────────────────────────────────────────────────────────
+interface BulkMatchup {
+  leftPlayer: string;
+  rightPlayer: string;
+}
+
+interface BulkPreviewRow {
+  original: string;
+  leftPlayer: string;
+  rightPlayer: string;
+  valid: boolean;
+}
+
+interface BulkResult {
+  success: boolean;
+  battleId?: string;
+  title?: string;
+  error?: string;
+}
+
+function parseBulkInput(text: string): BulkPreviewRow[] {
+  return text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .map(line => {
+      const vsParts = line.toLowerCase().split(' vs ');
+      if (vsParts.length >= 2) {
+        const leftPlayer = vsParts[0].trim();
+        const rightPlayer = vsParts.slice(1).join(' vs ').trim();
+        return {
+          original: line,
+          leftPlayer,
+          rightPlayer,
+          valid: leftPlayer.length > 0 && rightPlayer.length > 0,
+        };
+      }
+      return { original: line, leftPlayer: '', rightPlayer: '', valid: false };
+    });
+}
+
+function BulkCreateTab() {
+  const [inputText, setInputText] = useState(`Patrick Mahomes vs Tom Brady\nLeBron James vs Michael Jordan\nShohei Ohtani vs Mike Trout`);
+  const [results, setResults] = useState<BulkResult[] | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const preview = parseBulkInput(inputText);
+  const validRows = preview.filter(r => r.valid);
+
+  const handleCreateAll = async () => {
+    if (!validRows.length) return;
+    setIsCreating(true);
+    try {
+      const matchups: BulkMatchup[] = validRows.map(r => ({
+        leftPlayer: r.leftPlayer,
+        rightPlayer: r.rightPlayer,
+      }));
+      const res = await fetch(`${BASE_URL}/admin/bulk-create-battles`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getToken() ?? ''}`,
+        },
+        body: JSON.stringify({ matchups }),
+      });
+      const data = await res.json();
+      setResults(data.results);
+    } catch (err) {
+      console.error('Bulk create error', err);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const successCount = results?.filter(r => r.success).length ?? 0;
+  const failCount = results?.filter(r => !r.success).length ?? 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-[#12121a] border border-[#1e1e2e] rounded-xl p-4">
+        <p className="text-sm font-bold text-white mb-1">Bulk Battle Creator</p>
+        <p className="text-xs text-[#64748b] mb-3">Paste matchups below, one per line using &quot;Player A vs Player B&quot; format.</p>
+        <textarea
+          value={inputText}
+          onChange={e => { setInputText(e.target.value); setResults(null); }}
+          rows={6}
+          placeholder={'Patrick Mahomes vs Tom Brady\nLeBron James vs Michael Jordan\nShohei Ohtani vs Mike Trout'}
+          className="w-full bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl p-3 text-sm text-white placeholder-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors resize-none font-mono"
+        />
+      </div>
+
+      {/* Preview table */}
+      {preview.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-bold text-[#64748b] uppercase tracking-widest">Preview</p>
+          <div className="bg-[#12121a] border border-[#1e1e2e] rounded-xl overflow-hidden">
+            <div className="grid grid-cols-[1fr_auto_1fr_auto] gap-0 border-b border-[#1e1e2e] px-3 py-2">
+              <span className="text-[10px] font-bold text-[#64748b] uppercase">Left Card</span>
+              <span className="text-[10px] font-bold text-[#374151] uppercase px-2">VS</span>
+              <span className="text-[10px] font-bold text-[#64748b] uppercase">Right Card</span>
+              <span className="text-[10px] font-bold text-[#64748b] uppercase px-2">Status</span>
+            </div>
+            {preview.map((row, i) => (
+              <div key={i} className={`grid grid-cols-[1fr_auto_1fr_auto] gap-0 px-3 py-2 border-b border-[#1e1e2e]/60 last:border-0 ${!row.valid ? 'opacity-40' : ''}`}>
+                <span className="text-xs text-white capitalize truncate">{row.leftPlayer || '—'}</span>
+                <span className="text-[10px] text-[#374151] px-2 self-center">⚔️</span>
+                <span className="text-xs text-white capitalize truncate">{row.rightPlayer || '—'}</span>
+                <span className={`text-sm px-2 self-center ${row.valid ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
+                  {row.valid ? '✓' : '✗'}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-[#64748b]">{validRows.length} valid matchup{validRows.length !== 1 ? 's' : ''}</p>
+        </div>
+      )}
+
+      {/* Create button */}
+      <button
+        onClick={handleCreateAll}
+        disabled={validRows.length === 0 || isCreating}
+        className="w-full py-3 rounded-xl font-bold text-sm text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        style={{
+          background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+          boxShadow: validRows.length > 0 ? '0 0 15px rgba(239,68,68,0.3)' : 'none',
+        }}
+      >
+        <Zap size={15} />
+        {isCreating ? 'Creating...' : `Create All (${validRows.length})`}
+      </button>
+
+      {/* Results summary */}
+      {results && (
+        <div className="space-y-2">
+          <div className={`p-4 rounded-xl border ${successCount > 0 ? 'bg-[#22c55e]/10 border-[#22c55e]/30' : 'bg-[#ef4444]/10 border-[#ef4444]/30'}`}>
+            <p className="text-sm font-bold text-white mb-1">
+              ✅ {successCount} created · ❌ {failCount} failed
+            </p>
+          </div>
+          <div className="space-y-1">
+            {results.map((r, i) => (
+              <div key={i} className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs ${r.success ? 'bg-[#22c55e]/5 border border-[#22c55e]/20' : 'bg-[#ef4444]/5 border border-[#ef4444]/20'}`}>
+                <span>{r.success ? '✓' : '✗'}</span>
+                <span className="text-white flex-1 truncate">{r.success ? r.title : r.error}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type AdminTab = 'overview' | 'reports' | 'battles' | 'users' | 'bulk';
 
 const TABS: { id: AdminTab; label: string; icon: React.ElementType }[] = [
   { id: 'overview', label: 'Overview', icon: BarChart2 },
   { id: 'reports',  label: 'Reports',  icon: Flag },
   { id: 'battles',  label: 'Battles',  icon: Sword },
   { id: 'users',    label: 'Users',    icon: Users },
+  { id: 'bulk',     label: 'Bulk',     icon: Zap },
 ];
 
 export default function AdminPage() {
@@ -308,14 +462,14 @@ export default function AdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-[#12121a] p-1 rounded-xl border border-[#1e1e2e]">
+      <div className="flex gap-1 bg-[#12121a] p-1 rounded-xl border border-[#1e1e2e] overflow-x-auto">
         {TABS.map((t) => {
           const Icon = t.icon;
           return (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex-shrink-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-semibold transition-all flex-1 ${
                 tab === t.id
                   ? 'bg-[#ef4444]/20 text-[#ef4444]'
                   : 'text-[#64748b] hover:text-[#94a3b8]'
@@ -333,6 +487,7 @@ export default function AdminPage() {
       {tab === 'reports'  && <ReportsTab />}
       {tab === 'battles'  && <BattlesTab />}
       {tab === 'users'    && <UsersTab />}
+      {tab === 'bulk'     && <BulkCreateTab />}
     </div>
   );
 }

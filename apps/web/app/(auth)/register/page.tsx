@@ -30,6 +30,7 @@ export default function RegisterPage() {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [referralCode, setReferralCode] = useState('');
 
   // Username availability check
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'error'>('idle');
@@ -216,6 +217,21 @@ export default function RegisterPage() {
           {!passwordsMatch && confirmPassword && (
             <p className="text-[10px] text-red-400 mt-1">Passwords do not match</p>
           )}
+        </div>
+
+        {/* Referral code (optional) */}
+        <div>
+          <label className="text-xs font-semibold text-[#64748b] uppercase tracking-wide block mb-1.5">
+            Referral Code <span className="text-[#374151] font-normal normal-case">(optional)</span>
+          </label>
+          <input
+            type="text"
+            value={referralCode}
+            onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+            placeholder="e.g. CARDKI123"
+            className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-xl px-4 py-3 text-sm text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors font-mono"
+          />
+          <p className="text-xs text-[#374151] mt-1">Have a friend&apos;s code? Enter it for a bonus!</p>
         </div>
 
         {/* Terms */}

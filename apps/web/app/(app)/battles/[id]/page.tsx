@@ -5,9 +5,11 @@ import { useComments, usePostComment, useLikeComment } from '../../../../hooks/u
 import { useAuth } from '../../../../hooks/useAuth';
 import { BattleCard } from '../../../../components/battle/BattleCard';
 import { PageSpinner } from '../../../../components/ui/LoadingSpinner';
-import { Flag, Copy, Check, Heart, Send, Share2, Twitter, X, ExternalLink, Download, Bookmark, Eye, FlipHorizontal, Bell, BellOff, Trash2 } from 'lucide-react';
+import { Flag, Copy, Check, Heart, Send, Share2, Twitter, X, ExternalLink, Download, Bookmark, Eye, FlipHorizontal, Bell, BellOff, Trash2, BarChart2, TrendingUp } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import { battles as battlesApi, getToken } from '../../../../lib/api';
+import { DonutChart } from '../../../../components/ui/DonutChart';
+import { BarChart } from '../../../../components/ui/BarChart';
 import Link from 'next/link';
 import type { Battle } from '@card-battles/types';
 
@@ -479,9 +481,149 @@ function PriceAlertWidget({ cardId, playerName }: { cardId: string; playerName: 
   );
 }
 
-// ── Mini battle card ───────────────────────────────────────────────────────────
-function MiniBattleCard({ battle }: { battle: Battle }) {
+// ── Battle Stats Panel ────────────────────────────────────────────────────────
+interface CategoryStats {
+  total: number;
+  leftCount: number;
+  rightCount: number;
+  leftPct: number;
+  rightPct: number;
+  timeline: { hour: number; leftVotes: number; rightVotes: number }[];
+}
+
+interface BattleStats {
+  battleId: string;
+  totalVotes: number;
+  byCategory: Record<string, CategoryStats>;
+  momentum: 'left' | 'right';
+  peakHour: number;
+}
+
+function BattleStatsPanel({ battleId, battle }: { battleId: string; battle: Battle }) {
+  const [stats, setStats] = useState<BattleStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${BASE_URL}/battles/${battleId}/stats`)
+      .then(r => r.json())
+      .then(data => { setStats(data as BattleStats); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [battleId]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-8">
+        <div className="w-6 h-6 border-2 border-[#6c47ff] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return <p className="text-center text-[#64748b] text-sm py-4">Failed to load stats</p>;
+  }
+
+  const cats = ['investment', 'coolest', 'rarity'];
+  const catEmoji: Record<string, string> = { investment: '📈', coolest: '🔥', rarity: '💎' };
+  const momentumSide = stats.momentum === 'left' ? (battle.left.playerName ?? 'Left') : (battle.right.playerName ?? 'Right');
+
   return (
+    <div className="space-y-4">
+      {/* Total stats strip */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-[#0a0a0f] rounded-xl p-3 text-center border border-[#1e1e2e]">
+          <p className="text-xl font-black text-white">{stats.totalVotes.toLocaleString()}</p>
+          <p className="text-[10px] text-[#64748b] uppercase tracking-wide mt-0.5">Total Votes</p>
+        </div>
+        <div className="bg-[#0a0a0f] rounded-xl p-3 text-center border border-[#1e1e2e]">
+          <p className="text-xl font-black text-white">{stats.peakHour}:00</p>
+          <p className="text-[10px] text-[#64748b] uppercase tracking-wide mt-0.5">Peak Hour</p>
+        </div>
+        <div className="bg-[#0a0a0f] rounded-xl p-3 text-center border border-[#1e1e2e]">
+          <TrendingUp size={14} className="mx-auto mb-1 text-[#22c55e]" />
+          <p className="text-xs font-bold text-[#22c55e] truncate">{momentumSide}</p>
+          <p className="text-[10px] text-[#64748b] uppercase tracking-wide mt-0.5">Momentum</p>
+        </div>
+      </div>
+
+      {/* Momentum indicator */}
+      <div
+        className="rounded-xl p-3 flex items-center gap-3"
+        style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}
+      >
+        <TrendingUp size={16} className="text-[#22c55e] flex-shrink-0" />
+        <p className="text-sm text-[#f1f5f9]">
+          <span className="font-bold text-[#22c55e]">{momentumSide}</span> is currently gaining momentum
+        </p>
+      </div>
+
+      {/* Per-category donut charts */}
+      <div>
+        <p className="text-xs font-bold text-[#64748b] uppercase tracking-wider mb-3">Category Breakdown</p>
+        <div className="grid grid-cols-3 gap-2">
+          {cats.map(cat => {
+            const data = stats.byCategory[cat] as CategoryStats | undefined;
+            if (!data) return null;
+            return (
+              <div
+                key={cat}
+                className="bg-[#0a0a0f] rounded-xl p-3 border border-[#1e1e2e] flex flex-col items-center gap-2"
+              >
+                <p className="text-xs font-bold text-white capitalize">
+                  {catEmoji[cat]} {cat}
+                </p>
+                <DonutChart
+                  leftPct={data.leftPct}
+                  rightPct={data.rightPct}
+                  leftColor="#6c47ff"
+                  rightColor="#374151"
+                  size={80}
+                  strokeWidth={10}
+                  label={`${data.total}`}
+                />
+                <div className="w-full text-[9px] text-[#64748b] flex justify-between">
+                  <span className="truncate max-w-[45%]">{battle.left.playerName?.split(' ').pop()}</span>
+                  <span className="truncate max-w-[45%] text-right">{battle.right.playerName?.split(' ').pop()}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Vote timeline bar charts */}
+      {cats.map(cat => {
+        const data = stats.byCategory[cat] as CategoryStats | undefined;
+        if (!data?.timeline?.length) return null;
+        return (
+          <div key={`timeline-${cat}`} className="bg-[#0a0a0f] rounded-xl p-4 border border-[#1e1e2e]">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold text-white capitalize">{catEmoji[cat]} {cat} — Hourly Votes</p>
+              <div className="flex items-center gap-3 text-[10px]">
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-[#6c47ff] inline-block" />
+                  {battle.left.playerName?.split(' ').pop()}
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-[#374151] inline-block" />
+                  {battle.right.playerName?.split(' ').pop()}
+                </span>
+              </div>
+            </div>
+            <BarChart
+              data={data.timeline}
+              leftColor="#6c47ff"
+              rightColor="#64748b"
+              height={70}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Mini battle card ───────────────────────────────────────────────────────────
+function MiniBattleCard({ battle }: { battle: Battle }) {  return (
     <Link
       href={`/battles/${battle.id}`}
       className="flex gap-3 p-3 rounded-xl border border-[#1e1e2e] hover:border-[#6c47ff]/40 hover:-translate-y-0.5 transition-all group"
@@ -528,6 +670,7 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
   const [watching, setWatching] = useState(false);
   const [watchLoading, setWatchLoading] = useState(false);
   const [myVote, setMyVote] = useState<Record<string, string>>({});
+  const [activeTab, setActiveTab] = useState<'overview' | 'stats'>('overview');
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load "more battles"
@@ -642,7 +785,37 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
 
       <BattleCard battle={battle} />
 
-      {/* Card images with tappable lightbox + save buttons */}
+      {/* Tab selector */}
+      <div className="flex rounded-xl overflow-hidden border border-[#1e1e2e]" style={{ background: '#0a0a0f' }}>
+        <button
+          onClick={() => setActiveTab('overview')}
+          className="flex-1 py-2.5 text-sm font-bold transition-all flex items-center justify-center gap-1.5"
+          style={activeTab === 'overview'
+            ? { background: 'rgba(108,71,255,0.15)', color: '#a78bfa', borderBottom: '2px solid #6c47ff' }
+            : { color: '#64748b' }
+          }
+        >
+          ⚔️ Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('stats')}
+          className="flex-1 py-2.5 text-sm font-bold transition-all flex items-center justify-center gap-1.5"
+          style={activeTab === 'stats'
+            ? { background: 'rgba(108,71,255,0.15)', color: '#a78bfa', borderBottom: '2px solid #6c47ff' }
+            : { color: '#64748b' }
+          }
+        >
+          <BarChart2 size={14} /> Full Stats
+        </button>
+      </div>
+
+      {/* Stats tab content */}
+      {activeTab === 'stats' && (
+        <BattleStatsPanel battleId={id} battle={battle} />
+      )}
+
+      {/* Overview tab content */}
+      {activeTab === 'overview' && (<>
       <div className="grid grid-cols-2 gap-3">
         {[
           { asset: battle.left, side: 'left' as const },
@@ -892,6 +1065,7 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
       )}
+      </>)}
 
       {showShareModal && <ShareModal battle={battle} onClose={() => setShowShareModal(false)} />}
       {lightboxSrc && (
