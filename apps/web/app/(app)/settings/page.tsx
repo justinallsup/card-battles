@@ -1,11 +1,12 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings, User, Bell, AlertTriangle, LogOut, Trash2, Check, X } from 'lucide-react';
+import { Settings, User, Bell, AlertTriangle, LogOut, Trash2, Check, X, Palette, Info, Star } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { getToken } from '../../../lib/api';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
+import Link from 'next/link';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
@@ -128,6 +129,12 @@ function DeleteModal({ onClose }: { onClose: () => void }) {
 }
 
 // ── Main settings page ─────────────────────────────────────────────────────────
+const SPORTS = [
+  { id: 'nfl', label: 'NFL', emoji: '🏈' },
+  { id: 'nba', label: 'NBA', emoji: '🏀' },
+  { id: 'mlb', label: 'MLB', emoji: '⚾' },
+];
+
 export default function SettingsPage() {
   const { user: authUser, loading: authLoading, logout } = useAuth();
   const router = useRouter();
@@ -138,6 +145,28 @@ export default function SettingsPage() {
   const [bioInitialized, setBioInitialized] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Sports prefs from localStorage
+  const [sportPrefs, setSportPrefs] = useState<string[]>(['nfl', 'nba', 'mlb']);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('cb_sports_prefs');
+      if (stored) {
+        try { setSportPrefs(JSON.parse(stored)); } catch {}
+      }
+    }
+  }, []);
+
+  const toggleSport = (id: string) => {
+    setSportPrefs((prev) => {
+      const next = prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('cb_sports_prefs', JSON.stringify(next));
+      }
+      return next;
+    });
+  };
 
   const [notifications, setNotifications] = useState({
     battleResults: true,

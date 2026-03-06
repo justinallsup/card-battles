@@ -238,7 +238,15 @@ app.post('/api/v1/auth/login', async (c) => {
 app.get('/api/v1/auth/me', async (c) => {
   const u=uid(c.req.header('Authorization')); if (!u) return c.json({error:'Unauthorized'},401);
   const r=await pg.query('SELECT id,username,email,avatar_url,bio,is_admin,is_mod,pro_status,created_at FROM users WHERE id=$1',[u]);
-  const rows=r.rows as unknown[]; return rows.length?c.json(rows[0]):c.json({error:'Not found'},404);
+  const rows=r.rows as Record<string,unknown>[];
+  if (!rows.length) return c.json({error:'Not found'},404);
+  const row = rows[0];
+  return c.json({
+    id: row.id, username: row.username, email: row.email,
+    avatarUrl: row.avatar_url, bio: row.bio,
+    isAdmin: !!row.is_admin, isMod: !!row.is_mod,
+    proStatus: row.pro_status, createdAt: row.created_at,
+  });
 });
 
 // ── BATTLES ───────────────────────────────────────────────────────────────────
