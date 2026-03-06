@@ -142,7 +142,7 @@ function EditBioModal({ currentBio, onClose }: { currentBio: string; onClose: ()
             disabled={isPending}
             className="flex-1 py-2.5 rounded-xl bg-[#6c47ff] text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {isPending ? <LoadingSpinner size="sm" /> : <><Check size={14}/> Save</>}
+            {isPending ? <LoadingSpinner className="w-4 h-4" /> : <><Check size={14}/> Save</>}
           </button>
         </div>
       </div>

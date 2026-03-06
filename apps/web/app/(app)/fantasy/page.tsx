@@ -127,7 +127,7 @@ function CreateLeagueModal({ onClose }: { onClose: () => void }) {
             disabled={isPending || !name.trim()}
             className="flex-1 py-2.5 rounded-xl bg-[#6c47ff] text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {isPending ? <LoadingSpinner size="sm" /> : <><Plus size={14}/> Create</>}
+            {isPending ? <LoadingSpinner className="w-4 h-4" /> : <><Plus size={14}/> Create</>}
           </button>
         </div>
       </div>
@@ -201,7 +201,7 @@ function DraftCardModal({ league, onClose }: { league: League; onClose: () => vo
             disabled={!pickedId || isPending}
             className="w-full py-3 rounded-xl bg-[#6c47ff] text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-40"
           >
-            {isPending ? <LoadingSpinner size="sm" /> : <><Zap size={14}/> Draft Card</>}
+            {isPending ? <LoadingSpinner className="w-4 h-4" /> : <><Zap size={14}/> Draft Card</>}
           </button>
         </div>
       </div>
@@ -352,7 +352,7 @@ export default function FantasyPage() {
 
       {isLoading && (
         <div className="flex items-center justify-center py-16">
-          <LoadingSpinner size="lg" />
+          <LoadingSpinner className="w-8 h-8" />
         </div>
       )}
 
