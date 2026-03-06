@@ -1,7 +1,7 @@
 'use client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { dailyPicks as picksApi } from '../../../lib/api';
-import { Target, CheckCircle, ChevronLeft, ChevronRight, Flame, Trophy } from 'lucide-react';
+import { Target, CheckCircle, ChevronLeft, ChevronRight, Flame, Trophy, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useAuth } from '../../../hooks/useAuth';
@@ -80,6 +80,19 @@ export default function DailyPicksPage() {
   const { user } = useAuth();
   const [currentIdx, setCurrentIdx] = useState(0);
   const [liveResults, setLiveResults] = useState<Record<string, VoteResult>>({});
+  const [showExplainer, setShowExplainer] = useState(false);
+
+  // Show explainer tooltip for first-timers
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !localStorage.getItem('cb_dailypicks_seen')) {
+      setShowExplainer(true);
+    }
+  }, []);
+
+  const dismissExplainer = () => {
+    if (typeof window !== 'undefined') localStorage.setItem('cb_dailypicks_seen', 'true');
+    setShowExplainer(false);
+  };
 
   const { data: picks, isLoading } = useQuery({
     queryKey: ['daily-picks'],
@@ -134,6 +147,38 @@ export default function DailyPicksPage() {
 
   return (
     <div className="space-y-4">
+      {/* First-time explainer tooltip */}
+      {showExplainer && (
+        <div
+          className="relative rounded-2xl border border-[#22c55e]/30 p-4"
+          style={{ background: 'rgba(34,197,94,0.06)' }}
+        >
+          <button
+            onClick={dismissExplainer}
+            className="absolute top-3 right-3 text-[#64748b] hover:text-white transition-colors"
+          >
+            <X size={14} />
+          </button>
+          <div className="flex gap-3">
+            <span className="text-2xl flex-shrink-0">📅</span>
+            <div>
+              <p className="text-sm font-bold text-white">Welcome to Daily Picks!</p>
+              <p className="text-xs text-[#94a3b8] mt-1 leading-relaxed">
+                Each day we drop 3 fresh card matchups. Pick a side, build your streak, and climb the leaderboard.
+                Results are revealed the next day!
+              </p>
+              <button
+                onClick={dismissExplainer}
+                className="mt-2 text-xs font-semibold px-3 py-1.5 rounded-lg"
+                style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}
+              >
+                Got it, let&apos;s go →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-xl font-black text-white flex items-center gap-2">

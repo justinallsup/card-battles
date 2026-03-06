@@ -14,6 +14,11 @@ import adminRouter from './routes/admin';
 import billingRouter from './routes/billing';
 import shareRouter from './routes/share';
 import analyticsRouter from './routes/analytics';
+import commentsRouter from './routes/comments';
+import collectionsRouter from './routes/collections';
+import followingRouter from './routes/following';
+import tournamentsRouter from './routes/tournaments';
+import fantasyRouter from './routes/fantasy';
 
 const app = new Hono();
 
@@ -27,21 +32,31 @@ app.get('/health', (c) => c.json({
   status: 'ok',
   timestamp: new Date().toISOString(),
   version: '0.1.0',
-  routes: ['/api/v1/auth', '/api/v1/battles', '/api/v1/assets', '/api/v1/users',
-           '/api/v1/leaderboards', '/api/v1/daily-picks', '/api/v1/share', '/api/v1/analytics'],
+  routes: [
+    '/api/v1/auth', '/api/v1/battles', '/api/v1/assets', '/api/v1/users',
+    '/api/v1/leaderboards', '/api/v1/daily-picks', '/api/v1/share', '/api/v1/analytics',
+    '/api/v1/collections', '/api/v1/tournaments', '/api/v1/fantasy',
+  ],
 }));
 
 const api = new Hono();
 api.route('/auth', authRouter);
 api.route('/assets', assetsRouter);
 api.route('/battles', battlesRouter);
+// Comments are sub-routes of battles: /api/v1/battles/:battleId/comments
+api.route('/battles', commentsRouter);
 api.route('/users', usersRouter);
+// Following sub-routes: /api/v1/users/:username/follow|unfollow|follow-status|followers|following
+api.route('/users', followingRouter);
 api.route('/leaderboards', leaderboardsRouter);
 api.route('/daily-picks', dailyPicksRouter);
 api.route('/admin', adminRouter);
 api.route('/billing', billingRouter);
 api.route('/share', shareRouter);
 api.route('/analytics', analyticsRouter);
+api.route('/collections', collectionsRouter);
+api.route('/tournaments', tournamentsRouter);
+api.route('/fantasy', fantasyRouter);
 
 app.route('/api/v1', api);
 
@@ -54,5 +69,10 @@ async function start() {
   console.log(`[API] Card Battles API ready on :${PORT}`);
   serve({ fetch: app.fetch, port: PORT });
 }
-start().catch((e) => { console.error(e); process.exit(1); });
+
+// Only start the HTTP server when running directly (not during tests or imports)
+if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+  start().catch((e) => { console.error(e); process.exit(1); });
+}
+
 export default app;

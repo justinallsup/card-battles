@@ -5,11 +5,13 @@ import { useComments, usePostComment, useLikeComment } from '../../../../hooks/u
 import { useAuth } from '../../../../hooks/useAuth';
 import { BattleCard } from '../../../../components/battle/BattleCard';
 import { PageSpinner } from '../../../../components/ui/LoadingSpinner';
-import { Flag, Copy, Check, Heart, Send, Share2, Twitter, X, ExternalLink, Download } from 'lucide-react';
+import { Flag, Copy, Check, Heart, Send, Share2, Twitter, X, ExternalLink, Download, Bookmark, Eye, FlipHorizontal } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
-import { battles as battlesApi } from '../../../../lib/api';
+import { battles as battlesApi, getToken } from '../../../../lib/api';
 import Link from 'next/link';
 import type { Battle } from '@card-battles/types';
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatTimeAgo(iso: string): string {
@@ -174,6 +176,75 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
   );
 }
 
+// ── Image Lightbox ─────────────────────────────────────────────────────────────
+function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  useEffect(() => {
+    const handleKey = (e: globalThis.KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div className="relative max-w-sm w-full" onClick={e => e.stopPropagation()}>
+        <button
+          onClick={onClose}
+          className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-[#1e1e2e] border border-[#374151] flex items-center justify-center text-[#64748b] hover:text-white transition-colors"
+        >
+          <X size={14} />
+        </button>
+        <img
+          src={src}
+          alt={alt}
+          className="w-full rounded-2xl border border-[#1e1e2e] object-contain max-h-[80vh]"
+        />
+        <p className="text-center text-xs text-[#64748b] mt-2">{alt}</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Save Card Button ────────────────────────────────────────────────────────────
+function SaveCardButton({ assetId, cardName }: { assetId: string; cardName: string }) {
+  const { user } = useAuth();
+  const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const toggle = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const method = saved ? 'DELETE' : 'POST';
+      await fetch(`${BASE_URL}/cards/${assetId}/save`, {
+        method,
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      setSaved(!saved);
+    } catch {}
+    setLoading(false);
+  };
+
+  if (!user) return null;
+
+  return (
+    <button
+      onClick={toggle}
+      disabled={loading}
+      title={saved ? 'Remove from collection' : `Save ${cardName} to collection`}
+      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all disabled:opacity-50"
+      style={saved
+        ? { background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }
+        : { background: 'rgba(108,71,255,0.08)', color: '#a78bfa', border: '1px solid rgba(108,71,255,0.2)' }
+      }
+    >
+      {saved ? <><Check size={11} /> Saved!</> : <><FlipHorizontal size={11} /> 💾 Save Card</>}
+    </button>
+  );
+}
+
 // ── Animated progress bars ─────────────────────────────────────────────────────
 function BarFill({ pct, winner }: { pct: number; winner: boolean }) {
   const [width, setWidth] = useState(0);
@@ -189,48 +260,108 @@ function BarFill({ pct, winner }: { pct: number; winner: boolean }) {
   );
 }
 
-function VoteDistribution({ battle }: { battle: Battle }) {
+// ── Progress Ring (CSS-only) ───────────────────────────────────────────────────
+function ProgressRing({ pct, winner, size = 56 }: { pct: number; winner: boolean; size?: number }) {
+  const r = (size - 8) / 2;
+  const circ = 2 * Math.PI * r;
+  const [offset, setOffset] = useState(circ);
+  useEffect(() => {
+    const t = setTimeout(() => setOffset(circ - (pct / 100) * circ), 150);
+    return () => clearTimeout(t);
+  }, [pct, circ]);
+
+  return (
+    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', position: 'absolute' }}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#1e1e2e" strokeWidth={6} />
+        <circle
+          cx={size/2} cy={size/2} r={r} fill="none"
+          stroke={winner ? '#6c47ff' : '#374151'}
+          strokeWidth={6}
+          strokeDasharray={circ}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 0.8s ease-out' }}
+        />
+      </svg>
+      <span className="relative text-[11px] font-black" style={{ color: winner ? '#a78bfa' : '#94a3b8' }}>
+        {pct}%
+      </span>
+    </div>
+  );
+}
+
+function VoteDistribution({ battle, myVote }: { battle: Battle; myVote?: Record<string, string> }) {
   if (!battle.result?.byCategory) return null;
   const entries = Object.entries(battle.result.byCategory);
   if (!entries.length) return null;
 
   return (
-    <div className="rounded-xl p-4 space-y-3 border border-[#1e1e2e]" style={{ background: '#12121a' }}>
-      <h3 className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider">Vote Distribution</h3>
+    <div className="rounded-xl p-4 space-y-4 border border-[#1e1e2e]" style={{ background: '#12121a' }}>
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider">Vote Distribution</h3>
+        {myVote && Object.keys(myVote).length > 0 && (
+          <span
+            className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+            style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }}
+          >
+            ✓ You voted
+          </span>
+        )}
+      </div>
       <div className="flex justify-between text-[10px] text-[#64748b] mb-1">
         <span className="truncate max-w-[45%]">← {battle.left.playerName ?? battle.left.title}</span>
         <span className="truncate max-w-[45%] text-right">{battle.right.playerName ?? battle.right.title} →</span>
       </div>
-      {entries.map(([cat, data]) => (
-        <div key={cat}>
-          <div className="flex justify-between items-center mb-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-[#6c47ff]">{cat}</span>
-            {data.winner !== 'draw' && (
-              <span className="text-[10px] text-[#64748b]">
-                Winner: <span className="text-white font-semibold">
-                  {data.winner === 'left' ? (battle.left.playerName ?? 'Left') : (battle.right.playerName ?? 'Right')}
+      {entries.map(([cat, data]) => {
+        const votedSide = myVote?.[cat];
+        return (
+          <div key={cat}>
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#6c47ff]">{cat}</span>
+                {votedSide && (
+                  <span
+                    className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                    style={{ background: 'rgba(108,71,255,0.15)', color: '#a78bfa', border: '1px solid rgba(108,71,255,0.3)' }}
+                  >
+                    {votedSide === 'left' ? (battle.left.playerName ?? 'Left') : (battle.right.playerName ?? 'Right')} ✓
+                  </span>
+                )}
+              </div>
+              {data.winner !== 'draw' && (
+                <span className="text-[10px] text-[#64748b]">
+                  Winner: <span className="text-white font-semibold">
+                    {data.winner === 'left' ? (battle.left.playerName ?? 'Left') : (battle.right.playerName ?? 'Right')}
+                  </span>
                 </span>
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex-1 h-2 bg-[#1e1e2e] rounded-full overflow-hidden">
-              <BarFill pct={data.leftPercent} winner={data.winner === 'left'} />
+              )}
             </div>
-            <span className="text-[10px] font-black text-white w-8 text-center">{data.leftPercent}%</span>
-            <span className="text-[10px] text-[#374151]">vs</span>
-            <span className="text-[10px] font-black text-white w-8 text-center">{data.rightPercent}%</span>
-            <div className="flex-1 h-2 bg-[#1e1e2e] rounded-full overflow-hidden flex justify-end">
-              <BarFill pct={data.rightPercent} winner={data.winner === 'right'} />
+            {/* Progress rings + bars */}
+            <div className="flex items-center gap-3">
+              <ProgressRing pct={data.leftPercent} winner={data.winner === 'left'} />
+              <div className="flex-1 space-y-1">
+                <div className="h-2 bg-[#1e1e2e] rounded-full overflow-hidden">
+                  <BarFill pct={data.leftPercent} winner={data.winner === 'left'} />
+                </div>
+                <div className="flex justify-between text-[9px] text-[#374151]">
+                  <span>{battle.left.playerName ?? 'Left'}</span>
+                  <span>{battle.right.playerName ?? 'Right'}</span>
+                </div>
+                <div className="h-2 bg-[#1e1e2e] rounded-full overflow-hidden flex justify-end">
+                  <BarFill pct={data.rightPercent} winner={data.winner === 'right'} />
+                </div>
+              </div>
+              <ProgressRing pct={data.rightPercent} winner={data.winner === 'right'} />
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
-// ── Countdown ──────────────────────────────────────────────────────────────────
+
 function BattleCountdown({ endsAt }: { endsAt: string }) {
   const getLeft = useCallback(() => {
     const diff = new Date(endsAt).getTime() - Date.now();
@@ -306,6 +437,10 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
     left: { low: number; mid: number; high: number; trend: string } | null;
     right: { low: number; mid: number; high: number; trend: string } | null;
   } | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<{ src: string; alt: string } | null>(null);
+  const [watching, setWatching] = useState(false);
+  const [watchLoading, setWatchLoading] = useState(false);
+  const [myVote, setMyVote] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load "more battles"
@@ -322,6 +457,27 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
       .then(data => setValuations(data))
       .catch(() => {});
   }, [id]);
+
+  // Extract myVote from battle data
+  useEffect(() => {
+    if (battle?.myVotes) {
+      setMyVote(battle.myVotes as Record<string, string>);
+    }
+  }, [battle]);
+
+  const handleWatchToggle = async () => {
+    if (!user) return;
+    setWatchLoading(true);
+    try {
+      const method = watching ? 'DELETE' : 'POST';
+      await fetch(`${BASE_URL}/battles/${id}/watch`, {
+        method,
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      setWatching(!watching);
+    } catch {}
+    setWatchLoading(false);
+  };
 
   const handleReport = async () => {
     if (reported) return;
@@ -399,6 +555,35 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
 
       <BattleCard battle={battle} />
 
+      {/* Card images with tappable lightbox + save buttons */}
+      <div className="grid grid-cols-2 gap-3">
+        {[
+          { asset: battle.left, side: 'left' as const },
+          { asset: battle.right, side: 'right' as const },
+        ].map(({ asset, side }) => (
+          <div key={side} className="space-y-2">
+            <button
+              className="w-full rounded-xl overflow-hidden border border-[#1e1e2e] hover:border-[#6c47ff]/40 transition-all cursor-zoom-in"
+              onClick={() => setLightboxSrc({ src: asset.imageUrl, alt: asset.playerName ?? asset.title })}
+              title="Tap to view full screen"
+            >
+              <img
+                src={asset.imageUrl}
+                alt={asset.playerName ?? asset.title}
+                className="w-full aspect-[3/4] object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src =
+                    `https://placehold.co/300x400/12121a/6c47ff?text=${encodeURIComponent(asset.playerName ?? '?')}`;
+                }}
+              />
+            </button>
+            <div className="flex justify-center">
+              <SaveCardButton assetId={asset.id} cardName={asset.playerName ?? asset.title} />
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* Card Valuations */}
       {valuations && (valuations.left || valuations.right) && (
         <div className="rounded-xl p-4 border border-[#1e1e2e] space-y-3" style={{ background: '#12121a' }}>
@@ -449,11 +634,11 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Vote distribution */}
       {battle.result?.byCategory && Object.keys(battle.result.byCategory).length > 0 && (
-        <VoteDistribution battle={battle} />
+        <VoteDistribution battle={battle} myVote={myVote} />
       )}
 
       {/* Action row */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <button
           onClick={() => setShowShareModal(true)}
           className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all"
@@ -462,6 +647,22 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
           <Share2 size={14} />
           Share
         </button>
+
+        {user && (
+          <button
+            onClick={handleWatchToggle}
+            disabled={watchLoading}
+            className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+            style={watching
+              ? { background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e' }
+              : { background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', color: '#818cf8' }
+            }
+            title={watching ? 'Remove from watchlist' : 'Add to watchlist'}
+          >
+            <Bookmark size={14} fill={watching ? 'currentColor' : 'none'} />
+            {watching ? 'Watching' : 'Watch'}
+          </button>
+        )}
 
         <a
           href={twitterShareUrl}
@@ -588,6 +789,13 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
       )}
 
       {showShareModal && <ShareModal battle={battle} onClose={() => setShowShareModal(false)} />}
+      {lightboxSrc && (
+        <ImageLightbox
+          src={lightboxSrc.src}
+          alt={lightboxSrc.alt}
+          onClose={() => setLightboxSrc(null)}
+        />
+      )}
     </div>
   );
 }

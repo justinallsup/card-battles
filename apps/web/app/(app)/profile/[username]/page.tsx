@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { users as usersApi, getToken } from '../../../../lib/api';
 import { LoadingSpinner } from '../../../../components/ui/LoadingSpinner';
 import { Badge } from '../../../../components/ui/Badge';
-import { Trophy, Sword, Target, Flame, Star, Zap, Edit2, X, Check, Swords, Settings, UserPlus, UserMinus } from 'lucide-react';
+import { Trophy, Sword, Target, Flame, Star, Zap, Edit2, X, Check, Swords, Settings, UserPlus, UserMinus, Share2, BookMarked, Eye } from 'lucide-react';
 import Link from 'next/link';
 import type { UserStats } from '@card-battles/types';
 import { useAuth } from '../../../../hooks/useAuth';
@@ -235,6 +235,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   const { username } = use(params);
   const { user: me } = useAuth();
   const [showEdit, setShowEdit] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   const { data: user, isLoading: loadingUser } = useQuery({
     queryKey: ['user', username],
@@ -288,7 +289,10 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
               {(user as { isAdmin?: boolean }).isAdmin && <Badge variant="danger">Admin</Badge>}
             </div>
             <p className="text-xs text-[#374151] mt-1">
-              Member since {new Date((user as { createdAt?: string }).createdAt ?? '').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              Member since {(() => {
+                const d = new Date((user as { createdAt?: string }).createdAt ?? '');
+                return `Member since ${d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+              })()}
             </p>
             {user.bio ? (
               <p className="text-sm text-[#94a3b8] mt-2 leading-relaxed">{user.bio}</p>
@@ -305,12 +309,44 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             >
               <Edit2 size={13}/> Edit Profile
             </button>
+            <button
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(`https://cardbattles.app/profile/${username}`);
+                  setShareCopied(true);
+                  setTimeout(() => setShareCopied(false), 2000);
+                } catch {}
+              }}
+              className="w-10 h-10 rounded-xl border border-[#1e1e2e] flex items-center justify-center transition-colors"
+              style={shareCopied ? { borderColor: 'rgba(34,197,94,0.4)', color: '#22c55e' } : { color: '#64748b' }}
+              title="Share profile"
+            >
+              {shareCopied ? <Check size={15} /> : <Share2 size={15} />}
+            </button>
             <Link
               href="/settings"
               className="w-10 h-10 rounded-xl border border-[#1e1e2e] text-[#64748b] flex items-center justify-center hover:border-[#6c47ff] hover:text-[#6c47ff] transition-colors"
             >
               <Settings size={15} />
             </Link>
+          </div>
+        )}
+        {/* Share button for other users' profiles */}
+        {!isOwnProfile && (
+          <div className="mt-3">
+            <button
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(`https://cardbattles.app/profile/${username}`);
+                  setShareCopied(true);
+                  setTimeout(() => setShareCopied(false), 2000);
+                } catch {}
+              }}
+              className="w-full py-2 rounded-xl border border-[#1e1e2e] text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
+              style={shareCopied ? { borderColor: 'rgba(34,197,94,0.4)', color: '#22c55e' } : { color: '#64748b' }}
+            >
+              {shareCopied ? <><Check size={12} /> Profile link copied!</> : <><Share2 size={12} /> Share Profile</>}
+            </button>
           </div>
         )}
         {/* Follow section for other users' profiles */}
@@ -384,6 +420,31 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             {userBattles.map(b => (
               <UserBattleCard key={b.id} battle={b} />
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* My Content: Collection + Watchlist (own profile only) */}
+      {isOwnProfile && (
+        <div>
+          <h2 className="text-xs font-semibold text-[#64748b] uppercase tracking-widest mb-3">My Content</h2>
+          <div className="grid grid-cols-2 gap-3">
+            <Link
+              href="/collection"
+              className="bg-[#12121a] rounded-xl border border-[#1e1e2e] p-4 flex flex-col gap-2 hover:border-[#6c47ff]/30 transition-colors"
+            >
+              <BookMarked size={20} className="text-[#6c47ff]" />
+              <p className="text-sm font-bold text-white">Collection</p>
+              <p className="text-[10px] text-[#64748b]">Your saved cards</p>
+            </Link>
+            <Link
+              href="/watchlist"
+              className="bg-[#12121a] rounded-xl border border-[#1e1e2e] p-4 flex flex-col gap-2 hover:border-[#6c47ff]/30 transition-colors"
+            >
+              <Eye size={20} className="text-[#6c47ff]" />
+              <p className="text-sm font-bold text-white">Watchlist</p>
+              <p className="text-[10px] text-[#64748b]">Battles you&apos;re watching</p>
+            </Link>
           </div>
         </div>
       )}

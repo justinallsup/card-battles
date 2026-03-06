@@ -396,6 +396,97 @@ export default function CreatePage() {
         <p className="text-sm text-[#64748b] mt-1">Set up two cards and let the community decide</p>
       </div>
 
+      {/* Step indicator */}
+      <div className="flex items-center gap-0">
+        {[
+          { n: 1, label: 'Cards' },
+          { n: 2, label: 'Details' },
+          { n: 3, label: 'Review' },
+          { n: 4, label: 'Launch' },
+        ].map((s, i, arr) => {
+          // Determine step completion
+          const done1 = left.title.trim() && right.title.trim();
+          const done2 = done1 && selectedCats.length > 0;
+          const done3 = done2;
+          const active =
+            s.n === 1 ? true :
+            s.n === 2 ? !!done1 :
+            s.n === 3 ? !!done2 :
+            !!done3;
+          return (
+            <div key={s.n} className="flex items-center flex-1">
+              <div className="flex flex-col items-center flex-1">
+                <div
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all"
+                  style={active
+                    ? { background: 'linear-gradient(135deg, #6c47ff, #8b5cf6)', color: 'white' }
+                    : { background: '#1e1e2e', color: '#374151' }
+                  }
+                >
+                  {s.n}
+                </div>
+                <p className="text-[9px] mt-1" style={{ color: active ? '#a78bfa' : '#374151' }}>{s.label}</p>
+              </div>
+              {i < arr.length - 1 && (
+                <div className="h-px flex-1 mb-4 mx-1 transition-all" style={{ background: !!done1 && i === 0 || !!done2 && i === 1 || !!done3 && i >= 2 ? '#6c47ff' : '#1e1e2e' }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Live Preview */}
+      {(left.previewSrc || right.previewSrc || left.title || right.title) && (
+        <div
+          className="rounded-xl border border-[#1e1e2e] p-4"
+          style={{ background: '#12121a' }}
+        >
+          <p className="text-[10px] font-bold text-[#64748b] uppercase tracking-widest mb-3">⚡ Live Preview</p>
+          <div className="flex items-center gap-3">
+            {/* Left card */}
+            <div className="flex-1 text-center">
+              <div className="w-20 aspect-[3/4] mx-auto rounded-xl overflow-hidden border border-[#252535] bg-[#0a0a0f]">
+                {left.previewSrc ? (
+                  <img src={left.previewSrc} alt="left" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[#374151] text-xs text-center p-2 leading-tight">
+                    {left.title || 'Left Card'}
+                  </div>
+                )}
+              </div>
+              <p className="text-[10px] text-[#94a3b8] mt-1.5 truncate font-semibold">{left.playerName || left.title || 'Left'}</p>
+            </div>
+
+            {/* VS badge */}
+            <div
+              className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black"
+              style={{ background: 'linear-gradient(135deg, #6c47ff, #8b5cf6)', color: 'white', boxShadow: '0 0 12px rgba(108,71,255,0.4)' }}
+            >
+              VS
+            </div>
+
+            {/* Right card */}
+            <div className="flex-1 text-center">
+              <div className="w-20 aspect-[3/4] mx-auto rounded-xl overflow-hidden border border-[#252535] bg-[#0a0a0f]">
+                {right.previewSrc ? (
+                  <img src={right.previewSrc} alt="right" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[#374151] text-xs text-center p-2 leading-tight">
+                    {right.title || 'Right Card'}
+                  </div>
+                )}
+              </div>
+              <p className="text-[10px] text-[#94a3b8] mt-1.5 truncate font-semibold">{right.playerName || right.title || 'Right'}</p>
+            </div>
+          </div>
+          {(battleTitle || (left.playerName && right.playerName)) && (
+            <p className="text-center text-xs font-bold text-white mt-3 truncate">
+              {battleTitle || `${left.playerName} vs ${right.playerName}`}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Card slots */}
       <div className="flex gap-3">
         <CardSlot label="Left Card" card={left} onChange={setLeft} />

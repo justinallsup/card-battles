@@ -978,6 +978,67 @@ app.post('/api/v1/battles/:id/comments/:commentId/like', async (c) => {
   return c.json(comment);
 });
 
+// ── COLLECTIONS & WATCHLIST ──────────────────────────────────────────────────
+const collections = new Map<string, Set<string>>(); // userId → Set of assetIds
+const watchlistMap = new Map<string, Set<string>>(); // userId → Set of battleIds
+
+app.get('/api/v1/me/collection', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const saved = Array.from(collections.get(userId) || []);
+  if (!saved.length) return c.json({ cards: [] });
+  const placeholders = saved.map((_, i) => `$${i+1}`).join(',');
+  const r = await pg.query(`SELECT * FROM card_assets WHERE id IN (${placeholders})`, saved);
+  return c.json({ cards: r.rows });
+});
+
+app.post('/api/v1/cards/:id/save', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  if (!collections.has(userId)) collections.set(userId, new Set());
+  collections.get(userId)!.add(c.req.param('id'));
+  return c.json({ saved: true });
+});
+
+app.delete('/api/v1/cards/:id/save', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  collections.get(userId)?.delete(c.req.param('id'));
+  return c.json({ saved: false });
+});
+
+app.get('/api/v1/me/watchlist', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const watched = Array.from(watchlistMap.get(userId) || []);
+  if (!watched.length) return c.json({ battles: [], total: 0 });
+  const placeholders = watched.map((_, i) => `$${i+1}`).join(',');
+  const r = await pg.query(
+    `SELECT b.*,la.image_url as li,la.player_name as lp,ra.image_url as ri,ra.player_name as rp
+     FROM battles b
+     LEFT JOIN card_assets la ON la.id=b.left_asset_id
+     LEFT JOIN card_assets ra ON ra.id=b.right_asset_id
+     WHERE b.id IN (${placeholders})`,
+    watched
+  );
+  return c.json({ battles: r.rows, total: (r.rows as unknown[]).length });
+});
+
+app.post('/api/v1/battles/:id/watch', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  if (!watchlistMap.has(userId)) watchlistMap.set(userId, new Set());
+  watchlistMap.get(userId)!.add(c.req.param('id'));
+  return c.json({ watching: true });
+});
+
+app.delete('/api/v1/battles/:id/watch', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  watchlistMap.get(userId)?.delete(c.req.param('id'));
+  return c.json({ watching: false });
+});
+
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────
 app.all('*', async (c) => {
   const req = c.req.raw;
@@ -1018,14 +1079,20 @@ app.all('*', async (c) => {
 });
 
 // ── START ─────────────────────────────────────────────────────────────────────
+// Only start the HTTP server when running directly (not when imported in tests)
+const isMain = !process.env.VITEST && process.argv[1] &&
+  (process.argv[1].endsWith('combo-server.ts') || process.argv[1].endsWith('combo-server.js'));
+
 initDb()
   .then(seedDb)
   .then(() => {
-    serve({ fetch: app.fetch, port: COMBO_PORT });
-    console.log(`\n⚔️  Card Battles running on http://localhost:${COMBO_PORT}`);
-    console.log(`   /api/v1/* → Hono (in-memory DB)`);
-    console.log(`   /*        → Next.js proxy (port ${NEXT_PORT})`);
-    console.log(`\n🔑  cardking@demo.com / password123\n`);
+    if (isMain) {
+      serve({ fetch: app.fetch, port: COMBO_PORT });
+      console.log(`\n⚔️  Card Battles running on http://localhost:${COMBO_PORT}`);
+      console.log(`   /api/v1/* → Hono (in-memory DB)`);
+      console.log(`   /*        → Next.js proxy (port ${NEXT_PORT})`);
+      console.log(`\n🔑  cardking@demo.com / password123\n`);
+    }
   })
   .catch((e) => { console.error('Startup failed:', e); process.exit(1); });
 

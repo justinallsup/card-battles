@@ -1,12 +1,13 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useFeed } from '../../../hooks/useBattles';
 import { BattleCard } from '../../../components/battle/BattleCard';
 import { BattleCardSkeleton } from '../../../components/ui/LoadingSpinner';
-import { trending as trendingApi, leaderboards as lbApi } from '../../../lib/api';
+import { trending as trendingApi } from '../../../lib/api';
 import { formatNumber } from '../../../lib/utils';
+import { RefreshCw, X } from 'lucide-react';
 import type { Battle } from '@card-battles/types';
 
 const SPORT_FILTERS = [
@@ -22,6 +23,33 @@ const CATEGORY_FILTERS = [
   { label: '😎 Coolest', value: 'coolest' },
   { label: '💎 Rarity', value: 'rarity' },
 ];
+
+// Placeholder battle cards for empty state
+function PlaceholderBattleCard({ index }: { index: number }) {
+  const pairs = [
+    { left: 'Mahomes RC', right: 'Brady RC', votes: '1.2k' },
+    { left: 'LeBron 03 RC', right: 'Jordan 86 RC', votes: '2.8k' },
+    { left: 'Ohtani RC', right: 'Trout RC', votes: '943' },
+  ];
+  const p = pairs[index % pairs.length];
+  return (
+    <div
+      className="rounded-2xl border border-[#1e1e2e] overflow-hidden opacity-50"
+      style={{ background: '#12121a' }}
+    >
+      <div className="flex items-center gap-3 p-4">
+        <div className="w-16 h-20 bg-[#1e1e2e] rounded-xl animate-pulse flex-shrink-0" />
+        <div className="flex-1 flex flex-col gap-2">
+          <div className="h-3 bg-[#1e1e2e] rounded-full w-3/4 animate-pulse" />
+          <p className="text-xs text-[#64748b]">{p.left} vs {p.right}</p>
+          <p className="text-[11px] text-[#374151]">🗳️ {p.votes} votes</p>
+        </div>
+        <span className="text-[#374151] font-black text-sm">⚔</span>
+        <div className="w-16 h-20 bg-[#1e1e2e] rounded-xl animate-pulse flex-shrink-0" />
+      </div>
+    </div>
+  );
+}
 
 function TrendingCard({ battle, rank }: { battle: Battle; rank: number }) {
   return (
@@ -82,10 +110,50 @@ function ActivitySidebar() {
   );
 }
 
+// Onboarding banner for new users
+function OnboardingBanner() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !localStorage.getItem('cb_onboarded')) {
+      setVisible(true);
+    }
+  }, []);
+
+  const dismiss = () => {
+    if (typeof window !== 'undefined') localStorage.setItem('cb_onboarded', 'true');
+    setVisible(false);
+  };
+
+  if (!visible) return null;
+
+  return (
+    <div
+      className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-[#6c47ff]/30"
+      style={{ background: 'linear-gradient(135deg, rgba(108,71,255,0.12), rgba(139,92,246,0.06))' }}
+    >
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <span className="text-lg flex-shrink-0">👋</span>
+        <p className="text-sm text-white">
+          New here? <span className="text-[#a78bfa] font-semibold">Vote on your first battle to get on the leaderboard!</span>
+        </p>
+      </div>
+      <button
+        onClick={dismiss}
+        className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[#64748b] hover:text-white hover:bg-[#1e1e2e] transition-colors"
+        aria-label="Dismiss"
+      >
+        <X size={14} />
+      </button>
+    </div>
+  );
+}
+
 export default function FeedPage() {
   const [sportFilter, setSportFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError } = useFeed();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch } = useFeed();
 
   const { data: trendingData } = useQuery({
     queryKey: ['trending'],
@@ -94,6 +162,8 @@ export default function FeedPage() {
   });
 
   const allBattles = data?.pages.flatMap((p) => p.items) ?? [];
+  const liveBattleCount = allBattles.filter(b => b.status === 'live').length;
+
   let battles = allBattles;
 
   if (sportFilter) {
@@ -115,8 +185,17 @@ export default function FeedPage() {
 
   const topTrending = (trendingData?.items ?? []).slice(0, 3) as Battle[];
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  };
+
   return (
     <div className="space-y-4">
+      {/* Onboarding banner */}
+      <OnboardingBanner />
+
       {/* Hero Banner */}
       <div
         className="relative rounded-2xl overflow-hidden px-6 py-7 text-center"
@@ -147,8 +226,28 @@ export default function FeedPage() {
           <p className="text-sm text-[#64748b]">
             Vote for the ultimate sports card. New battles every day.
           </p>
+          {/* 🔴 Live battle count */}
+          {!isLoading && liveBattleCount > 0 && (
+            <div
+              className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold"
+              style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.25)' }}
+            >
+              <span className="w-2 h-2 rounded-full bg-[#ef4444] animate-pulse inline-block" />
+              🔴 {liveBattleCount} Live Battle{liveBattleCount !== 1 ? 's' : ''} Active
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Refresh button */}
+      <button
+        onClick={handleRefresh}
+        disabled={isRefreshing}
+        className="w-full flex items-center justify-center gap-2 py-2 text-xs text-[#374151] hover:text-[#64748b] transition-colors disabled:opacity-50"
+      >
+        <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
+        {isRefreshing ? 'Refreshing...' : 'Tap to refresh'}
+      </button>
 
       {/* 🔥 Trending Now */}
       {topTrending.length > 0 && (
@@ -170,8 +269,11 @@ export default function FeedPage() {
         </div>
       )}
 
-      {/* Sport Filter Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+      {/* Sport Filter Tabs — sticky */}
+      <div
+        className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide z-20 -mx-4 px-4 pt-1"
+        style={{ position: 'sticky', top: 0, background: '#0a0a0f' }}
+      >
         {SPORT_FILTERS.map((filter) => (
           <button
             key={filter.value}
@@ -234,14 +336,24 @@ export default function FeedPage() {
               <p className="text-[#64748b] text-sm">Make sure the API is running</p>
             </div>
           ) : battles.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-center gap-3">
-              <span className="text-5xl">⚔️</span>
-              <p className="text-[#64748b]">
-                {sportFilter || categoryFilter
-                  ? `No battles match this filter.`
-                  : 'No battles yet. Be the first to create one!'}
-              </p>
-            </div>
+            (sportFilter || categoryFilter) ? (
+              <div className="flex flex-col items-center justify-center h-64 text-center gap-3">
+                <span className="text-5xl">⚔️</span>
+                <p className="text-[#64748b]">No battles match this filter.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-center text-sm text-[#64748b]">No battles yet — be the first!</p>
+                {[0, 1, 2].map(i => <PlaceholderBattleCard key={i} index={i} />)}
+                <Link
+                  href="/create"
+                  className="flex items-center justify-center gap-2 w-full py-4 rounded-xl text-sm font-bold text-white"
+                  style={{ background: 'linear-gradient(135deg, #6c47ff, #8b5cf6)', boxShadow: '0 0 20px rgba(108,71,255,0.3)' }}
+                >
+                  ⚔️ Create the first battle!
+                </Link>
+              </div>
+            )
           ) : (
             battles.map((battle) => (
               <BattleCard key={battle.id} battle={battle} />
