@@ -5,7 +5,7 @@ import { useComments, usePostComment, useLikeComment } from '../../../../hooks/u
 import { useAuth } from '../../../../hooks/useAuth';
 import { BattleCard } from '../../../../components/battle/BattleCard';
 import { PageSpinner } from '../../../../components/ui/LoadingSpinner';
-import { Flag, Copy, Check, Heart, Send, Share2, Twitter, X, ExternalLink, Download, Bookmark, Eye, FlipHorizontal } from 'lucide-react';
+import { Flag, Copy, Check, Heart, Send, Share2, Twitter, X, ExternalLink, Download, Bookmark, Eye, FlipHorizontal, Bell, BellOff, Trash2 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import { battles as battlesApi, getToken } from '../../../../lib/api';
 import Link from 'next/link';
@@ -392,6 +392,91 @@ function BattleCountdown({ endsAt }: { endsAt: string }) {
   );
 }
 
+// ── Price Alert Widget ─────────────────────────────────────────────────────────
+interface PriceAlert {
+  cardId: string;
+  playerName: string;
+  threshold: number;
+  set: number;
+}
+
+function PriceAlertWidget({ cardId, playerName }: { cardId: string; playerName: string }) {
+  const [threshold, setThreshold] = useState('');
+  const [alerts, setAlerts] = useState<PriceAlert[]>([]);
+  const [saved, setSaved] = useState(false);
+
+  const loadAlerts = () => {
+    try {
+      const raw = localStorage.getItem('cb_alerts');
+      setAlerts(raw ? JSON.parse(raw) : []);
+    } catch { setAlerts([]); }
+  };
+
+  useEffect(() => { loadAlerts(); }, []);
+
+  const myAlert = alerts.find(a => a.cardId === cardId);
+
+  const handleSet = () => {
+    const val = parseFloat(threshold);
+    if (!val || val <= 0) return;
+    const existing = alerts.filter(a => a.cardId !== cardId);
+    const newAlert: PriceAlert = { cardId, playerName, threshold: val, set: Date.now() };
+    const updated = [...existing, newAlert];
+    localStorage.setItem('cb_alerts', JSON.stringify(updated));
+    setAlerts(updated);
+    setThreshold('');
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleRemove = () => {
+    const updated = alerts.filter(a => a.cardId !== cardId);
+    localStorage.setItem('cb_alerts', JSON.stringify(updated));
+    setAlerts(updated);
+  };
+
+  return (
+    <div className="bg-[#0a0a0f] rounded-xl p-3 border border-[#1e1e2e] space-y-2">
+      <p className="text-[10px] text-[#64748b] truncate font-semibold">{playerName}</p>
+      {myAlert ? (
+        <div className="flex items-center gap-2">
+          <Bell size={12} className="text-[#6c47ff] flex-shrink-0" />
+          <span className="text-xs text-white flex-1">Alert at <span className="font-bold text-[#6c47ff]">${myAlert.threshold}</span></span>
+          <button
+            onClick={handleRemove}
+            className="p-1 rounded-lg hover:bg-[#ef4444]/10 text-[#64748b] hover:text-[#ef4444] transition-colors"
+            title="Remove alert"
+          >
+            <Trash2 size={11} />
+          </button>
+        </div>
+      ) : (
+        <div className="flex gap-1.5">
+          <div className="flex-1 relative">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-[#64748b]">$</span>
+            <input
+              type="number"
+              min="1"
+              placeholder="Price"
+              value={threshold}
+              onChange={e => setThreshold(e.target.value)}
+              className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg pl-5 pr-2 py-1.5 text-xs text-white placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff]"
+            />
+          </div>
+          <button
+            onClick={handleSet}
+            disabled={!threshold || parseFloat(threshold) <= 0}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-40 bg-[#6c47ff]/10 border border-[#6c47ff]/30 text-[#6c47ff] hover:bg-[#6c47ff]/20"
+          >
+            {saved ? <Check size={11} /> : <Bell size={11} />}
+            {saved ? 'Set!' : 'Alert'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Mini battle card ───────────────────────────────────────────────────────────
 function MiniBattleCard({ battle }: { battle: Battle }) {
   return (
@@ -611,6 +696,19 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
             )}
           </div>
           <p className="text-[10px] text-[#374151]">* Estimated values only. Not financial advice.</p>
+          {/* Price Alert stubs */}
+          <div>
+            <p className="text-[10px] text-[#64748b] uppercase tracking-widest font-semibold mb-2">🔔 Price Alerts (PSA 10)</p>
+            <div className="grid grid-cols-2 gap-2">
+              {valuations.left && (
+                <PriceAlertWidget cardId={`${id}-left`} playerName={battle.left.playerName ?? battle.left.title} />
+              )}
+              {valuations.right && (
+                <PriceAlertWidget cardId={`${id}-right`} playerName={battle.right.playerName ?? battle.right.title} />
+              )}
+            </div>
+            <p className="text-[9px] text-[#374151] mt-1.5">Price alerts will notify you via email in production. <Link href="/alerts" className="text-[#6c47ff] hover:underline">View all alerts →</Link></p>
+          </div>
         </div>
       )}
 

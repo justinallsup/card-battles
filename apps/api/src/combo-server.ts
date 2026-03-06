@@ -1039,6 +1039,36 @@ app.delete('/api/v1/battles/:id/watch', async (c) => {
   return c.json({ watching: false });
 });
 
+// ── VOTE HISTORY ────────────────────────────────────────────────────────────
+app.get('/api/v1/me/vote-history', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const r = await pg.query(`
+    SELECT v.category, v.choice, v.created_at as voted_at,
+      b.id as battle_id, b.title, b.status, b.total_votes_cached,
+      b.ends_at, b.result,
+      la.image_url as left_img, la.player_name as left_player,
+      ra.image_url as right_img, ra.player_name as right_player
+    FROM votes v
+    JOIN battles b ON b.id = v.battle_id
+    JOIN card_assets la ON la.id = b.left_asset_id
+    JOIN card_assets ra ON ra.id = b.right_asset_id
+    WHERE v.user_id = $1
+    ORDER BY v.created_at DESC
+    LIMIT 50
+  `, [userId]);
+  return c.json({ votes: r.rows, total: (r.rows as unknown[]).length });
+});
+
+// ── CHECK USERNAME AVAILABILITY ─────────────────────────────────────────────
+app.get('/api/v1/auth/check-username', async (c) => {
+  const username = c.req.query('username');
+  if (!username || username.length < 3) return c.json({ available: false, error: 'Too short' });
+  if (!/^[a-zA-Z0-9_]{3,32}$/.test(username)) return c.json({ available: false, error: 'Invalid characters' });
+  const r = await pg.query('SELECT id FROM users WHERE username=$1', [username]);
+  return c.json({ available: (r.rows as unknown[]).length === 0 });
+});
+
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────
 app.all('*', async (c) => {
   const req = c.req.raw;

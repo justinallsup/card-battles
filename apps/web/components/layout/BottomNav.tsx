@@ -15,6 +15,8 @@ const EXPLORE_TILES = [
   { href: '/daily-picks',  label: 'Daily Picks',   icon: '📅', desc: 'Today\'s picks'     },
   { href: '/collection',   label: 'Collection',    icon: '🃏', desc: 'Your saved cards'   },
   { href: '/watchlist',    label: 'Watchlist',     icon: '🔖', desc: 'Watched battles'    },
+  { href: '/history',      label: 'Vote History',  icon: '🗳️', desc: 'Your votes'         },
+  { href: '/alerts',       label: 'Price Alerts',  icon: '🔔', desc: 'Card price alerts'  },
   { href: '/search',       label: 'Search',        icon: '🔍', desc: 'Find anything'      },
   { href: '/notifications',label: 'Alerts',        icon: '🔔', desc: 'Your notifications' },
   { href: '/pro',          label: 'Pro',           icon: '⭐', desc: 'Upgrade account'    },
@@ -121,7 +123,7 @@ export function BottomNav() {
           {navItems.map(({ href, label, icon: Icon, accent, key, action }) => {
             const active = href ? (pathname === href || pathname.startsWith(href + '/')) : false;
             const isProfileActive = key === 'profile' && user?.username && (pathname === `/profile/${user.username}` || pathname.startsWith('/profile/'));
-            const isExploreActive = key === 'explore' && ['/pull-arena','/tournaments','/fantasy','/activity','/daily-picks','/collection','/watchlist','/search','/notifications','/pro'].some(p => pathname.startsWith(p));
+            const isExploreActive = key === 'explore' && ['/pull-arena','/tournaments','/fantasy','/activity','/daily-picks','/collection','/watchlist','/search','/notifications','/pro','/history','/alerts'].some(p => pathname.startsWith(p));
 
             if (accent) {
               return (

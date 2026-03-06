@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { users as usersApi, getToken } from '../../../../lib/api';
 import { LoadingSpinner } from '../../../../components/ui/LoadingSpinner';
 import { Badge } from '../../../../components/ui/Badge';
-import { Trophy, Sword, Target, Flame, Star, Zap, Edit2, X, Check, Swords, Settings, UserPlus, UserMinus, Share2, BookMarked, Eye } from 'lucide-react';
+import { Trophy, Sword, Target, Flame, Star, Zap, Edit2, X, Check, Swords, Settings, UserPlus, UserMinus, Share2, BookMarked, Eye, History } from 'lucide-react';
 import Link from 'next/link';
 import type { UserStats } from '@card-battles/types';
 import { useAuth } from '../../../../hooks/useAuth';
@@ -128,13 +128,37 @@ interface Stats {
   dailyPickLosses: number;
 }
 
+interface UserProfile {
+  proStatus?: string;
+  isAdmin?: boolean;
+  username: string;
+  bio?: string;
+  createdAt?: string;
+}
+
 const BADGE_DEFS = [
-  { id: 'first_blood',     label: 'First Blood',      icon: '⚔️', desc: 'Won first battle',       color: 'border-red-500/40 bg-red-500/10',    threshold: (s: Stats) => s.battlesWon >= 1 },
-  { id: 'hot_streak',      label: 'Hot Streak',        icon: '🔥', desc: '5+ win streak',           color: 'border-orange-500/40 bg-orange-500/10', threshold: (s: Stats) => s.bestStreak >= 5 },
-  { id: 'centurion',       label: 'Centurion',          icon: '💯', desc: '100+ votes cast',         color: 'border-blue-500/40 bg-blue-500/10',   threshold: (s: Stats) => s.votesCast >= 100 },
-  { id: 'battle_hardened', label: 'Battle Hardened',   icon: '🛡️', desc: '10+ battles created',     color: 'border-purple-500/40 bg-purple-500/10', threshold: (s: Stats) => s.battlesCreated >= 10 },
-  { id: 'goat',            label: 'GOAT',               icon: '🐐', desc: '25+ battles won',         color: 'border-yellow-500/40 bg-yellow-500/10', threshold: (s: Stats) => s.battlesWon >= 25 },
-  { id: 'daily_grinder',   label: 'Daily Grinder',     icon: '📅', desc: '30+ daily pick entries',  color: 'border-green-500/40 bg-green-500/10',  threshold: (s: Stats) => s.dailyPickWins + s.dailyPickLosses >= 30 },
+  // Combat badges
+  { id: 'first_blood',     label: 'First Blood',      icon: '⚔️',  color: 'border-red-500/40 bg-red-500/10 text-red-400',     desc: 'Won your first battle',         threshold: (s: Stats) => s.battlesWon >= 1 },
+  { id: 'warrior',         label: 'Warrior',           icon: '🛡️',  color: 'border-orange-500/40 bg-orange-500/10 text-orange-400', desc: 'Won 10 battles',            threshold: (s: Stats) => s.battlesWon >= 10 },
+  { id: 'champion',        label: 'Champion',          icon: '🏆',  color: 'border-yellow-500/40 bg-yellow-500/10 text-yellow-400', desc: 'Won 25 battles',            threshold: (s: Stats) => s.battlesWon >= 25 },
+  { id: 'legend',          label: 'Legend',            icon: '👑',  color: 'border-purple-500/40 bg-purple-500/10 text-purple-400', desc: 'Won 50 battles',            threshold: (s: Stats) => s.battlesWon >= 50 },
+  { id: 'goat',            label: 'GOAT',              icon: '🐐',  color: 'border-yellow-400/40 bg-yellow-400/10 text-yellow-300', desc: 'Won 100 battles',           threshold: (s: Stats) => s.battlesWon >= 100 },
+  // Voting badges
+  { id: 'voter',           label: 'Voter',             icon: '🗳️',  color: 'border-blue-500/40 bg-blue-500/10 text-blue-400',   desc: 'Cast 10 votes',                threshold: (s: Stats) => s.votesCast >= 10 },
+  { id: 'centurion',       label: 'Centurion',         icon: '💯',  color: 'border-blue-400/40 bg-blue-400/10 text-blue-300',   desc: 'Cast 100 votes',               threshold: (s: Stats) => s.votesCast >= 100 },
+  { id: 'oracle',          label: 'Oracle',            icon: '🔮',  color: 'border-indigo-500/40 bg-indigo-500/10 text-indigo-400', desc: 'Cast 500 votes',            threshold: (s: Stats) => s.votesCast >= 500 },
+  // Streak badges
+  { id: 'hot_streak',      label: 'Hot Streak',        icon: '🔥',  color: 'border-orange-500/40 bg-orange-500/10 text-orange-400', desc: '5-win streak',             threshold: (s: Stats) => s.bestStreak >= 5 },
+  { id: 'on_fire',         label: 'On Fire',           icon: '🌋',  color: 'border-red-500/40 bg-red-500/10 text-red-400',      desc: '10-win streak',                threshold: (s: Stats) => s.bestStreak >= 10 },
+  // Creator badges
+  { id: 'creator',         label: 'Creator',           icon: '✨',  color: 'border-cyan-500/40 bg-cyan-500/10 text-cyan-400',   desc: 'Created 5 battles',            threshold: (s: Stats) => s.battlesCreated >= 5 },
+  { id: 'battle_hardened', label: 'Battle Hardened',   icon: '⚡',  color: 'border-cyan-400/40 bg-cyan-400/10 text-cyan-300',   desc: 'Created 20 battles',           threshold: (s: Stats) => s.battlesCreated >= 20 },
+  // Daily picks badges
+  { id: 'daily_grinder',   label: 'Daily Grinder',     icon: '📅',  color: 'border-green-500/40 bg-green-500/10 text-green-400', desc: 'Entered 30 daily picks',      threshold: (s: Stats) => (s.dailyPickWins || 0) + (s.dailyPickLosses || 0) >= 30 },
+  { id: 'picker',          label: 'Picker',            icon: '🎯',  color: 'border-green-400/40 bg-green-400/10 text-green-300', desc: 'Won 10 daily picks',          threshold: (s: Stats) => (s.dailyPickWins || 0) >= 10 },
+  // Special
+  { id: 'early_adopter',   label: 'Early Adopter',     icon: '🚀',  color: 'border-purple-500/40 bg-purple-500/10 text-purple-400', desc: 'Joined in the early days', threshold: (_s: Stats) => true },
+  { id: 'pro',             label: 'Pro Member',        icon: '💎',  color: 'border-yellow-300/40 bg-yellow-300/10 text-yellow-200', desc: 'Card Battles Pro subscriber', threshold: (_s: Stats, user?: UserProfile) => user?.proStatus === 'pro' },
 ];
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
@@ -270,7 +294,8 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   const s = stats as Stats | undefined;
   const isOwnProfile = me?.username === username;
 
-  const earnedBadges = s ? BADGE_DEFS.filter(b => b.threshold(s)) : [];
+  const earnedBadges = s ? BADGE_DEFS.filter(b => b.threshold(s, user as UserProfile | undefined)) : [];
+  const lockedBadges = s ? BADGE_DEFS.filter(b => !b.threshold(s, user as UserProfile | undefined)) : BADGE_DEFS;
 
   const userBattles = (battlesData?.items ?? []) as BattleRow[];
 
@@ -375,36 +400,84 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
       {/* Badges */}
       <div>
         <h2 className="text-xs font-semibold text-[#64748b] uppercase tracking-widest mb-3">
-          Badges {earnedBadges.length > 0 && <span className="text-[#6c47ff]">· {earnedBadges.length}</span>}
+          Badges {earnedBadges.length > 0 && <span className="text-[#6c47ff]">· {earnedBadges.length}/{BADGE_DEFS.length}</span>}
         </h2>
-        {earnedBadges.length === 0 ? (
-          <div className="bg-[#12121a] border border-[#1e1e2e] rounded-xl p-5 text-center">
+
+        {/* Earned badges */}
+        {earnedBadges.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            {earnedBadges.map((badge, idx) => {
+              const isNew = idx < 2 && earnedBadges.length > 0; // first 2 earned badges get "NEW" if recently earned
+              return (
+                <div
+                  key={badge.id}
+                  className={`border rounded-xl p-3 flex items-center gap-3 relative overflow-hidden ${badge.color}`}
+                  style={{ boxShadow: '0 0 12px rgba(108,71,255,0.1)' }}
+                >
+                  {isNew && idx === 0 && (
+                    <span className="absolute top-1.5 right-1.5 text-[8px] font-black bg-[#6c47ff] text-white px-1 py-0.5 rounded uppercase tracking-wide">
+                      NEW
+                    </span>
+                  )}
+                  <span className="text-2xl leading-none flex-shrink-0">{badge.icon}</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white truncate">{badge.label}</p>
+                    <p className="text-[10px] text-[#94a3b8]">{badge.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Empty state */}
+        {earnedBadges.length === 0 && (
+          <div className="bg-[#12121a] border border-[#1e1e2e] rounded-xl p-5 text-center mb-3">
             <p className="text-2xl mb-2">🏅</p>
             <p className="text-sm text-[#64748b]">No badges earned yet — keep battling!</p>
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {earnedBadges.map(badge => (
-              <div key={badge.id} className={`border rounded-xl p-3 flex items-center gap-3 ${badge.color}`}>
-                <span className="text-2xl leading-none">{badge.icon}</span>
-                <div>
-                  <p className="text-sm font-bold text-white">{badge.label}</p>
-                  <p className="text-[10px] text-[#64748b]">{badge.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
         )}
-        {s && BADGE_DEFS.filter(b => !b.threshold(s)).length > 0 && (
-          <div className="mt-3">
-            <p className="text-xs text-[#374151] mb-2">Locked badges</p>
-            <div className="flex flex-wrap gap-2">
-              {BADGE_DEFS.filter(b => !b.threshold(s)).map(badge => (
-                <div key={badge.id} className="border border-[#1e1e2e] bg-[#12121a] rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 opacity-40">
-                  <span className="text-sm">{badge.icon}</span>
-                  <span className="text-xs text-[#64748b]">{badge.label}</span>
-                </div>
-              ))}
+
+        {/* Locked badges */}
+        {lockedBadges.length > 0 && (
+          <div>
+            <p className="text-xs text-[#374151] mb-2 font-semibold">Locked ({lockedBadges.length})</p>
+            <div className="grid grid-cols-2 gap-2">
+              {lockedBadges.map((badge) => {
+                // Compute "X more to go" hint
+                let hint = '';
+                if (s) {
+                  if (badge.id === 'warrior') hint = `${10 - s.battlesWon} more wins`;
+                  else if (badge.id === 'champion') hint = `${25 - s.battlesWon} more wins`;
+                  else if (badge.id === 'legend') hint = `${50 - s.battlesWon} more wins`;
+                  else if (badge.id === 'goat') hint = `${100 - s.battlesWon} more wins`;
+                  else if (badge.id === 'voter') hint = `${10 - s.votesCast} more votes`;
+                  else if (badge.id === 'centurion') hint = `${100 - s.votesCast} more votes`;
+                  else if (badge.id === 'oracle') hint = `${500 - s.votesCast} more votes`;
+                  else if (badge.id === 'hot_streak') hint = `${5 - s.bestStreak} more streak`;
+                  else if (badge.id === 'on_fire') hint = `${10 - s.bestStreak} more streak`;
+                  else if (badge.id === 'creator') hint = `${5 - s.battlesCreated} more battles`;
+                  else if (badge.id === 'battle_hardened') hint = `${20 - s.battlesCreated} more battles`;
+                  else if (badge.id === 'daily_grinder') hint = `${30 - (s.dailyPickWins || 0) - (s.dailyPickLosses || 0)} more entries`;
+                  else if (badge.id === 'picker') hint = `${10 - (s.dailyPickWins || 0)} more wins`;
+                  else if (badge.id === 'pro') hint = 'Upgrade to Pro';
+                }
+                return (
+                  <div
+                    key={badge.id}
+                    className="border border-[#1e1e2e] bg-[#12121a] rounded-xl p-3 flex items-center gap-2.5 opacity-50 grayscale"
+                  >
+                    <span className="text-xl leading-none flex-shrink-0 relative">
+                      {badge.icon}
+                      <span className="absolute -bottom-0.5 -right-0.5 text-[8px]">🔒</span>
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-[#64748b] truncate">{badge.label}</p>
+                      {hint && <p className="text-[9px] text-[#374151] truncate">{hint}</p>}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -446,6 +519,18 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
               <p className="text-[10px] text-[#64748b]">Battles you&apos;re watching</p>
             </Link>
           </div>
+          {/* Vote history link */}
+          <Link
+            href="/history"
+            className="mt-3 flex items-center gap-3 bg-[#12121a] rounded-xl border border-[#1e1e2e] p-4 hover:border-[#6c47ff]/30 transition-colors"
+          >
+            <History size={20} className="text-[#6c47ff]" />
+            <div>
+              <p className="text-sm font-bold text-white">Vote History</p>
+              <p className="text-[10px] text-[#64748b]">All battles you&apos;ve voted on</p>
+            </div>
+            <svg className="ml-auto w-4 h-4 text-[#374151]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          </Link>
         </div>
       )}
 
