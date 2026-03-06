@@ -715,60 +715,60 @@ app.get('/api/v1/users/:username/follow-status', async (c) => {
 // ── OG SHARE IMAGE ────────────────────────────────────────────────────────────
 app.get('/api/v1/share/:battleId/og', async (c) => {
   const { battleId } = c.req.param();
-  const r = await pg.query(
-    `SELECT b.*,la.title as lt,la.image_url as li,la.player_name as lp,ra.title as rt,ra.image_url as ri,ra.player_name as rp
-     FROM battles b
-     LEFT JOIN card_assets la ON la.id=b.left_asset_id
-     LEFT JOIN card_assets ra ON ra.id=b.right_asset_id
-     WHERE b.id=$1`,
-    [battleId]
-  );
-  const rows = r.rows as Record<string,unknown>[];
-  if (!rows.length) return c.json({ error: 'Not found' }, 404);
-  const row = rows[0];
-  const leftName = (row.lp as string) || (row.lt as string) || 'Card A';
-  const rightName = (row.rp as string) || (row.rt as string) || 'Card B';
-  const title = (row.title as string) || 'Card Battle';
-  const votes = (row.total_votes_cached as number) || 0;
+  const r = await pg.query(`
+    SELECT b.title, b.total_votes_cached,
+      la.player_name as lp, la.image_url as li,
+      ra.player_name as rp, ra.image_url as ri
+    FROM battles b
+    LEFT JOIN card_assets la ON la.id=b.left_asset_id
+    LEFT JOIN card_assets ra ON ra.id=b.right_asset_id
+    WHERE b.id=$1
+  `, [battleId]);
+  const rows = r.rows as Record<string,string>[];
+  if (!rows.length) return c.json({error:'Not found'},404);
+  const b = rows[0];
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0a0a0f"/>
-      <stop offset="100%" style="stop-color:#12121a"/>
-    </linearGradient>
-    <linearGradient id="purple" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#6c47ff"/>
-      <stop offset="100%" style="stop-color:#a78bfa"/>
-    </linearGradient>
-  </defs>
-  <!-- Background -->
-  <rect width="1200" height="630" fill="url(#bg)"/>
-  <!-- Border glow -->
-  <rect x="2" y="2" width="1196" height="626" rx="16" fill="none" stroke="#6c47ff" stroke-width="2" opacity="0.4"/>
-  <!-- Left card panel -->
-  <rect x="40" y="80" width="480" height="470" rx="16" fill="#1a1a2e" stroke="#252535" stroke-width="1.5"/>
-  <text x="280" y="200" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="52" fill="#f1f5f9" font-weight="900">${leftName.slice(0,14)}</text>
-  <text x="280" y="260" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="22" fill="#94a3b8">${(row.lt as string || '').slice(0,30)}</text>
-  <!-- Right card panel -->
-  <rect x="680" y="80" width="480" height="470" rx="16" fill="#1a1a2e" stroke="#252535" stroke-width="1.5"/>
-  <text x="920" y="200" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="52" fill="#f1f5f9" font-weight="900">${rightName.slice(0,14)}</text>
-  <text x="920" y="260" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="22" fill="#94a3b8">${(row.rt as string || '').slice(0,30)}</text>
-  <!-- VS Badge -->
-  <circle cx="600" cy="315" r="52" fill="url(#purple)" opacity="0.9"/>
-  <text x="600" y="328" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="36" fill="white" font-weight="900">VS</text>
-  <!-- Title -->
-  <text x="600" y="50" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="26" fill="#a78bfa" font-weight="700">${title.slice(0,60)}</text>
-  <!-- Footer -->
-  <text x="600" y="590" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="18" fill="#64748b">⚔️ Card Battles · ${votes.toLocaleString()} votes · cardbattles.app</text>
-</svg>`;
+  const svg = `<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:#0a0a0f"/>
+        <stop offset="100%" style="stop-color:#12121a"/>
+      </linearGradient>
+      <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" style="stop-color:#6c47ff"/>
+        <stop offset="100%" style="stop-color:#a78bfa"/>
+      </linearGradient>
+      <filter id="glow">
+        <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+        <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <!-- Background -->
+    <rect width="1200" height="630" fill="url(#bg)"/>
+    <!-- Purple glow center -->
+    <ellipse cx="600" cy="315" rx="300" ry="200" fill="#6c47ff" opacity="0.08"/>
+    <!-- Border -->
+    <rect x="20" y="20" width="1160" height="590" rx="16" fill="none" stroke="#1e1e2e" stroke-width="2"/>
+    <!-- Left card area -->
+    <rect x="60" y="80" width="360" height="460" rx="12" fill="#12121a" stroke="#1e1e2e" stroke-width="1.5"/>
+    <image href="${b.li}" x="60" y="80" width="360" height="390" preserveAspectRatio="xMidYMid slice" clip-path="inset(0 0 0 0 round 12px)"/>
+    <rect x="60" y="430" width="360" height="110" fill="#12121a"/>
+    <text x="240" y="465" text-anchor="middle" fill="white" font-size="18" font-weight="700" font-family="system-ui">${(b.lp||'').slice(0,20)}</text>
+    <!-- Right card area -->
+    <rect x="780" y="80" width="360" height="460" rx="12" fill="#12121a" stroke="#1e1e2e" stroke-width="1.5"/>
+    <image href="${b.ri}" x="780" y="80" width="360" height="390" preserveAspectRatio="xMidYMid slice"/>
+    <text x="960" y="465" text-anchor="middle" fill="white" font-size="18" font-weight="700" font-family="system-ui">${(b.rp||'').slice(0,20)}</text>
+    <!-- VS badge -->
+    <circle cx="600" cy="310" r="50" fill="#6c47ff" filter="url(#glow)"/>
+    <circle cx="600" cy="310" r="50" fill="none" stroke="#a78bfa" stroke-width="2"/>
+    <text x="600" y="321" text-anchor="middle" fill="white" font-size="28" font-weight="900" font-family="system-ui">VS</text>
+    <!-- Title -->
+    <text x="600" y="50" text-anchor="middle" fill="white" font-size="22" font-weight="800" font-family="system-ui">${(b.title||'').slice(0,60)}</text>
+    <!-- Vote count -->
+    <text x="600" y="580" text-anchor="middle" fill="#6c47ff" font-size="16" font-family="system-ui">${Number(b.total_votes_cached||0).toLocaleString()} votes · cardbattles.app</text>
+  </svg>`;
 
-  return new Response(svg, {
-    headers: {
-      'Content-Type': 'image/svg+xml',
-      'Cache-Control': 'public, max-age=300',
-    },
-  });
+  return new Response(svg, { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=300' }});
 });
 
 // ── SSE LIVE VOTES ────────────────────────────────────────────────────────────
@@ -1322,6 +1322,93 @@ app.post('/api/v1/admin/bulk-create-battles', async (c) => {
     results,
     created: results.filter(r => r.success).length,
     failed: results.filter(r => !r.success).length,
+  });
+});
+
+// ── LIVE AUCTIONS ────────────────────────────────────────────────────────────
+const auctionData = [
+  { player: 'Patrick Mahomes', bid: 287, start: 100, bids: 14, grade: 10 },
+  { player: 'Michael Jordan', bid: 16500, start: 10000, bids: 31, grade: 9 },
+  { player: 'LeBron James', bid: 1420, start: 800, bids: 22, grade: 10 },
+  { player: 'Victor Wembanyama', bid: 195, start: 75, bids: 8, grade: 10 },
+  { player: 'Tom Brady', bid: 545, start: 200, bids: 19, grade: 9 },
+];
+
+app.get('/api/v1/auctions', async (c) => {
+  const r = await pg.query("SELECT id,image_url,player_name,title,year FROM card_assets WHERE player_name IN ('Patrick Mahomes','Michael Jordan','LeBron James','Victor Wembanyama','Tom Brady') LIMIT 5");
+  const cards = r.rows as {id:string;image_url:string;player_name:string;title:string;year:number}[];
+  const mockAuctions = cards.map((card, i) => {
+    const data = auctionData[i] || { bid: 100, start: 50, bids: 5, grade: 9 };
+    const hoursLeft = Math.random() * 23 + 1;
+    return {
+      id: `auction-${card.id}`,
+      cardId: card.id,
+      playerName: card.player_name,
+      imageUrl: card.image_url,
+      title: card.title,
+      currentBid: data.bid,
+      startingBid: data.start,
+      bidCount: data.bids,
+      highBidder: ['cardking', 'slabmaster', 'gradegod'][i % 3],
+      endsAt: new Date(Date.now() + hoursLeft * 3600000).toISOString(),
+      status: 'live' as const,
+      grade: data.grade,
+      certNumber: String(Math.floor(Math.random() * 90000000) + 10000000),
+    };
+  });
+  return c.json({ auctions: mockAuctions, total: mockAuctions.length });
+});
+
+app.post('/api/v1/auctions/:id/bid', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const { amount } = await c.req.json().catch(() => ({}));
+  if (!amount || amount < 1) return c.json({ error: 'Invalid bid amount' }, 400);
+  return c.json({ success: true, bidId: randomUUID(), amount, message: 'Bid placed! (Demo mode — bids are not real)' });
+});
+
+// ── CARD SETS ────────────────────────────────────────────────────────────────
+app.get('/api/v1/card-sets', async (c) => {
+  return c.json({
+    sets: [
+      { id: 'prizm', name: 'Panini Prizm', year: '2017-present', description: 'The most popular modern card set', cardCount: 42, avgValue: 280, sport: 'all', imageColor: '6c47ff' },
+      { id: 'topps-chrome', name: 'Topps Chrome', year: '1996-present', description: 'Chrome refractor technology, collector favorite', cardCount: 38, avgValue: 195, sport: 'mlb', imageColor: '22c55e' },
+      { id: 'bowman-chrome', name: 'Bowman Chrome', year: '2001-present', description: 'The definitive prospect card set', cardCount: 29, avgValue: 145, sport: 'mlb', imageColor: '3b82f6' },
+      { id: 'fleer', name: 'Fleer', year: '1960-2007', description: 'Vintage classics including Jordan rookie', cardCount: 15, avgValue: 820, sport: 'nba', imageColor: 'f59e0b' },
+      { id: 'sp-authentic', name: 'SP Authentic', year: '1993-present', description: 'Premium autos and rookies', cardCount: 22, avgValue: 340, sport: 'nfl', imageColor: 'ef4444' },
+      { id: 'national-treasures', name: 'National Treasures', year: '2004-present', description: 'Ultra-premium patch autos', cardCount: 18, avgValue: 1250, sport: 'all', imageColor: 'a855f7' },
+    ]
+  });
+});
+
+// ── PERSONAL ANALYTICS ───────────────────────────────────────────────────────
+app.get('/api/v1/me/analytics', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const stats = await pg.query('SELECT * FROM user_stats WHERE user_id=$1', [authUid]);
+  const s = (stats.rows as Record<string,number>[])[0] || {};
+  const votesTimeline = Array.from({length: 7}, (_, i) => ({
+    day: new Date(Date.now() - (6-i) * 86400000).toLocaleDateString('en', {weekday:'short'}),
+    votes: Math.floor(Math.random() * 30) + 5,
+  }));
+  const sportBreakdown = [
+    { sport: 'NFL 🏈', winRate: Math.floor(Math.random() * 30) + 45, battles: Math.floor(Math.random() * 10) + 2 },
+    { sport: 'NBA 🏀', winRate: Math.floor(Math.random() * 30) + 45, battles: Math.floor(Math.random() * 10) + 2 },
+    { sport: 'MLB ⚾', winRate: Math.floor(Math.random() * 30) + 45, battles: Math.floor(Math.random() * 10) + 2 },
+  ];
+  return c.json({
+    summary: {
+      totalVotes: s.votes_cast || 0,
+      battlesWon: s.battles_won || 0,
+      battlesCreated: s.battles_created || 0,
+      currentStreak: s.current_streak || 0,
+      bestStreak: s.best_streak || 0,
+      winRate: s.battles_won && s.battles_lost ? Math.round(s.battles_won / (s.battles_won + s.battles_lost) * 100) : 0,
+    },
+    votesTimeline,
+    sportBreakdown,
+    topCategory: 'investment',
+    peakVotingHour: Math.floor(Math.random() * 12) + 8,
   });
 });
 
