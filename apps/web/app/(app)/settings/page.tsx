@@ -129,7 +129,7 @@ function DeleteModal({ onClose }: { onClose: () => void }) {
 
 // ── Main settings page ─────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const { user: authUser, logout } = useAuth();
+  const { user: authUser, loading: authLoading, logout } = useAuth();
   const router = useRouter();
   const qc = useQueryClient();
 
