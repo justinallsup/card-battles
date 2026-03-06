@@ -101,7 +101,7 @@ export function BattleCard({ battle, compact = false }: BattleCardProps) {
         {/* Sponsor CTA */}
         {battle.isSponsored && battle.sponsorCta && (
           <a
-            href={(battle.sponsorCta as { url: string; label: string }).url}
+            href={(battle.sponsorCta as { url: string; label: string }).url} onClick={() => { import("../../lib/analytics").then(m => m.trackSponsorClick(battle.id, (battle.sponsorCta as { url: string; label: string }).url)); }}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-3 flex w-full items-center justify-center gap-2 py-2 rounded-lg bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#f59e0b] text-sm font-semibold hover:bg-[#f59e0b]/15 transition-colors"
