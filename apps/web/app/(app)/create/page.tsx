@@ -1,118 +1,159 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { assets as assetsApi, battles as battlesApi } from '../../../lib/api';
 import { Button } from '../../../components/ui/Button';
-import { Upload, X } from 'lucide-react';
-import type { CardAsset } from '@card-battles/types';
+import { X, Image as ImageIcon, Swords } from 'lucide-react';
+import { getToken } from '../../../lib/api';
+
+const SPORTS = ['nfl', 'nba', 'mlb', 'nhl', 'soccer', 'other'];
 
 const CATEGORIES = [
   { id: 'investment', label: '📈 Investment' },
   { id: 'coolest', label: '🔥 Coolest' },
   { id: 'rarity', label: '💎 Rarest' },
-  { id: 'long_term_hold', label: '📊 Long Hold' },
 ];
 
 const DURATIONS = [
-  { label: '1 Hour', value: 3600 },
-  { label: '6 Hours', value: 21600 },
-  { label: '24 Hours', value: 86400 },
-  { label: '48 Hours', value: 172800 },
+  { label: '24h', value: 86400 },
+  { label: '48h', value: 172800 },
+  { label: '72h', value: 259200 },
 ];
 
-interface CardSlot {
-  asset: CardAsset | null;
+interface CardInput {
+  imageUrl: string;
   title: string;
-  uploading: boolean;
+  playerName: string;
+  sport: string;
 }
 
-function UploadSlot({
-  slot,
+const emptyCard = (): CardInput => ({ imageUrl: '', title: '', playerName: '', sport: 'nfl' });
+
+function CardSlot({
   label,
-  onFile,
-  onTitleChange,
-  onClear,
+  card,
+  onChange,
 }: {
-  slot: CardSlot;
   label: string;
-  onFile: (file: File) => void;
-  onTitleChange: (t: string) => void;
-  onClear: () => void;
+  card: CardInput;
+  onChange: (c: CardInput) => void;
 }) {
-  const ref = useRef<HTMLInputElement>(null);
-
   return (
-    <div className="flex-1 space-y-2">
-      <p className="text-xs font-semibold text-[#64748b] uppercase tracking-wide">{label}</p>
+    <div className="flex-1 space-y-3">
+      <p className="text-xs font-bold text-[#64748b] uppercase tracking-widest">{label}</p>
 
-      <div
-        onClick={() => !slot.asset && ref.current?.click()}
-        className={`relative aspect-[3/4] rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-colors overflow-hidden
-          ${slot.asset ? 'border-[#6c47ff]/40 cursor-default' : 'border-[#1e1e2e] hover:border-[#6c47ff]/40'}`}
-      >
-        {slot.uploading && (
-          <div className="absolute inset-0 bg-[#0a0a0f]/80 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-[#6c47ff] border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
-        {slot.asset ? (
+      {/* Preview */}
+      <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-[#1e1e2e] overflow-hidden bg-[#0d0d18] flex items-center justify-center relative">
+        {card.imageUrl ? (
           <>
-            <img src={slot.asset.imageUrl} alt={slot.asset.title} className="w-full h-full object-cover" />
+            <img src={card.imageUrl} alt={card.title} className="w-full h-full object-cover" />
             <button
-              onClick={(e) => { e.stopPropagation(); onClear(); }}
-              className="absolute top-2 right-2 w-7 h-7 bg-[#0a0a0f]/80 rounded-full flex items-center justify-center text-[#ef4444] hover:bg-[#ef4444]/20"
+              onClick={() => onChange({ ...card, imageUrl: '' })}
+              className="absolute top-2 right-2 w-7 h-7 bg-black/70 rounded-full flex items-center justify-center text-[#ef4444] hover:bg-[#ef4444]/20 transition-colors"
             >
-              <X size={14} />
+              <X size={13} />
             </button>
           </>
         ) : (
-          <>
-            <Upload size={24} className="text-[#374151] mb-2" />
-            <p className="text-xs text-[#374151]">Upload card image</p>
-          </>
+          <div className="text-center text-[#374151]">
+            <ImageIcon size={28} className="mx-auto mb-2" />
+            <p className="text-xs">Paste image URL below</p>
+          </div>
         )}
-        <input
-          ref={ref}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
-        />
       </div>
 
+      {/* Fields */}
+      <input
+        type="url"
+        placeholder="Image URL (https://...)"
+        value={card.imageUrl}
+        onChange={(e) => onChange({ ...card, imageUrl: e.target.value })}
+        className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
+      />
       <input
         type="text"
-        placeholder="Card title (e.g. Mahomes 2017 Prizm RC)"
-        value={slot.title}
-        onChange={(e) => onTitleChange(e.target.value)}
-        className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-sm text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff]"
+        placeholder="Card title *"
+        value={card.title}
+        onChange={(e) => onChange({ ...card, title: e.target.value })}
+        className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
       />
+      <input
+        type="text"
+        placeholder="Player name"
+        value={card.playerName}
+        onChange={(e) => onChange({ ...card, playerName: e.target.value })}
+        className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
+      />
+      <select
+        value={card.sport}
+        onChange={(e) => onChange({ ...card, sport: e.target.value })}
+        className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] focus:outline-none focus:border-[#6c47ff] transition-colors"
+      >
+        {SPORTS.map((s) => (
+          <option key={s} value={s}>{s.toUpperCase()}</option>
+        ))}
+      </select>
     </div>
   );
 }
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
+
+async function uploadAsset(card: CardInput): Promise<{ id: string }> {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/assets/upload`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      imageUrl: card.imageUrl || `https://placehold.co/400x560/6c47ff/ffffff?text=${encodeURIComponent(card.title)}`,
+      title: card.title,
+      sport: card.sport,
+      playerName: card.playerName,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(err.error || 'Upload failed');
+  }
+  return res.json();
+}
+
+async function createBattle(data: {
+  title: string;
+  leftAssetId: string;
+  rightAssetId: string;
+  categories: string[];
+  durationSeconds: number;
+}): Promise<{ id: string }> {
+  const token = getToken();
+  const res = await fetch(`${BASE_URL}/battles`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Failed to create battle' }));
+    throw new Error(err.error || 'Failed to create battle');
+  }
+  return res.json();
+}
+
 export default function CreatePage() {
   const router = useRouter();
-  const [left, setLeft] = useState<CardSlot>({ asset: null, title: '', uploading: false });
-  const [right, setRight] = useState<CardSlot>({ asset: null, title: '', uploading: false });
-  const [title, setTitle] = useState('');
+  const [left, setLeft] = useState<CardInput>(emptyCard());
+  const [right, setRight] = useState<CardInput>(emptyCard());
+  const [battleTitle, setBattleTitle] = useState('');
   const [selectedCats, setSelectedCats] = useState<string[]>(['investment', 'coolest', 'rarity']);
   const [duration, setDuration] = useState(86400);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-
-  const handleUpload = async (side: 'left' | 'right', file: File) => {
-    const setter = side === 'left' ? setLeft : setRight;
-    const slot = side === 'left' ? left : right;
-    setter((s) => ({ ...s, uploading: true }));
-    try {
-      const asset = await assetsApi.upload(file, { title: slot.title || file.name });
-      setter((s) => ({ ...s, asset, uploading: false }));
-    } catch {
-      setter((s) => ({ ...s, uploading: false }));
-      setError('Upload failed. Check your connection.');
-    }
-  };
+  const [step, setStep] = useState<'form' | 'success'>('form');
+  const [createdId, setCreatedId] = useState('');
 
   const toggleCat = (id: string) => {
     setSelectedCats((prev) =>
@@ -121,73 +162,85 @@ export default function CreatePage() {
   };
 
   const handleSubmit = async () => {
-    if (!left.asset || !right.asset) return setError('Upload both card images');
-    if (!left.title.trim() || !right.title.trim()) return setError('Enter titles for both cards');
+    if (!left.title.trim()) return setError('Enter a title for the left card');
+    if (!right.title.trim()) return setError('Enter a title for the right card');
     if (selectedCats.length === 0) return setError('Select at least one category');
 
     setError('');
     setSubmitting(true);
     try {
-      const battle = await battlesApi.create({
-        title: title || `${left.title.split(' ')[0]} vs ${right.title.split(' ')[0]}`,
-        leftAssetId: left.asset.id,
-        rightAssetId: right.asset.id,
+      const [leftAsset, rightAsset] = await Promise.all([
+        uploadAsset(left),
+        uploadAsset(right),
+      ]);
+
+      const title = battleTitle.trim() ||
+        `${left.playerName || left.title.split(' ')[0]} vs ${right.playerName || right.title.split(' ')[0]}`;
+
+      const battle = await createBattle({
+        title,
+        leftAssetId: leftAsset.id,
+        rightAssetId: rightAsset.id,
         categories: selectedCats,
         durationSeconds: duration,
       });
-      router.push(`/battles/${battle.id}`);
+
+      setCreatedId(battle.id);
+      setStep('success');
+      setTimeout(() => router.push(`/battles/${battle.id}`), 1500);
     } catch (err: unknown) {
       const e = err as { message?: string };
-      setError(e.message || 'Failed to create battle');
+      setError(e.message || 'Something went wrong');
       setSubmitting(false);
     }
   };
 
+  if (step === 'success') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4 text-center">
+        <div className="w-20 h-20 rounded-full bg-[#6c47ff]/20 flex items-center justify-center animate-pulse">
+          <Swords size={36} className="text-[#6c47ff]" />
+        </div>
+        <h2 className="text-2xl font-black text-white">Battle Created! ⚔️</h2>
+        <p className="text-[#64748b]">Redirecting to your battle…</p>
+        <Button onClick={() => router.push(`/battles/${createdId}`)}>View Battle</Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-6">
       <div>
         <h1 className="text-xl font-black text-white">Create Battle ⚔️</h1>
-        <p className="text-sm text-[#64748b] mt-1">Upload two cards and let the community decide</p>
+        <p className="text-sm text-[#64748b] mt-1">Set up two cards and let the community decide</p>
       </div>
 
-      {/* Card uploads */}
+      {/* Card slots */}
       <div className="flex gap-3">
-        <UploadSlot
-          slot={left}
-          label="Left Card"
-          onFile={(f) => handleUpload('left', f)}
-          onTitleChange={(t) => setLeft((s) => ({ ...s, title: t }))}
-          onClear={() => setLeft({ asset: null, title: '', uploading: false })}
-        />
-        <div className="flex items-center justify-center w-8 text-[#374151] font-black text-sm">VS</div>
-        <UploadSlot
-          slot={right}
-          label="Right Card"
-          onFile={(f) => handleUpload('right', f)}
-          onTitleChange={(t) => setRight((s) => ({ ...s, title: t }))}
-          onClear={() => setRight({ asset: null, title: '', uploading: false })}
-        />
+        <CardSlot label="Left Card" card={left} onChange={setLeft} />
+        <div className="flex items-center justify-center w-8 shrink-0">
+          <span className="text-[#374151] font-black text-sm rotate-0">VS</span>
+        </div>
+        <CardSlot label="Right Card" card={right} onChange={setRight} />
       </div>
 
       {/* Battle title */}
       <div>
-        <label className="text-xs font-semibold text-[#64748b] uppercase tracking-wide block mb-2">
-          Battle Title (optional)
+        <label className="text-xs font-bold text-[#64748b] uppercase tracking-widest block mb-2">
+          Battle Title <span className="text-[#374151] font-normal normal-case">(optional — auto-generated)</span>
         </label>
         <input
           type="text"
-          placeholder="e.g. GOAT Rookie Debate"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2.5 text-sm text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff]"
+          placeholder="e.g. GOAT Rookie Debate 🐐"
+          value={battleTitle}
+          onChange={(e) => setBattleTitle(e.target.value)}
+          className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2.5 text-sm text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
         />
       </div>
 
       {/* Categories */}
       <div>
-        <label className="text-xs font-semibold text-[#64748b] uppercase tracking-wide block mb-2">
-          Vote Categories
-        </label>
+        <label className="text-xs font-bold text-[#64748b] uppercase tracking-widest block mb-2">Vote Categories</label>
         <div className="flex flex-wrap gap-2">
           {CATEGORIES.map((cat) => (
             <button
@@ -196,8 +249,7 @@ export default function CreatePage() {
               className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all
                 ${selectedCats.includes(cat.id)
                   ? 'bg-[#6c47ff]/15 border-[#6c47ff] text-[#6c47ff]'
-                  : 'bg-[#12121a] border-[#1e1e2e] text-[#64748b] hover:border-[#374151]'
-                }`}
+                  : 'bg-[#12121a] border-[#1e1e2e] text-[#64748b] hover:border-[#374151]'}`}
             >
               {cat.label}
             </button>
@@ -207,19 +259,16 @@ export default function CreatePage() {
 
       {/* Duration */}
       <div>
-        <label className="text-xs font-semibold text-[#64748b] uppercase tracking-wide block mb-2">
-          Duration
-        </label>
+        <label className="text-xs font-bold text-[#64748b] uppercase tracking-widest block mb-2">Duration</label>
         <div className="flex gap-2">
           {DURATIONS.map((d) => (
             <button
               key={d.value}
               onClick={() => setDuration(d.value)}
-              className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all
+              className={`flex-1 py-2.5 rounded-lg text-sm font-bold border transition-all
                 ${duration === d.value
                   ? 'bg-[#6c47ff]/15 border-[#6c47ff] text-[#6c47ff]'
-                  : 'bg-[#12121a] border-[#1e1e2e] text-[#64748b] hover:border-[#374151]'
-                }`}
+                  : 'bg-[#12121a] border-[#1e1e2e] text-[#64748b] hover:border-[#374151]'}`}
             >
               {d.label}
             </button>
@@ -227,14 +276,18 @@ export default function CreatePage() {
         </div>
       </div>
 
-      {error && <p className="text-sm text-[#ef4444] text-center">{error}</p>}
+      {error && (
+        <div className="bg-[#ef4444]/10 border border-[#ef4444]/30 rounded-lg px-4 py-3 text-sm text-[#ef4444]">
+          {error}
+        </div>
+      )}
 
       <Button
         size="lg"
         className="w-full"
         onClick={handleSubmit}
         loading={submitting}
-        disabled={!left.asset || !right.asset}
+        disabled={submitting || !left.title.trim() || !right.title.trim()}
       >
         ⚔️ Publish Battle
       </Button>

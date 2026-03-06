@@ -130,6 +130,40 @@ export const assets = {
 export const users = {
   profile: (username: string) => request<User>(`/users/${username}`),
   stats: (username: string) => request<UserStats>(`/users/${username}/stats`),
+  battles: (username: string) => request<{ items: unknown[]; total: number }>(`/users/${username}/battles`),
+  updateMe: (data: { bio?: string }) =>
+    request<User>('/auth/me', { method: 'PATCH', body: JSON.stringify(data), auth: true }),
+};
+
+// ─── Fantasy ──────────────────────────────────────────────────────────────────
+
+export interface League {
+  id: string;
+  name: string;
+  createdBy: string;
+  members: string[];
+  draftStatus: 'open' | 'drafting' | 'active';
+  picks: Record<string, string[]>;
+  createdAt: string;
+}
+
+export interface FantasyLeaguesResponse {
+  myLeagues: League[];
+  openLeagues: League[];
+}
+
+export const fantasy = {
+  leagues: () => request<FantasyLeaguesResponse>('/fantasy/leagues', { auth: true }),
+  create: (name: string) =>
+    request<League>('/fantasy/leagues', { method: 'POST', body: JSON.stringify({ name }), auth: true }),
+  join: (id: string) =>
+    request<League>(`/fantasy/leagues/${id}/join`, { method: 'POST', auth: true }),
+  pick: (id: string, assetId: string) =>
+    request<{ league: League; picks: string[] }>(`/fantasy/leagues/${id}/pick`, {
+      method: 'POST',
+      body: JSON.stringify({ assetId }),
+      auth: true,
+    }),
 };
 
 // ─── Leaderboards ─────────────────────────────────────────────────────────────

@@ -216,7 +216,9 @@ app.post('/api/v1/battles/:id/vote', async (c) => {
   catch(e:unknown){if((e as{message?:string}).message?.includes('UNIQUE'))return c.json({error:'Already voted'},409);throw e;}
   const vr=await pg.query('SELECT choice FROM votes WHERE battle_id=$1 AND category=$2',[bid,category]);
   const rows=vr.rows as{choice:string}[];const left=rows.filter(v=>v.choice==='left').length;const right=rows.filter(v=>v.choice==='right').length;const total=left+right;
-  return c.json({battleId:bid,category,userChoice:choice,leftPercent:total>0?Math.round(left/total*1000)/10:50,rightPercent:total>0?Math.round(right/total*1000)/10:50,totalVotesInCategory:total});
+  const result={battleId:bid,category,userChoice:choice,leftPercent:total>0?Math.round(left/total*1000)/10:50,rightPercent:total>0?Math.round(right/total*1000)/10:50,totalVotesInCategory:total};
+  notifyBattle(bid, { type: 'vote', ...result });
+  return c.json(result);
 });
 app.post('/api/v1/battles/:id/report', async (c) => {const u=uid(c.req.header('Authorization'));if(!u)return c.json({error:'Unauthorized'},401);return c.json({message:'Report submitted'},201);});
 app.get('/api/v1/battles/:id/results', async (c) => {
@@ -246,6 +248,60 @@ app.get('/api/v1/users/:username/stats', async (c) => {
   const sr=await pg.query('SELECT * FROM user_stats WHERE user_id=$1',[urows[0].id]);
   return c.json((sr.rows as unknown[])[0]??{});
 });
+app.get('/api/v1/users/:username/battles', async (c) => {
+  const ur=await pg.query('SELECT id FROM users WHERE username=$1',[c.req.param('username')]);
+  const urows=ur.rows as{id:string}[];if(!urows.length)return c.json({error:'Not found'},404);
+  const r=await pg.query(`
+    SELECT b.*,la.id as lid,la.image_url as limg,la.player_name as lplayer,
+      ra.id as rid,ra.image_url as rimg,ra.player_name as rplayer
+    FROM battles b
+    LEFT JOIN card_assets la ON la.id=b.left_asset_id
+    LEFT JOIN card_assets ra ON ra.id=b.right_asset_id
+    WHERE b.created_by_user_id=$1 ORDER BY b.created_at DESC LIMIT 10
+  `,[urows[0].id]);
+  return c.json({items:r.rows,total:(r.rows as unknown[]).length});
+});
+
+// ── AUTH PATCH (profile update) ──────────────────────────────────────────────
+app.patch('/api/v1/auth/me', async (c) => {
+  const u=uid(c.req.header('Authorization'));if(!u)return c.json({error:'Unauthorized'},401);
+  const{bio}=await c.req.json().catch(()=>({}));
+  if(bio!==undefined)await pg.query('UPDATE users SET bio=$1 WHERE id=$2',[bio,u]);
+  const r=await pg.query('SELECT id,username,email,avatar_url,bio,pro_status,created_at FROM users WHERE id=$1',[u]);
+  return c.json((r.rows as unknown[])[0]);
+});
+
+// ── FANTASY LEAGUES ───────────────────────────────────────────────────────────
+type League={id:string;name:string;createdBy:string;members:string[];draftStatus:'open'|'drafting'|'active';picks:Record<string,string[]>;createdAt:string;};
+const leagues=new Map<string,League>();
+
+app.get('/api/v1/fantasy/leagues', async (c) => {
+  const u=uid(c.req.header('Authorization'));
+  const all=Array.from(leagues.values());
+  const mine=u?all.filter(l=>l.members.includes(u)):[];
+  const open=all.filter(l=>l.draftStatus==='open'&&!l.members.includes(u??''));
+  return c.json({myLeagues:mine,openLeagues:open});
+});
+app.post('/api/v1/fantasy/leagues', async (c) => {
+  const u=uid(c.req.header('Authorization'));if(!u)return c.json({error:'Unauthorized'},401);
+  const{name}=await c.req.json().catch(()=>({}));if(!name)return c.json({error:'Name required'},400);
+  const id=randomUUID();
+  const league:League={id,name,createdBy:u,members:[u],draftStatus:'open',picks:{},createdAt:new Date().toISOString()};
+  leagues.set(id,league);return c.json(league,201);
+});
+app.post('/api/v1/fantasy/leagues/:id/join', async (c) => {
+  const u=uid(c.req.header('Authorization'));if(!u)return c.json({error:'Unauthorized'},401);
+  const league=leagues.get(c.req.param('id'));if(!league)return c.json({error:'Not found'},404);
+  if(!league.members.includes(u))league.members.push(u);return c.json(league);
+});
+app.post('/api/v1/fantasy/leagues/:id/pick', async (c) => {
+  const u=uid(c.req.header('Authorization'));if(!u)return c.json({error:'Unauthorized'},401);
+  const league=leagues.get(c.req.param('id'));if(!league)return c.json({error:'Not found'},404);
+  const{assetId}=await c.req.json().catch(()=>({}));if(!assetId)return c.json({error:'assetId required'},400);
+  if(!league.picks[u])league.picks[u]=[];
+  if(league.picks[u].length>=5)return c.json({error:'Max 5 picks per team'},400);
+  league.picks[u].push(assetId);return c.json({league,picks:league.picks[u]});
+});
 
 // ── DAILY PICKS ───────────────────────────────────────────────────────────────
 app.get('/api/v1/daily-picks/current', async (c) => {
@@ -263,7 +319,122 @@ app.post('/api/v1/daily-picks/:id/enter', async (c) => {
   return c.json({message:'Entry submitted',choice},201);
 });
 
+// ── ASSETS ────────────────────────────────────────────────────────────────────
+app.post('/api/v1/assets/upload', async (c) => {
+  const u = uid(c.req.header('Authorization'));
+  if (!u) return c.json({ error: 'Unauthorized' }, 401);
+  const body = await c.req.json().catch(() => ({}));
+  const { imageUrl, title, sport, playerName, year } = body as Record<string, string>;
+  if (!imageUrl || !title) return c.json({ error: 'imageUrl and title required' }, 400);
+  const id = randomUUID();
+  await pg.query(
+    'INSERT INTO card_assets (id,created_by_user_id,image_url,thumb_url,title,sport,player_name,year,source) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+    [id, u, imageUrl, imageUrl, title, sport || 'unknown', playerName || '', year ? parseInt(year) : null, 'upload']
+  );
+  const r = await pg.query('SELECT * FROM card_assets WHERE id=$1', [id]);
+  return c.json((r.rows as unknown[])[0], 201);
+});
+
+// ── CREATE BATTLE ─────────────────────────────────────────────────────────────
+app.post('/api/v1/battles', async (c) => {
+  const u = uid(c.req.header('Authorization'));
+  if (!u) return c.json({ error: 'Unauthorized' }, 401);
+  const body = await c.req.json().catch(() => ({}));
+  const { title, leftAssetId, rightAssetId, categories, durationSeconds } = body as Record<string, unknown>;
+  if (!leftAssetId || !rightAssetId) return c.json({ error: 'leftAssetId and rightAssetId required' }, 400);
+  if (!title) return c.json({ error: 'title required' }, 400);
+  const cats = Array.isArray(categories) ? categories : ['investment', 'coolest', 'rarity'];
+  const dur = typeof durationSeconds === 'number' ? durationSeconds : 86400;
+  const id = randomUUID();
+  const now = new Date();
+  const endsAt = new Date(now.getTime() + dur * 1000).toISOString();
+  await pg.query(
+    'INSERT INTO battles (id,created_by_user_id,left_asset_id,right_asset_id,title,categories,duration_seconds,starts_at,ends_at,status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+    [id, u, leftAssetId, rightAssetId, title, JSON.stringify(cats), dur, now.toISOString(), endsAt, 'live']
+  );
+  await pg.query('UPDATE user_stats SET battles_created=battles_created+1 WHERE user_id=$1', [u]);
+  const r = await pg.query(`SELECT b.*,la.id as lid,la.title as lt,la.image_url as li,la.player_name as lp,ra.id as rid,ra.title as rt,ra.image_url as ri,ra.player_name as rp,usr.username as creator FROM battles b LEFT JOIN card_assets la ON la.id=b.left_asset_id LEFT JOIN card_assets ra ON ra.id=b.right_asset_id LEFT JOIN users usr ON usr.id=b.created_by_user_id WHERE b.id=$1`, [id]);
+  const rows = r.rows as Record<string, unknown>[];
+  if (!rows.length) return c.json({ error: 'Creation failed' }, 500);
+  const row = rows[0];
+  return c.json({
+    id: row.id, title: row.title, status: row.status,
+    categories: JSON.parse(row.categories as string),
+    endsAt: row.ends_at, startsAt: row.starts_at,
+    totalVotesCached: 0, isSponsored: false, sponsorCta: null,
+    createdByUsername: row.creator,
+    left: { assetId: row.lid, title: row.lt, imageUrl: row.li, playerName: row.lp },
+    right: { assetId: row.rid, title: row.rt, imageUrl: row.ri, playerName: row.rp },
+    myVotes: {}
+  }, 201);
+});
+
+// ── BILLING ───────────────────────────────────────────────────────────────────
+app.get('/api/v1/billing/plans', (c) => {
+  return c.json({
+    plans: [
+      {
+        id: 'pro_monthly',
+        name: 'Card Battles Pro',
+        price: 999,
+        interval: 'month',
+        features: [
+          'Unlimited battle creation',
+          'Advanced analytics',
+          'Pro badge on profile',
+          'Early access to new features',
+          'No ads',
+        ],
+      },
+    ],
+  });
+});
+app.post('/api/v1/billing/subscribe', async (c) => {
+  const u = uid(c.req.header('Authorization'));
+  if (!u) return c.json({ error: 'Unauthorized' }, 401);
+  return c.json({
+    checkoutUrl: 'https://buy.stripe.com/demo',
+    message: 'Stripe not configured in demo mode',
+  });
+});
+
 app.post('/api/v1/analytics/sponsor-click', async (c) => c.json({tracked:true}));
+
+// ── SSE LIVE VOTES ────────────────────────────────────────────────────────────
+const sseClients = new Map<string, Set<(data: string) => void>>();
+
+function notifyBattle(battleId: string, data: unknown) {
+  const clients = sseClients.get(battleId);
+  if (clients) {
+    const msg = `data: ${JSON.stringify(data)}\n\n`;
+    clients.forEach(send => send(msg));
+  }
+}
+
+app.get('/api/v1/battles/:id/live', (c) => {
+  const { id } = c.req.param();
+  const stream = new ReadableStream({
+    start(controller) {
+      const send = (data: string) => {
+        try { controller.enqueue(new TextEncoder().encode(data)); } catch {}
+      };
+      if (!sseClients.has(id)) sseClients.set(id, new Set());
+      sseClients.get(id)!.add(send);
+      send(`data: ${JSON.stringify({ type: 'connected', battleId: id })}\n\n`);
+      c.req.raw.signal.addEventListener('abort', () => {
+        sseClients.get(id)?.delete(send);
+      });
+    }
+  });
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
+});
 
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────
 app.all('*', async (c) => {
