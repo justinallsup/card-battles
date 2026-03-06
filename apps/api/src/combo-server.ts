@@ -143,10 +143,13 @@ async function seedDb() {
   for (let i = 0; i < battles.length; i++) {
     const b = battles[i]; const l = assetIds[b.l]; const r = assetIds[b.r]; if (!l||!r) continue;
     const id = randomUUID();
+    // Spread battles over the past 7 days for a more natural feed
+    const daysAgo = Math.random() * 7;
+    const startsAt = new Date(now.getTime() - daysAgo * 86400 * 1000).toISOString();
     const endsAt = new Date(now.getTime()+(Math.random()*44+2)*3600*1000).toISOString();
     const cta = b.sp ? JSON.stringify({label:'Grade Your Cards →',url:'https://psacard.com'}) : null;
-    await pg.query('INSERT INTO battles (id,created_by_user_id,left_asset_id,right_asset_id,title,categories,duration_seconds,starts_at,ends_at,is_sponsored,sponsor_id,sponsor_cta,total_votes_cached) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
-      [id, users[i%users.length].id, l, r, b.title, '["investment","coolest","rarity"]', 86400, now.toISOString(), endsAt, !!b.sp, b.sp?spId:null, cta, Math.floor(Math.random()*8000)+200]);
+    await pg.query('INSERT INTO battles (id,created_by_user_id,left_asset_id,right_asset_id,title,categories,duration_seconds,starts_at,ends_at,is_sponsored,sponsor_id,sponsor_cta,total_votes_cached,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',
+      [id, users[i%users.length].id, l, r, b.title, '["investment","coolest","rarity"]', 86400, startsAt, endsAt, !!b.sp, b.sp?spId:null, cta, Math.floor(Math.random()*8000)+200, startsAt]);
     for (let v = 0; v < 12; v++) {
       const cats=['investment','coolest','rarity'];
       await pg.query('INSERT INTO votes (id,battle_id,user_id,category,choice) VALUES ($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING',

@@ -106,7 +106,7 @@ function StepSports({ onNext }: { onNext: () => void }) {
 function StepVote({ onNext }: { onNext: () => void }) {
   const [battle, setBattle] = useState<Battle | null>(null);
   const [loading, setLoading] = useState(true);
-  const [voted, setVoted] = useState<'a' | 'b' | null>(null);
+  const [voted, setVoted] = useState<'left' | 'right' | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -117,19 +117,25 @@ function StepVote({ onNext }: { onNext: () => void }) {
     }).finally(() => setLoading(false));
   }, []);
 
-  const handleVote = async (choice: 'a' | 'b') => {
+  const handleVote = async (choice: 'left' | 'right') => {
     if (!battle || voted) return;
     setVoted(choice);
     try {
-      await battlesApi.vote(battle.id, choice);
+      // Use first category for the onboarding vote
+      const category = battle.categories[0] ?? 'overall';
+      await battlesApi.vote(battle.id, category, choice);
     } catch {
-      // Vote may fail without auth, that's OK — proceed
+      // Vote may fail without auth — that's OK, proceed anyway
     }
   };
 
-  const totalVotes = battle ? (battle.votesA + battle.votesB || 1) : 1;
-  const pctA = battle ? Math.round((battle.votesA / totalVotes) * 100) : 50;
-  const pctB = 100 - pctA;
+  const pctLeft = battle?.result?.overall
+    ? Math.round(
+        Object.values(battle.result.byCategory).reduce((s, c) => s + c.leftPercent, 0) /
+        Math.max(Object.keys(battle.result.byCategory).length, 1)
+      )
+    : 50;
+  const pctRight = 100 - pctLeft;
 
   return (
     <div className="space-y-6">
@@ -155,31 +161,31 @@ function StepVote({ onNext }: { onNext: () => void }) {
       )}
 
       {battle && !loading && (
-        <div className="rounded-2xl p-5 border border-[#1e1e2e]" style={{ background: '#12121a' }}>
+        <div className="rounded-2xl p-5 border border-[#1e1e2e]" style={{ background: '#0a0a0f' }}>
           <p className="text-xs font-bold text-[#64748b] uppercase tracking-widest text-center mb-4">{battle.title}</p>
           <div className="flex items-center gap-4">
-            {/* Card A */}
+            {/* Left card */}
             <button
-              onClick={() => handleVote('a')}
+              onClick={() => handleVote('left')}
               disabled={!!voted}
               className="flex-1 group transition-all duration-200 disabled:cursor-default"
-              style={voted === 'a' ? { transform: 'scale(1.02)' } : voted ? { opacity: 0.6 } : {}}
+              style={voted === 'left' ? { transform: 'scale(1.02)' } : voted ? { opacity: 0.6 } : {}}
             >
               <div className="rounded-xl overflow-hidden border-2 transition-all"
                 style={{
                   aspectRatio: '3/4',
-                  borderColor: voted === 'a' ? '#6c47ff' : '#252535',
-                  boxShadow: voted === 'a' ? '0 0 20px rgba(108,71,255,0.4)' : undefined,
+                  borderColor: voted === 'left' ? '#6c47ff' : '#252535',
+                  boxShadow: voted === 'left' ? '0 0 20px rgba(108,71,255,0.4)' : undefined,
                 }}>
-                <img src={battle.cardA.imageUrl || 'https://placehold.co/150x200/1a1030/a78bfa?text=Card+A'}
-                  alt={battle.cardA.title}
+                <img src={battle.left.imageUrl || 'https://placehold.co/150x200/1a1030/a78bfa?text=Card'}
+                  alt={battle.left.title}
                   className="w-full h-full object-cover" />
               </div>
-              <p className="mt-2 text-xs text-[#94a3b8] text-center line-clamp-2">{battle.cardA.title}</p>
+              <p className="mt-2 text-xs text-[#94a3b8] text-center line-clamp-2">{battle.left.playerName ?? battle.left.title}</p>
               {voted && (
                 <div className="mt-1 text-center text-xs font-black"
-                  style={{ color: voted === 'a' ? '#6c47ff' : '#374151' }}>
-                  {pctA}%
+                  style={{ color: voted === 'left' ? '#6c47ff' : '#374151' }}>
+                  {pctLeft}%
                 </div>
               )}
             </button>
@@ -192,28 +198,28 @@ function StepVote({ onNext }: { onNext: () => void }) {
               </div>
             </div>
 
-            {/* Card B */}
+            {/* Right card */}
             <button
-              onClick={() => handleVote('b')}
+              onClick={() => handleVote('right')}
               disabled={!!voted}
               className="flex-1 group transition-all duration-200 disabled:cursor-default"
-              style={voted === 'b' ? { transform: 'scale(1.02)' } : voted ? { opacity: 0.6 } : {}}
+              style={voted === 'right' ? { transform: 'scale(1.02)' } : voted ? { opacity: 0.6 } : {}}
             >
               <div className="rounded-xl overflow-hidden border-2 transition-all"
                 style={{
                   aspectRatio: '3/4',
-                  borderColor: voted === 'b' ? '#6c47ff' : '#252535',
-                  boxShadow: voted === 'b' ? '0 0 20px rgba(108,71,255,0.4)' : undefined,
+                  borderColor: voted === 'right' ? '#6c47ff' : '#252535',
+                  boxShadow: voted === 'right' ? '0 0 20px rgba(108,71,255,0.4)' : undefined,
                 }}>
-                <img src={battle.cardB.imageUrl || 'https://placehold.co/150x200/0d1117/64748b?text=Card+B'}
-                  alt={battle.cardB.title}
+                <img src={battle.right.imageUrl || 'https://placehold.co/150x200/0d1117/64748b?text=Card'}
+                  alt={battle.right.title}
                   className="w-full h-full object-cover" />
               </div>
-              <p className="mt-2 text-xs text-[#94a3b8] text-center line-clamp-2">{battle.cardB.title}</p>
+              <p className="mt-2 text-xs text-[#94a3b8] text-center line-clamp-2">{battle.right.playerName ?? battle.right.title}</p>
               {voted && (
                 <div className="mt-1 text-center text-xs font-black"
-                  style={{ color: voted === 'b' ? '#6c47ff' : '#374151' }}>
-                  {pctB}%
+                  style={{ color: voted === 'right' ? '#6c47ff' : '#374151' }}>
+                  {pctRight}%
                 </div>
               )}
             </button>
@@ -221,7 +227,7 @@ function StepVote({ onNext }: { onNext: () => void }) {
 
           {voted && (
             <div className="mt-4 text-center">
-              <p className="text-[#a78bfa] font-bold text-sm mb-3">Vote cast! ✓</p>
+              <p className="text-[#a78bfa] font-bold text-sm">Vote cast! ✓</p>
             </div>
           )}
         </div>

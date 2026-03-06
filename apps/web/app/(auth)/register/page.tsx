@@ -20,7 +20,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await registerUser(username, email, password);
-      router.push('/feed');
+      router.push('/onboarding');
       router.refresh();
     } catch (err: unknown) {
       const e = err as { message?: string };
