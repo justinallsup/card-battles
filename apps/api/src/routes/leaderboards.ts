@@ -1,9 +1,10 @@
 import { Hono } from 'hono';
+import type { AppVariables } from '../types';
 import { db } from '../db';
 import { userStats, users } from '../db/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 
-const router = new Hono();
+const router = new Hono<{ Variables: AppVariables }>();
 
 // GET /api/v1/leaderboards?type=creators&period=week
 router.get('/', async (c) => {

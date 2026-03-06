@@ -1,11 +1,12 @@
 import { Hono } from 'hono';
+import type { AppVariables } from '../types';
 import { db } from '../db';
 import { dailyPicks, dailyPickEntries, cardAssets } from '../db/schema';
 import { eq, and, lte, gte } from 'drizzle-orm';
 import { authRequired, optionalAuth } from '../middleware/auth';
 import { z } from 'zod';
 
-const router = new Hono();
+const router = new Hono<{ Variables: AppVariables }>();
 
 async function enrichPick(pick: typeof dailyPicks.$inferSelect, userId?: string) {
   const [leftAsset] = await db

@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { AppVariables } from '../types';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
@@ -8,7 +9,7 @@ import { eq } from 'drizzle-orm';
 import { authRateLimit } from '../middleware/rateLimit';
 import { authRequired } from '../middleware/auth';
 
-const router = new Hono();
+const router = new Hono<{ Variables: AppVariables }>();
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET!;

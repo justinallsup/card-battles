@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { users as usersApi } from '../../../../lib/api';
 import { Avatar } from '../../../../components/ui/Avatar';
 import { Badge } from '../../../../components/ui/Badge';
-import { Swords, Trophy, Flame, TrendingUp } from 'lucide-react';
+import { Swords, Trophy, Flame, TrendingUp, Target } from 'lucide-react';
 import { formatNumber } from '../../../../lib/utils';
 
 function StatCard({ label, value, icon: Icon, color }: { label: string; value: string | number; icon: React.ElementType; color: string }) {
@@ -79,10 +79,3 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   );
 }
 
-function Target({ size, className }: { size: number; className?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
-    </svg>
-  );
-}

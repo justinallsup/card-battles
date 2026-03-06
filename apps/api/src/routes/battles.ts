@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { AppVariables } from '../types';
 import { db } from '../db';
 import { battles, cardAssets, votes, users, userStats } from '../db/schema';
 import { eq, and, lt, sql, desc, gt, asc } from 'drizzle-orm';
@@ -7,7 +8,7 @@ import { voteRateLimit } from '../middleware/rateLimit';
 import { z } from 'zod';
 import { resolveBattle } from '../workers/battleResolution';
 
-const router = new Hono();
+const router = new Hono<{ Variables: AppVariables }>();
 
 const CATEGORIES = ['investment', 'coolest', 'rarity', 'long_term_hold'] as const;
 const DEFAULT_CATEGORIES = ['investment', 'coolest', 'rarity'];

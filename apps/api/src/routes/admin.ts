@@ -1,10 +1,11 @@
 import { Hono } from 'hono';
+import type { AppVariables } from '../types';
 import { db } from '../db';
 import { reports, battles, users } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { adminRequired } from '../middleware/auth';
 
-const router = new Hono();
+const router = new Hono<{ Variables: AppVariables }>();
 
 // GET /api/v1/admin/reports
 router.get('/reports', adminRequired, async (c) => {
