@@ -1,8 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../../../components/ui/Button';
-import { X, Image as ImageIcon, Swords } from 'lucide-react';
+import { X, Image as ImageIcon, Swords, Upload, Link } from 'lucide-react';
 import { getToken } from '../../../lib/api';
 
 const SPORTS = ['nfl', 'nba', 'mlb', 'nhl', 'soccer', 'other'];
@@ -19,14 +19,29 @@ const DURATIONS = [
   { label: '72h', value: 259200 },
 ];
 
+type InputMode = 'url' | 'upload';
+
 interface CardInput {
   imageUrl: string;
+  imageBase64: string;
+  mimeType: string;
+  previewSrc: string;   // for displaying (either URL or data URL)
   title: string;
   playerName: string;
   sport: string;
+  mode: InputMode;
 }
 
-const emptyCard = (): CardInput => ({ imageUrl: '', title: '', playerName: '', sport: 'nfl' });
+const emptyCard = (): CardInput => ({
+  imageUrl: '',
+  imageBase64: '',
+  mimeType: '',
+  previewSrc: '',
+  title: '',
+  playerName: '',
+  sport: 'nfl',
+  mode: 'url',
+});
 
 function CardSlot({
   label,
@@ -37,38 +52,103 @@ function CardSlot({
   card: CardInput;
   onChange: (c: CardInput) => void;
 }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const clearImage = () => onChange({ ...card, imageUrl: '', imageBase64: '', mimeType: '', previewSrc: '' });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      // Extract base64 portion (after "data:image/xxx;base64,")
+      const base64 = dataUrl.split(',')[1] ?? '';
+      onChange({ ...card, imageBase64: base64, mimeType: file.type, previewSrc: dataUrl, imageUrl: '' });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUrlChange = (url: string) => {
+    onChange({ ...card, imageUrl: url, previewSrc: url, imageBase64: '', mimeType: '' });
+  };
+
   return (
     <div className="flex-1 space-y-3">
       <p className="text-xs font-bold text-[#64748b] uppercase tracking-widest">{label}</p>
 
       {/* Preview */}
       <div className="aspect-[3/4] rounded-xl border-2 border-dashed border-[#1e1e2e] overflow-hidden bg-[#0d0d18] flex items-center justify-center relative">
-        {card.imageUrl ? (
+        {card.previewSrc ? (
           <>
-            <img src={card.imageUrl} alt={card.title} className="w-full h-full object-cover" />
+            <img src={card.previewSrc} alt={card.title} className="w-full h-full object-cover" />
             <button
-              onClick={() => onChange({ ...card, imageUrl: '' })}
+              onClick={clearImage}
               className="absolute top-2 right-2 w-7 h-7 bg-black/70 rounded-full flex items-center justify-center text-[#ef4444] hover:bg-[#ef4444]/20 transition-colors"
             >
               <X size={13} />
             </button>
           </>
         ) : (
-          <div className="text-center text-[#374151]">
+          <div
+            className="text-center text-[#374151] cursor-pointer w-full h-full flex flex-col items-center justify-center"
+            onClick={() => card.mode === 'upload' && fileInputRef.current?.click()}
+          >
             <ImageIcon size={28} className="mx-auto mb-2" />
-            <p className="text-xs">Paste image URL below</p>
+            <p className="text-xs">{card.mode === 'url' ? 'Paste URL below' : 'Click to upload'}</p>
           </div>
         )}
       </div>
 
-      {/* Fields */}
-      <input
-        type="url"
-        placeholder="Image URL (https://...)"
-        value={card.imageUrl}
-        onChange={(e) => onChange({ ...card, imageUrl: e.target.value })}
-        className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
-      />
+      {/* Mode toggle */}
+      <div className="flex gap-1 bg-[#0a0a0f] rounded-lg p-1 border border-[#1e1e2e]">
+        <button
+          onClick={() => onChange({ ...card, mode: 'url' })}
+          className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-xs font-semibold transition-all ${
+            card.mode === 'url' ? 'bg-[#6c47ff]/20 text-[#6c47ff]' : 'text-[#64748b]'
+          }`}
+        >
+          <Link size={11} /> Paste URL
+        </button>
+        <button
+          onClick={() => onChange({ ...card, mode: 'upload' })}
+          className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-xs font-semibold transition-all ${
+            card.mode === 'upload' ? 'bg-[#6c47ff]/20 text-[#6c47ff]' : 'text-[#64748b]'
+          }`}
+        >
+          <Upload size={11} /> Upload
+        </button>
+      </div>
+
+      {/* URL input or file input */}
+      {card.mode === 'url' ? (
+        <input
+          type="url"
+          placeholder="Image URL (https://...)"
+          value={card.imageUrl}
+          onChange={(e) => handleUrlChange(e.target.value)}
+          className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
+        />
+      ) : (
+        <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full bg-[#12121a] border border-[#1e1e2e] border-dashed rounded-lg px-3 py-2 text-xs text-[#64748b] flex items-center justify-center gap-2 hover:border-[#6c47ff] hover:text-[#6c47ff] transition-colors"
+          >
+            <Upload size={13} />
+            {card.imageBase64 ? 'Replace image' : 'Choose image file'}
+          </button>
+        </>
+      )}
+
+      {/* Card fields */}
       <input
         type="text"
         placeholder="Card title *"
@@ -100,18 +180,26 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/
 
 async function uploadAsset(card: CardInput): Promise<{ id: string }> {
   const token = getToken();
+  const body: Record<string, string | undefined> = {
+    title: card.title,
+    sport: card.sport,
+    playerName: card.playerName,
+  };
+
+  if (card.imageBase64) {
+    body.imageBase64 = card.imageBase64;
+    body.mimeType = card.mimeType || 'image/jpeg';
+  } else {
+    body.imageUrl = card.imageUrl || `https://placehold.co/400x560/6c47ff/ffffff?text=${encodeURIComponent(card.title)}`;
+  }
+
   const res = await fetch(`${BASE_URL}/assets/upload`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({
-      imageUrl: card.imageUrl || `https://placehold.co/400x560/6c47ff/ffffff?text=${encodeURIComponent(card.title)}`,
-      title: card.title,
-      sport: card.sport,
-      playerName: card.playerName,
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Upload failed' }));
@@ -218,8 +306,8 @@ export default function CreatePage() {
       {/* Card slots */}
       <div className="flex gap-3">
         <CardSlot label="Left Card" card={left} onChange={setLeft} />
-        <div className="flex items-center justify-center w-8 shrink-0">
-          <span className="text-[#374151] font-black text-sm rotate-0">VS</span>
+        <div className="flex items-center justify-center w-8 shrink-0 pt-8">
+          <span className="text-[#374151] font-black text-sm">VS</span>
         </div>
         <CardSlot label="Right Card" card={right} onChange={setRight} />
       </div>
