@@ -6,6 +6,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { getToken } from '../../../lib/api';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
+import { PushNotificationSetup } from '../../../components/PushNotificationSetup';
 import Link from 'next/link';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';

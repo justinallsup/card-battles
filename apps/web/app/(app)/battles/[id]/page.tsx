@@ -14,6 +14,7 @@ import { BarChart } from '../../../../components/ui/BarChart';
 import { showToast } from '../../../../components/ui/Toast';
 import { PriceHistoryChart } from '../../../../components/ui/PriceHistoryChart';
 import { BattleReplayPanel } from '../../../../components/battles/BattleReplayPanel';
+import { BattleChat } from '../../../../components/battles/BattleChat';
 import Link from 'next/link';
 import type { Battle } from '@card-battles/types';
 
@@ -948,7 +949,15 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
   const [watchLoading, setWatchLoading] = useState(false);
   const [myVote, setMyVote] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<'overview' | 'stats' | 'replay'>('overview');
+  const [chatToken, setChatToken] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Load token for chat
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setChatToken(localStorage.getItem('cb_token'));
+    }
+  }, []);
 
   // Set document title
   useEffect(() => {
@@ -1377,6 +1386,9 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
           </div>
         )}
       </div>
+
+      {/* Live Chat */}
+      <BattleChat battleId={id} token={chatToken} />
 
       {/* More battles */}
       {moreBattles.length > 0 && (

@@ -277,6 +277,23 @@ async function seedDb() {
       comments.get(bid)!.push({id:randomUUID(),battleId:bid,userId:u2.id,username:u2.username,text:set[j],createdAt:new Date(Date.now()-(set.length-j)*600000).toISOString(),likes:Math.floor(Math.random()*20)});
     }
   }
+  // Seed demo chat messages for first 3 battles
+  const firstBattles = await pg.query('SELECT id FROM battles LIMIT 3');
+  const chatBattleIds = (firstBattles.rows as {id:string}[]).map(r => r.id);
+  const demoChats: [string, string][] = [
+    ['cardking', 'Mahomes all day 🔥'],
+    ['slabmaster', 'Brady > everyone, cope'],
+    ['rookiehunter', 'as an investment Mahomes is better long term'],
+    ['gradegod', 'this is the battle of the century'],
+    ['packripper', '💎💎💎'],
+  ];
+  chatBattleIds.forEach((bid, i) => {
+    chatMessages.set(bid, demoChats.slice(0, 3 + i).map(([u, t]) => ({
+      id: randomUUID(), battleId: bid, userId: u, username: u,
+      text: t, createdAt: new Date(Date.now() - Math.random() * 3600000).toISOString()
+    })));
+  });
+
   await seedMarketplace();
   console.log('[Seed] ✅ Done — cardking@demo.com / password123');
 }
@@ -1045,6 +1062,26 @@ app.post('/api/v1/tournaments', async (c) => {
   return c.json(t, 201);
 });
 
+// Tournament entry
+app.post('/api/v1/tournaments/:id/enter', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const { cardId } = await c.req.json().catch(() => ({}));
+  if (!cardId) return c.json({ error: 'cardId required' }, 400);
+  return c.json({ success: true, message: 'Entered tournament! (Demo)', entrantId: randomUUID() });
+});
+
+// Get tournament participants (stub)
+app.get('/api/v1/tournaments/:id/participants', (c) => {
+  const participants = [
+    { username: 'cardking', cardName: 'Patrick Mahomes 2017 Prizm', seeded: 1 },
+    { username: 'slabmaster', cardName: 'Tom Brady 2000 Playoff Contenders', seeded: 2 },
+    { username: 'gradegod', cardName: 'LeBron James 2003 Exquisite', seeded: 3 },
+    { username: 'rookiehunter', cardName: 'Victor Wembanyama 2023 Prizm', seeded: 4 },
+  ];
+  return c.json({ participants, total: participants.length });
+});
+
 // ── COMMENTS ─────────────────────────────────────────────────────────────────
 type Comment = { id: string; battleId: string; userId: string; username: string; text: string; createdAt: string; likes: number; };
 const comments = new Map<string, Comment[]>();
@@ -1078,6 +1115,101 @@ app.post('/api/v1/battles/:id/comments/:commentId/like', async (c) => {
   if (!comment) return c.json({ error: 'Not found' }, 404);
   comment.likes++;
   return c.json(comment);
+});
+
+// ── BATTLE CHAT (SSE) ─────────────────────────────────────────────────────────
+type ChatMessage = { id: string; battleId: string; userId: string; username: string; text: string; createdAt: string };
+const chatMessages = new Map<string, ChatMessage[]>(); // battleId -> messages
+const chatClients = new Map<string, Set<(msg: ChatMessage) => void>>(); // battleId -> SSE callbacks
+
+function broadcastChat(battleId: string, msg: ChatMessage) {
+  const clients = chatClients.get(battleId);
+  if (clients) clients.forEach(fn => fn(msg));
+}
+
+app.get('/api/v1/battles/:id/chat', async (c) => {
+  const { id: battleId } = c.req.param();
+  const msgs = chatMessages.get(battleId) || [];
+  return c.json({ messages: msgs.slice(-50) }); // last 50
+});
+
+app.post('/api/v1/battles/:id/chat', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const { text } = await c.req.json().catch(() => ({}));
+  if (!text?.trim()) return c.json({ error: 'text required' }, 400);
+  const sanitizedText = text.replace(/</g, '&lt;').replace(/>/g, '&gt;').trim().slice(0, 300);
+  const ur = await pg.query('SELECT username FROM users WHERE id=$1', [userId]);
+  const username = (ur.rows as {username:string}[])[0]?.username || 'user';
+  const { id: battleId } = c.req.param();
+  const msg: ChatMessage = { id: randomUUID(), battleId, userId, username, text: sanitizedText, createdAt: new Date().toISOString() };
+  if (!chatMessages.has(battleId)) chatMessages.set(battleId, []);
+  chatMessages.get(battleId)!.push(msg);
+  broadcastChat(battleId, msg);
+  return c.json(msg, 201);
+});
+
+app.get('/api/v1/battles/:id/chat/live', (c) => {
+  const { id: battleId } = c.req.param();
+  const stream = new ReadableStream({
+    start(controller) {
+      const send = (msg: ChatMessage) => {
+        try {
+          controller.enqueue(new TextEncoder().encode(`event: chat\ndata: ${JSON.stringify(msg)}\n\n`));
+        } catch {}
+      };
+      if (!chatClients.has(battleId)) chatClients.set(battleId, new Set());
+      chatClients.get(battleId)!.add(send);
+      // ping to keep alive
+      const ping = setInterval(() => {
+        try { controller.enqueue(new TextEncoder().encode(`event: ping\ndata: {}\n\n`)); } catch {}
+      }, 15000);
+      c.req.raw.signal.addEventListener('abort', () => {
+        chatClients.get(battleId)?.delete(send);
+        clearInterval(ping);
+      });
+    }
+  });
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
+});
+
+// ── PUSH NOTIFICATIONS (STUB) ─────────────────────────────────────────────────
+app.post('/api/v1/me/push-subscription', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const { subscription } = await c.req.json().catch(() => ({}));
+  console.log('Push subscription registered for user:', userId, subscription);
+  return c.json({ success: true, message: 'Push notifications enabled! (Demo — no real pushes sent)' });
+});
+
+app.get('/api/v1/vapid-public-key', (c) => {
+  return c.json({ key: 'DEMO_VAPID_KEY_REPLACE_IN_PRODUCTION', demo: true });
+});
+
+// ── CARD NEWS FEED ────────────────────────────────────────────────────────────
+app.get('/api/v1/news', (c) => {
+  const sport = c.req.query('sport');
+  const allNews = [
+    { id:'1', title:'2023 Panini Prizm Football Checklist Released', summary:'Panini has released the full checklist for 2023 Prizm, featuring all 32 teams and rookie class.', sport:'nfl', source:'Beckett', url:'#', publishedAt: new Date(Date.now() - 3600000).toISOString(), imageUrl: '' },
+    { id:'2', title:'LeBron James PSA 10 Rookie Card Sells for $1.8M at Auction', summary:'A gem mint LeBron James 2003-04 Upper Deck Exquisite Collection rookie patch auto sold at Heritage Auctions.', sport:'nba', source:'Sports Card Investor', url:'#', publishedAt: new Date(Date.now() - 7200000).toISOString(), imageUrl: '' },
+    { id:'3', title:'Caitlin Clark Rookies Break Sales Records on eBay', summary:"Caitlin Clark's 2024 Parkside WNBA rookie cards continue to dominate secondary market with unprecedented demand.", sport:'wnba', source:'Cardboard Connection', url:'#', publishedAt: new Date(Date.now() - 10800000).toISOString(), imageUrl: '' },
+    { id:'4', title:'PSA Raises Submission Fees for Economy Tier', summary:'Professional Sports Authenticator has announced a fee increase for its Economy tier, now starting at $25 per card.', sport:'all', source:'PSA', url:'#', publishedAt: new Date(Date.now() - 14400000).toISOString(), imageUrl: '' },
+    { id:'5', title:'Patrick Mahomes Prizm Rookie Tops $400 as Chiefs Win AFC', summary:"Mahomes' 2017 Panini Prizm Silver PSA 10 continues to climb following Kansas City's playoff run.", sport:'nfl', source:'Sports Card Investor', url:'#', publishedAt: new Date(Date.now() - 18000000).toISOString(), imageUrl: '' },
+    { id:'6', title:'Topps Chrome Baseball 2024 Box Breaks Average $180 Per Box', summary:'Hobby boxes of 2024 Topps Chrome continue to command premium prices driven by strong rookie class.', sport:'mlb', source:'Beckett', url:'#', publishedAt: new Date(Date.now() - 21600000).toISOString(), imageUrl: '' },
+    { id:'7', title:'BGS vs PSA: Which Grading Service Is Best for Your Cards?', summary:'A comprehensive comparison of Beckett Grading Services and PSA for modern and vintage cards in 2024.', sport:'all', source:'Card Ladder', url:'#', publishedAt: new Date(Date.now() - 86400000).toISOString(), imageUrl: '' },
+    { id:'8', title:"Victor Wembanyama's Rookie Card Market Analysis", summary:"Six months in, Wembanyama's rookie card market shows strong fundamentals with PSA 10s averaging $175.", sport:'nba', source:'Alt', url:'#', publishedAt: new Date(Date.now() - 90000000).toISOString(), imageUrl: '' },
+    { id:'9', title:'eBay Reports 40% Increase in Sports Card Sales YoY', summary:"eBay's annual collectibles report shows sports cards remain the fastest-growing category on the platform.", sport:'all', source:'eBay', url:'#', publishedAt: new Date(Date.now() - 172800000).toISOString(), imageUrl: '' },
+    { id:'10', title:'Sandy Koufax 1955 Topps Rookie Card Sells for $288,000', summary:"A PSA 8 example of Koufax's iconic rookie card realized a record price at a recent Heritage auction.", sport:'mlb', source:'Heritage Auctions', url:'#', publishedAt: new Date(Date.now() - 259200000).toISOString(), imageUrl: '' },
+  ];
+  const filtered = sport && sport !== 'all' ? allNews.filter(n => n.sport === sport || n.sport === 'all') : allNews;
+  return c.json({ articles: filtered, total: filtered.length });
 });
 
 // ── COLLECTIONS & WATCHLIST ──────────────────────────────────────────────────
@@ -1944,6 +2076,57 @@ app.post('/api/v1/battles/:id/vote-all', async (c) => {
     await pg.query('UPDATE battles SET total_votes_cached=total_votes_cached+$1 WHERE id=$2', [successCount, battleId]);
   }
   return c.json({ results, choice });
+});
+
+// ── USER DISCOVERY ────────────────────────────────────────────────────────────
+app.get('/api/v1/users/discover', async (c) => {
+  const r = await pg.query(`
+    SELECT u.id, u.username, u.created_at,
+      us.battles_created, us.votes_cast, us.battles_won, us.current_streak
+    FROM users u
+    LEFT JOIN user_stats us ON us.user_id=u.id
+    ORDER BY us.votes_cast DESC NULLS LAST
+    LIMIT 20
+  `);
+  const bios = ['Card collector since 2018', 'Vintage card enthusiast', 'PSA 10 hunter', 'Breaking packs daily', 'Investment collector'];
+  const sports = ['NFL', 'NBA', 'MLB', 'All Sports'];
+  const users = (r.rows as Record<string,unknown>[]).map(u => ({
+    id: u.id, username: u.username, createdAt: u.created_at,
+    battlesCreated: u.battles_created || 0, votesCast: u.votes_cast || 0,
+    battlesWon: u.battles_won || 0, streak: u.current_streak || 0,
+    bio: bios[Math.floor(Math.random() * bios.length)],
+    sport: sports[Math.floor(Math.random() * sports.length)],
+    followerCount: Math.floor(Math.random() * 200) + 10,
+  }));
+  return c.json({ users, total: users.length });
+});
+
+app.get('/api/v1/users/search', async (c) => {
+  const q = c.req.query('q') || '';
+  if (q.length < 2) return c.json({ users: [] });
+  const r = await pg.query('SELECT id, username FROM users WHERE LOWER(username) LIKE $1 LIMIT 10', [`%${q.toLowerCase()}%`]);
+  return c.json({ users: r.rows });
+});
+
+// ── NEWS ──────────────────────────────────────────────────────────────────────
+const NEWS_ARTICLES = [
+  { id: '1', title: 'Patrick Mahomes Rookie Card Hits Record $4.3M at Auction', sport: 'nfl', category: 'market', summary: 'A PSA 10 2017 Patrick Mahomes rookie card shattered records at a major auction house this weekend.', publishedAt: new Date(Date.now() - 2*3600000).toISOString(), source: 'Card World', imageUrl: null },
+  { id: '2', title: 'LeBron James Prizm PSA 10 Surges 40% This Month', sport: 'nba', category: 'market', summary: 'LeBron James Prizm Silver rookie cards continue to climb as demand from overseas collectors intensifies.', publishedAt: new Date(Date.now() - 5*3600000).toISOString(), source: 'SlabReport', imageUrl: null },
+  { id: '3', title: 'PSA Announces New 10-Day Grading Tier', sport: 'all', category: 'grading', summary: 'PSA has unveiled a new turnaround option for collectors who want faster grading at a premium price point.', publishedAt: new Date(Date.now() - 8*3600000).toISOString(), source: 'Grading Daily', imageUrl: null },
+  { id: '4', title: 'Shohei Ohtani 2023 Topps Chrome Rookies Flying Off Shelves', sport: 'mlb', category: 'market', summary: 'First-year Ohtani cards in his Angels uniform are seeing unprecedented demand following his Dodgers signing.', publishedAt: new Date(Date.now() - 12*3600000).toISOString(), source: 'Card World', imageUrl: null },
+  { id: '5', title: 'Victor Wembanyama Rookie Cards: 1 Year Later', sport: 'nba', category: 'investment', summary: 'We look back at how Wemby\'s first-year cards have performed over 12 months — spoiler: it\'s complicated.', publishedAt: new Date(Date.now() - 24*3600000).toISOString(), source: 'SlabReport', imageUrl: null },
+  { id: '6', title: 'Top 10 NFL Cards to Watch Heading Into Playoffs', sport: 'nfl', category: 'investment', summary: 'Which quarterback cards spike during playoff runs? Our analysts break down the top 10 to watch.', publishedAt: new Date(Date.now() - 36*3600000).toISOString(), source: 'Card World', imageUrl: null },
+  { id: '7', title: 'Beckett vs PSA: Which Grader Is Right for Your Cards?', sport: 'all', category: 'grading', summary: 'A head-to-head comparison of the two biggest grading companies — fees, turnaround, and resale value.', publishedAt: new Date(Date.now() - 48*3600000).toISOString(), source: 'Grading Daily', imageUrl: null },
+  { id: '8', title: 'Mike Trout 2011 Update Series PSA 10: Still the King?', sport: 'mlb', category: 'market', summary: 'The ultimate baseball card investment has held its value for a decade. Is it finally time to sell?', publishedAt: new Date(Date.now() - 60*3600000).toISOString(), source: 'SlabReport', imageUrl: null },
+];
+
+app.get('/api/v1/news', async (c) => {
+  const sport = (c.req.query('sport') || '').toLowerCase();
+  const category = c.req.query('category') || '';
+  let articles = NEWS_ARTICLES;
+  if (sport) articles = articles.filter(a => a.sport === sport || a.sport === 'all');
+  if (category) articles = articles.filter(a => a.category === category);
+  return c.json({ articles, total: articles.length });
 });
 
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────
