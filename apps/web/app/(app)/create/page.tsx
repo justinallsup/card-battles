@@ -1,9 +1,10 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../../../components/ui/Button';
-import { X, Image as ImageIcon, Swords, Upload, Link, Search } from 'lucide-react';
+import { X, Image as ImageIcon, Swords, Upload, Link, Search, FileText, BookOpen } from 'lucide-react';
 import { getToken } from '../../../lib/api';
+import { showToast } from '../../../components/ui/Toast';
 
 const SPORTS = ['nfl', 'nba', 'mlb', 'nhl', 'soccer', 'other'];
 
@@ -348,6 +349,84 @@ export default function CreatePage() {
   const [error, setError] = useState('');
   const [step, setStep] = useState<'form' | 'success'>('form');
   const [createdId, setCreatedId] = useState('');
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [drafts, setDrafts] = useState<Array<{ id: string; title?: string; createdAt: string; updatedAt: string; categories: string[] }>>([]);
+  const [draftCount, setDraftCount] = useState(0);
+  const [loadingDrafts, setLoadingDrafts] = useState(false);
+
+  // Load draft count on mount
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    fetch(`${BASE_URL}/me/drafts`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then(r => r.json()).then(data => {
+      setDraftCount(data.total ?? 0);
+    }).catch(() => {});
+  }, []);
+
+  const loadDrafts = async () => {
+    setLoadingDrafts(true);
+    const token = getToken();
+    if (!token) { showToast('Log in to view drafts', 'info'); setLoadingDrafts(false); return; }
+    try {
+      const r = await fetch(`${BASE_URL}/me/drafts`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      setDrafts(data.drafts ?? []);
+    } catch { showToast('Failed to load drafts', 'error'); }
+    setLoadingDrafts(false);
+  };
+
+  const handleSaveDraft = async () => {
+    const token = getToken();
+    if (!token) { showToast('Log in to save drafts', 'info'); return; }
+    setSavingDraft(true);
+    try {
+      const r = await fetch(`${BASE_URL}/me/drafts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          title: battleTitle || `${left.playerName || left.title} vs ${right.playerName || right.title}`,
+          sport: left.sport,
+          categories: selectedCats,
+          leftAssetId: left.existingAssetId,
+          rightAssetId: right.existingAssetId,
+        }),
+      });
+      if (r.ok) {
+        setDraftCount(c => c + 1);
+        showToast('📝 Draft saved!', 'success');
+      }
+    } catch { showToast('Failed to save draft', 'error'); }
+    setSavingDraft(false);
+  };
+
+  const handleOpenDrafts = async () => {
+    await loadDrafts();
+    setShowDraftModal(true);
+  };
+
+  const handleLoadDraft = (draft: { id: string; title?: string; categories: string[] }) => {
+    setBattleTitle(draft.title ?? '');
+    setSelectedCats(draft.categories);
+    setShowDraftModal(false);
+    showToast('Draft loaded!', 'success');
+  };
+
+  const handleDeleteDraft = async (draftId: string) => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      await fetch(`${BASE_URL}/me/drafts/${draftId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setDrafts(prev => prev.filter(d => d.id !== draftId));
+      setDraftCount(c => Math.max(0, c - 1));
+      showToast('Draft deleted', 'success');
+    } catch { showToast('Failed to delete draft', 'error'); }
+  };
 
   const toggleCat = (id: string) => {
     setSelectedCats((prev) =>
@@ -567,6 +646,32 @@ export default function CreatePage() {
         </div>
       )}
 
+      {/* Draft actions */}
+      <div className="flex gap-2">
+        <button
+          onClick={handleSaveDraft}
+          disabled={savingDraft}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+          style={{ background: 'rgba(108,71,255,0.08)', color: '#a78bfa', border: '1px solid rgba(108,71,255,0.2)' }}
+        >
+          <FileText size={14} />
+          {savingDraft ? 'Saving…' : 'Save Draft'}
+        </button>
+        <button
+          onClick={handleOpenDrafts}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all relative"
+          style={{ background: 'rgba(108,71,255,0.08)', color: '#a78bfa', border: '1px solid rgba(108,71,255,0.2)' }}
+        >
+          <BookOpen size={14} />
+          Drafts
+          {draftCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black text-white" style={{ background: '#6c47ff' }}>
+              {draftCount}
+            </span>
+          )}
+        </button>
+      </div>
+
       <Button
         size="lg"
         className="w-full"
@@ -576,6 +681,50 @@ export default function CreatePage() {
       >
         ⚔️ Publish Battle
       </Button>
+
+      {/* Draft modal */}
+      {showDraftModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-4" onClick={() => setShowDraftModal(false)}>
+          <div
+            className="w-full max-w-sm rounded-2xl border border-[#1e1e2e] overflow-hidden"
+            style={{ background: '#12121a', boxShadow: '0 -8px 40px rgba(0,0,0,0.6)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e1e2e]">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2"><FileText size={14} className="text-[#6c47ff]" /> Your Drafts</h3>
+              <button onClick={() => setShowDraftModal(false)} className="text-[#64748b] hover:text-white transition-colors"><X size={16} /></button>
+            </div>
+            <div className="p-4 space-y-2 max-h-80 overflow-y-auto">
+              {loadingDrafts && <p className="text-center text-[#64748b] text-sm py-4">Loading…</p>}
+              {!loadingDrafts && drafts.length === 0 && (
+                <p className="text-center text-[#64748b] text-sm py-4">No drafts saved yet</p>
+              )}
+              {drafts.map(draft => (
+                <div key={draft.id} className="flex items-center gap-3 p-3 rounded-xl border border-[#1e1e2e] bg-[#0a0a0f]">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-white truncate">{draft.title || 'Untitled Draft'}</p>
+                    <p className="text-[10px] text-[#64748b] mt-0.5">{new Date(draft.updatedAt).toLocaleDateString()} · {draft.categories.join(', ')}</p>
+                  </div>
+                  <button
+                    onClick={() => handleLoadDraft(draft)}
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors"
+                    style={{ background: 'rgba(108,71,255,0.15)', color: '#a78bfa', border: '1px solid rgba(108,71,255,0.3)' }}
+                  >
+                    Load
+                  </button>
+                  <button
+                    onClick={() => handleDeleteDraft(draft.id)}
+                    className="px-2 py-1.5 rounded-lg text-xs transition-colors text-[#ef4444] hover:bg-[#ef4444]/10"
+                    title="Delete draft"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,8 +3,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
 import { getToken } from '../../../lib/api';
 import Link from 'next/link';
-import { Trash2, BookMarked, ExternalLink } from 'lucide-react';
+import { Trash2, BookMarked, ExternalLink, Share2, Globe, Lock } from 'lucide-react';
 import { BackButton } from '../../../components/ui/BackButton';
+import { showToast } from '../../../components/ui/Toast';
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
@@ -111,6 +112,31 @@ export default function CollectionPage() {
   const { user } = useAuth();
   const [cards, setCards] = useState<CollectedCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isPublic, setIsPublic] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('cb_collection_public') !== 'false';
+    }
+    return true;
+  });
+
+  const handleTogglePublic = () => {
+    const next = !isPublic;
+    setIsPublic(next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cb_collection_public', String(next));
+    }
+    showToast(next ? '🌐 Collection is now public' : '🔒 Collection is now private', 'success');
+  };
+
+  const handleShareCollection = async () => {
+    const url = `https://cardbattles.app/collectors/${user?.username ?? 'me'}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Collection URL copied! 📋', 'success');
+    } catch {
+      showToast(`Share: ${url}`, 'info');
+    }
+  };
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -160,6 +186,31 @@ export default function CollectionPage() {
           + Add Cards
         </Link>
       </div>
+
+      {/* Share & Visibility Controls */}
+      {cards.length > 0 && (
+        <div className="flex gap-2">
+          <button
+            onClick={handleShareCollection}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all"
+            style={{ background: 'rgba(108,71,255,0.08)', color: '#6c47ff', border: '1px solid rgba(108,71,255,0.2)' }}
+          >
+            <Share2 size={14} />
+            Share Collection
+          </button>
+          <button
+            onClick={handleTogglePublic}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+            style={isPublic
+              ? { background: 'rgba(34,197,94,0.08)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }
+              : { background: 'rgba(100,116,139,0.08)', color: '#64748b', border: '1px solid rgba(100,116,139,0.2)' }
+            }
+          >
+            {isPublic ? <Globe size={14} /> : <Lock size={14} />}
+            {isPublic ? 'Public' : 'Private'}
+          </button>
+        </div>
+      )}
 
       {/* Content */}
       {loading ? (

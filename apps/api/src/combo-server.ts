@@ -1246,6 +1246,26 @@ app.get('/api/v1/news', (c) => {
 const collections = new Map<string, Set<string>>(); // userId → Set of assetIds
 const watchlistMap = new Map<string, Set<string>>(); // userId → Set of battleIds
 
+app.get('/api/v1/users/:username/collection', async (c) => {
+  const { username } = c.req.param();
+  const ur = await pg.query('SELECT id FROM users WHERE username=$1', [username]);
+  const user = (ur.rows as {id:string}[])[0];
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const saved = collections.get(user.id) || new Set<string>();
+
+  if (saved.size === 0) {
+    // Return demo collection for empty collections
+    const cr = await pg.query('SELECT id,player_name,image_url,title,year,sport FROM card_assets LIMIT 6');
+    return c.json({ username, cards: cr.rows, total: cr.rows.length, isPublic: true });
+  }
+
+  const savedArr = Array.from(saved);
+  const placeholders = savedArr.map((_, i) => `$${i+1}`).join(',');
+  const cr = await pg.query(`SELECT id,player_name,image_url,title,year,sport FROM card_assets WHERE id IN (${placeholders})`, savedArr);
+  return c.json({ username, cards: cr.rows, total: cr.rows.length, isPublic: true });
+});
+
 app.get('/api/v1/me/collection', async (c) => {
   const userId = uid(c.req.header('Authorization'));
   if (!userId) return c.json({ error: 'Unauthorized' }, 401);
@@ -2127,6 +2147,56 @@ app.post('/api/v1/battles/:id/vote-all', async (c) => {
     await pg.query('UPDATE battles SET total_votes_cached=total_votes_cached+$1 WHERE id=$2', [successCount, battleId]);
   }
   return c.json({ results, choice });
+});
+
+// ── BATTLE DRAFTS ─────────────────────────────────────────────────────────────
+type BattleDraft = {
+  id: string; userId: string; leftAssetId?: string; rightAssetId?: string;
+  title?: string; sport?: string; categories: string[];
+  createdAt: string; updatedAt: string;
+};
+const battleDrafts = new Map<string, BattleDraft>();
+
+app.get('/api/v1/me/drafts', async (c) => {
+  const uid2 = uid(c.req.header('Authorization'));
+  if (!uid2) return c.json({ error: 'Unauthorized' }, 401);
+  const drafts = Array.from(battleDrafts.values()).filter(d => d.userId === uid2);
+  return c.json({ drafts, total: drafts.length });
+});
+
+app.post('/api/v1/me/drafts', async (c) => {
+  const uid2 = uid(c.req.header('Authorization'));
+  if (!uid2) return c.json({ error: 'Unauthorized' }, 401);
+  const body = await c.req.json().catch(() => ({}));
+  const id = randomUUID();
+  const draft: BattleDraft = {
+    id, userId: uid2,
+    leftAssetId: body.leftAssetId, rightAssetId: body.rightAssetId,
+    title: body.title, sport: body.sport,
+    categories: body.categories || ['investment','coolest','rarity'],
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+  };
+  battleDrafts.set(id, draft);
+  return c.json(draft, 201);
+});
+
+app.patch('/api/v1/me/drafts/:id', async (c) => {
+  const uid2 = uid(c.req.header('Authorization'));
+  if (!uid2) return c.json({ error: 'Unauthorized' }, 401);
+  const draft = battleDrafts.get(c.req.param('id'));
+  if (!draft || draft.userId !== uid2) return c.json({ error: 'Not found' }, 404);
+  const body = await c.req.json().catch(() => ({}));
+  Object.assign(draft, body, { updatedAt: new Date().toISOString() });
+  return c.json(draft);
+});
+
+app.delete('/api/v1/me/drafts/:id', async (c) => {
+  const uid2 = uid(c.req.header('Authorization'));
+  if (!uid2) return c.json({ error: 'Unauthorized' }, 401);
+  const draft = battleDrafts.get(c.req.param('id'));
+  if (!draft || draft.userId !== uid2) return c.json({ error: 'Not found' }, 404);
+  battleDrafts.delete(c.req.param('id'));
+  return c.json({ message: 'Draft deleted' });
 });
 
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────

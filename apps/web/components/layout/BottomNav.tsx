@@ -1,43 +1,79 @@
 'use client';
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Swords, Plus, Trophy, User, Compass, X, BookMarked, Eye, Target, Calendar, Zap, Star, Medal } from 'lucide-react';
+import { Swords, Plus, Trophy, User, Compass, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../hooks/useAuth';
 
-// Explore drawer feature tiles
-const EXPLORE_TILES = [
-  { href: '/news',         label: 'Card News',     icon: '📰', desc: 'Latest card news'    },
-  { href: '/marketplace',  label: 'Marketplace',  icon: '🏪', desc: 'Buy & sell cards'    },
-  { href: '/scanner',      label: 'Card Scanner',  icon: '📸', desc: 'Scan & identify'    },
-  { href: '/hall-of-fame', label: 'Hall of Fame',  icon: '🏛️', desc: 'Greatest cards ever' },
-  { href: '/get-app',      label: 'Get the App',   icon: '📱', desc: 'Install PWA / app'  },
-  { href: '/community',    label: 'Community',    icon: '🌐', desc: 'Social hub'          },
-  { href: '/learn',        label: 'Learn',        icon: '📚', desc: 'Card grading guide'  },
-  { href: '/pull-arena',   label: 'Pull Arena',    icon: '🎴', desc: 'Open card packs'    },
-  { href: '/tournaments',  label: 'Tournaments',   icon: '🏆', desc: 'Bracket battles'    },
-  { href: '/fantasy',      label: 'Fantasy',       icon: '🧙', desc: 'Build your team'    },
-  { href: '/auctions',     label: 'Live Auctions', icon: '🔨', desc: 'Bid on graded cards' },
-  { href: '/sets',         label: 'Card Sets',     icon: '🃏', desc: 'Browse collections'  },
-  { href: '/analytics',   label: 'Analytics',     icon: '📊', desc: 'Your stats'          },
-  { href: '/market',       label: 'Market',        icon: '📈', desc: 'Card prices'        },
-  { href: '/compare',      label: 'Compare',       icon: '⚖️',  desc: 'Compare cards'      },
-  { href: '/grader',       label: 'Card Grader',   icon: '🏅', desc: 'Simulate grading'   },
-  { href: '/activity',     label: 'Activity',      icon: '📡', desc: 'Live feed'          },
-  { href: '/daily-picks',  label: 'Daily Picks',   icon: '📅', desc: 'Today\'s picks'     },
-  { href: '/collection',   label: 'Collection',    icon: '🎴', desc: 'Your saved cards'   },
-  { href: '/watchlist',    label: 'Watchlist',     icon: '🔖', desc: 'Watched battles'    },
-  { href: '/history',      label: 'Vote History',  icon: '🗳️', desc: 'Your votes'         },
-  { href: '/alerts',       label: 'Price Alerts',  icon: '🔔', desc: 'Card price alerts'  },
-  { href: '/trades',       label: 'Trades',         icon: '🔄', desc: 'Trade proposals'    },
-  { href: '/portfolio',    label: 'Portfolio',      icon: '💼', desc: 'Collection value'   },
-  { href: '/discover',     label: 'Discover',      icon: '🔍', desc: 'Find collectors'    },
-  { href: '/calculator',   label: 'Calculator',    icon: '💰', desc: 'Card ROI estimator' },
-  { href: '/bracket',      label: 'Bracket',       icon: '🏆', desc: 'Build a bracket'    },
-  { href: '/search',       label: 'Search',        icon: '🔎', desc: 'Find anything'      },
-  { href: '/pro',          label: 'Pro',           icon: '⭐', desc: 'Upgrade account'    },
+// ── Explore drawer feature tiles organised by category ──────────────────────
+const EXPLORE_CATEGORIES = [
+  {
+    label: 'Compete',
+    tiles: [
+      { href: '/leaderboards', label: 'Battles',     icon: '⚔️',  desc: 'Active card battles'  },
+      { href: '/tournaments',  label: 'Tournaments', icon: '🏆',  desc: 'Bracket battles'      },
+      { href: '/bracket',      label: 'Bracket',     icon: '📊',  desc: 'Build a bracket'      },
+      { href: '/daily-picks',  label: 'Daily Picks', icon: '📅',  desc: "Today's picks"        },
+    ],
+  },
+  {
+    label: 'Collect',
+    tiles: [
+      { href: '/collection',   label: 'Collection',  icon: '🎴',  desc: 'Your saved cards'     },
+      { href: '/marketplace',  label: 'Marketplace', icon: '🏪',  desc: 'Buy & sell cards'     },
+      { href: '/trades',       label: 'Trades',      icon: '🔄',  desc: 'Trade proposals'      },
+      { href: '/auctions',     label: 'Auctions',    icon: '🔨',  desc: 'Bid on graded cards'  },
+      { href: '/sets',         label: 'Card Sets',   icon: '🃏',  desc: 'Browse collections'   },
+    ],
+  },
+  {
+    label: 'Research',
+    tiles: [
+      { href: '/market',       label: 'Market',      icon: '📈',  desc: 'Card prices'          },
+      { href: '/grader',       label: 'Grader',      icon: '🏅',  desc: 'Simulate grading'     },
+      { href: '/compare',      label: 'Compare',     icon: '⚖️',   desc: 'Compare cards'        },
+      { href: '/calculator',   label: 'Calculator',  icon: '💰',  desc: 'Card ROI estimator'   },
+      { href: '/history',      label: 'Price Hist.', icon: '📉',  desc: 'Price history'        },
+    ],
+  },
+  {
+    label: 'Community',
+    tiles: [
+      { href: '/feed',         label: 'Feed',        icon: '📡',  desc: 'Live feed'            },
+      { href: '/leaderboards', label: 'Leaderboard', icon: '🥇',  desc: 'Top voters'           },
+      { href: '/community',    label: 'Community',   icon: '🌐',  desc: 'Social hub'           },
+      { href: '/discover',     label: 'Discover',    icon: '🔍',  desc: 'Find collectors'      },
+      { href: '/hall-of-fame', label: 'Hall of Fame', icon: '🏛️', desc: 'Greatest cards ever'  },
+    ],
+  },
+  {
+    label: 'Tools',
+    tiles: [
+      { href: '/scanner',      label: 'Scanner',     icon: '📸',  desc: 'Scan & identify'      },
+      { href: '/news',         label: 'News',        icon: '📰',  desc: 'Latest card news'     },
+      { href: '/analytics',    label: 'Analytics',   icon: '📊',  desc: 'Your stats'           },
+      { href: '/portfolio',    label: 'Portfolio',   icon: '💼',  desc: 'Collection value'     },
+      { href: '/learn',        label: 'Learn',       icon: '📚',  desc: 'Card grading guide'   },
+    ],
+  },
 ];
+
+// Quick-action items for long-press menu
+const QUICK_ACTIONS = [
+  { href: '/create',       label: 'Create',     icon: '⚔️' },
+  { href: '/marketplace',  label: 'Market',     icon: '🏪' },
+  { href: '/leaderboards', label: 'Leaderboard', icon: '🥇' },
+];
+
+// All explore paths for active detection
+const ALL_EXPLORE_PATHS = EXPLORE_CATEGORIES.flatMap(c => c.tiles.map(t => t.href));
+
+function haptic(ms = 10) {
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    try { navigator.vibrate(ms); } catch {}
+  }
+}
 
 function ExploreDrawer({ onClose }: { onClose: () => void }) {
   const pathname = usePathname();
@@ -55,7 +91,7 @@ function ExploreDrawer({ onClose }: { onClose: () => void }) {
           background: '#12121a',
           boxShadow: '0 -8px 40px rgba(0,0,0,0.6)',
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 80px)',
-          maxHeight: '80vh',
+          maxHeight: '85vh',
           overflowY: 'auto',
         }}
       >
@@ -79,30 +115,63 @@ function ExploreDrawer({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        {/* Grid of tiles */}
-        <div className="grid grid-cols-3 gap-3 p-4">
-          {EXPLORE_TILES.map(tile => {
-            const active = pathname === tile.href || pathname.startsWith(tile.href + '/');
-            return (
-              <Link
-                key={tile.href}
-                href={tile.href}
-                onClick={onClose}
-                className="flex flex-col items-center gap-2 py-4 px-2 rounded-2xl border transition-all"
-                style={active
-                  ? { background: 'rgba(108,71,255,0.12)', borderColor: 'rgba(108,71,255,0.4)' }
-                  : { background: '#0a0a0f', borderColor: '#1e1e2e' }
-                }
-              >
-                <span className="text-2xl leading-none">{tile.icon}</span>
-                <div className="text-center">
-                  <p className="text-xs font-bold text-white">{tile.label}</p>
-                  <p className="text-[9px] text-[#64748b] mt-0.5">{tile.desc}</p>
-                </div>
-              </Link>
-            );
-          })}
+        {/* Categorised tiles */}
+        <div className="p-4 space-y-5">
+          {EXPLORE_CATEGORIES.map(category => (
+            <div key={category.label}>
+              <p className="text-[10px] font-black text-[#64748b] uppercase tracking-widest mb-2">{category.label}</p>
+              <div className="grid grid-cols-3 gap-2">
+                {category.tiles.map(tile => {
+                  const active = pathname === tile.href || pathname.startsWith(tile.href + '/');
+                  return (
+                    <Link
+                      key={tile.href}
+                      href={tile.href}
+                      onClick={onClose}
+                      className="flex flex-col items-center gap-1.5 py-3 px-2 rounded-2xl border transition-all"
+                      style={active
+                        ? { background: 'rgba(108,71,255,0.12)', borderColor: 'rgba(108,71,255,0.4)' }
+                        : { background: '#0a0a0f', borderColor: '#1e1e2e' }
+                      }
+                    >
+                      <span className="text-xl leading-none">{tile.icon}</span>
+                      <div className="text-center">
+                        <p className="text-[11px] font-bold text-white">{tile.label}</p>
+                        <p className="text-[9px] text-[#64748b] mt-0.5 leading-tight">{tile.desc}</p>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
+      </div>
+    </>
+  );
+}
+
+// Quick-action popup for long-press on Explore
+function QuickActionMenu({ onClose }: { onClose: () => void }) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div
+        className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 rounded-2xl border border-[#1e1e2e] overflow-hidden"
+        style={{ background: '#12121a', boxShadow: '0 -4px 24px rgba(0,0,0,0.6)', width: 200 }}
+      >
+        <p className="text-[10px] font-black text-[#64748b] uppercase tracking-widest px-4 pt-3 pb-1">Quick Actions</p>
+        {QUICK_ACTIONS.map(a => (
+          <Link
+            key={a.href}
+            href={a.href}
+            onClick={onClose}
+            className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#1e1e2e] transition-colors"
+          >
+            <span className="text-lg">{a.icon}</span>
+            <span className="text-sm font-semibold text-white">{a.label}</span>
+          </Link>
+        ))}
       </div>
     </>
   );
@@ -113,9 +182,36 @@ export function BottomNav() {
   const router = useRouter();
   const { user } = useAuth();
   const [exploreOpen, setExploreOpen] = useState(false);
+  const [quickMenuOpen, setQuickMenuOpen] = useState(false);
+
+  // Long-press detection for Explore button
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggered = useRef(false);
+
+  const handleExplorePointerDown = useCallback(() => {
+    longPressTriggered.current = false;
+    longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true;
+      haptic(30);
+      setQuickMenuOpen(true);
+    }, 500);
+  }, []);
+
+  const handleExplorePointerUp = useCallback(() => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    if (!longPressTriggered.current) {
+      haptic();
+      setExploreOpen(true);
+    }
+  }, []);
+
+  const handleExplorePointerCancel = useCallback(() => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  }, []);
 
   const handleProfileClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    haptic();
     if (user?.username) {
       router.push(`/profile/${user.username}`);
     } else {
@@ -123,12 +219,38 @@ export function BottomNav() {
     }
   };
 
+  // Swipe gesture on nav bar to cycle main sections
+  const swipeStartX = useRef<number | null>(null);
+  const MAIN_SECTIONS = ['/feed', '/leaderboards', user?.username ? `/profile/${user.username}` : '/login'];
+
+  const handleNavTouchStart = useCallback((e: React.TouchEvent) => {
+    swipeStartX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleNavTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (swipeStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - swipeStartX.current;
+    if (Math.abs(dx) < 60) { swipeStartX.current = null; return; }
+
+    const currentIdx = MAIN_SECTIONS.findIndex(s => pathname.startsWith(s));
+    const base = currentIdx === -1 ? 0 : currentIdx;
+    const nextIdx = dx < 0
+      ? Math.min(base + 1, MAIN_SECTIONS.length - 1)
+      : Math.max(base - 1, 0);
+    if (nextIdx !== base) {
+      haptic();
+      router.push(MAIN_SECTIONS[nextIdx]);
+    }
+    swipeStartX.current = null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, router, user]);
+
   const navItems = [
     { href: '/feed',         label: 'Feed',    icon: Swords,  key: 'feed' },
     { href: '/leaderboards', label: 'Battles', icon: Trophy,  key: 'leaderboards' },
     { href: '/create',       label: 'Create',  icon: Plus,    key: 'create', accent: true },
-    { key: 'explore',        label: 'Explore', icon: Compass, action: () => setExploreOpen(true) },
-    { key: 'profile',        label: 'Profile', icon: User,    action: handleProfileClick },
+    { key: 'explore',        label: 'Explore', icon: Compass  },
+    { key: 'profile',        label: 'Profile', icon: User     },
   ];
 
   return (
@@ -136,16 +258,22 @@ export function BottomNav() {
       <nav
         className="fixed bottom-0 left-0 right-0 z-50 bg-[#0a0a0f]/95 backdrop-blur border-t border-[#1e1e2e]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        onTouchStart={handleNavTouchStart}
+        onTouchEnd={handleNavTouchEnd}
       >
         <div className="max-w-lg mx-auto flex items-center justify-around px-2">
-          {navItems.map(({ href, label, icon: Icon, accent, key, action }) => {
+          {navItems.map(({ href, label, icon: Icon, accent, key }) => {
             const active = href ? (pathname === href || pathname.startsWith(href + '/')) : false;
-            const isProfileActive = key === 'profile' && user?.username && (pathname === `/profile/${user.username}` || pathname.startsWith('/profile/'));
-            const isExploreActive = key === 'explore' && ['/news','/pull-arena','/tournaments','/fantasy','/market','/compare','/activity','/daily-picks','/collection','/watchlist','/search','/notifications','/pro','/history','/alerts','/grader','/auctions','/sets','/analytics','/community','/learn','/marketplace','/players','/scanner','/hall-of-fame','/get-app','/trades','/portfolio','/discover','/calculator','/bracket'].some(p => pathname.startsWith(p));
+            const isProfileActive = key === 'profile' && user?.username &&
+              (pathname === `/profile/${user.username}` || pathname.startsWith('/profile/'));
+            const isExploreActive = key === 'explore' && ALL_EXPLORE_PATHS.some(p => pathname.startsWith(p));
 
             if (accent) {
               return (
-                <Link key={key} href={href!}
+                <Link
+                  key={key}
+                  href={href!}
+                  onClick={() => haptic()}
                   className="flex flex-col items-center gap-1 py-3 px-3 min-w-0 flex-1 relative"
                 >
                   <div
@@ -164,8 +292,73 @@ export function BottomNav() {
 
             const isActive = active || isProfileActive || isExploreActive;
 
-            const content = (
-              <>
+            // Explore button with long-press
+            if (key === 'explore') {
+              return (
+                <button
+                  key={key}
+                  onPointerDown={handleExplorePointerDown}
+                  onPointerUp={handleExplorePointerUp}
+                  onPointerCancel={handleExplorePointerCancel}
+                  aria-label={label}
+                  className="flex flex-col items-center gap-1 py-3 px-3 min-w-0 flex-1 transition-colors relative select-none"
+                >
+                  <div className="relative">
+                    <Icon
+                      size={22}
+                      className={cn('transition-colors', isActive ? 'text-[#6c47ff]' : 'text-[#64748b]')}
+                    />
+                  </div>
+                  <span className={cn('text-[10px] font-medium', isActive ? 'text-[#6c47ff]' : 'text-[#64748b]')}>
+                    {label}
+                  </span>
+                  {isActive && (
+                    <span
+                      className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#6c47ff] animate-nav-dot"
+                      style={{ boxShadow: '0 0 4px rgba(108, 71, 255, 0.8)' }}
+                    />
+                  )}
+                </button>
+              );
+            }
+
+            // Profile button
+            if (key === 'profile') {
+              return (
+                <button
+                  key={key}
+                  onClick={handleProfileClick}
+                  aria-label={label}
+                  className="flex flex-col items-center gap-1 py-3 px-3 min-w-0 flex-1 transition-colors relative"
+                >
+                  <div className="relative">
+                    <Icon
+                      size={22}
+                      className={cn('transition-colors', isActive ? 'text-[#6c47ff]' : 'text-[#64748b]')}
+                    />
+                  </div>
+                  <span className={cn('text-[10px] font-medium', isActive ? 'text-[#6c47ff]' : 'text-[#64748b]')}>
+                    {label}
+                  </span>
+                  {isActive && (
+                    <span
+                      className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#6c47ff] animate-nav-dot"
+                      style={{ boxShadow: '0 0 4px rgba(108, 71, 255, 0.8)' }}
+                    />
+                  )}
+                </button>
+              );
+            }
+
+            // Regular link nav item
+            return (
+              <Link
+                key={key}
+                href={href!}
+                aria-label={label}
+                onClick={() => haptic()}
+                className="flex flex-col items-center gap-1 py-3 px-3 min-w-0 flex-1 transition-colors relative"
+              >
                 <div className="relative">
                   <Icon
                     size={22}
@@ -181,30 +374,6 @@ export function BottomNav() {
                     style={{ boxShadow: '0 0 4px rgba(108, 71, 255, 0.8)' }}
                   />
                 )}
-              </>
-            );
-
-            if (action) {
-              return (
-                <button
-                  key={key}
-                  onClick={action}
-                  aria-label={label}
-                  className="flex flex-col items-center gap-1 py-3 px-3 min-w-0 flex-1 transition-colors relative"
-                >
-                  {content}
-                </button>
-              );
-            }
-
-            return (
-              <Link
-                key={key}
-                href={href!}
-                aria-label={label}
-                className="flex flex-col items-center gap-1 py-3 px-3 min-w-0 flex-1 transition-colors relative"
-              >
-                {content}
               </Link>
             );
           })}
@@ -213,6 +382,9 @@ export function BottomNav() {
 
       {/* Explore drawer */}
       {exploreOpen && <ExploreDrawer onClose={() => setExploreOpen(false)} />}
+
+      {/* Long-press quick-action menu */}
+      {quickMenuOpen && <QuickActionMenu onClose={() => setQuickMenuOpen(false)} />}
     </>
   );
 }
