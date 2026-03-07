@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings, User, Bell, AlertTriangle, LogOut, Trash2, Check, X, Palette, Info, Star } from 'lucide-react';
+import { Settings, User, Bell, AlertTriangle, LogOut, Trash2, Check, X, Palette, Info, Star, Shield, Eye, Download, LayoutGrid, SortDesc } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { getToken } from '../../../lib/api';
@@ -84,6 +84,17 @@ function Toggle({ enabled, onChange, label, desc }: {
 // ── Delete confirmation modal ──────────────────────────────────────────────────
 function DeleteModal({ onClose }: { onClose: () => void }) {
   const [confirmed, setConfirmed] = useState('');
+  const router = useRouter();
+
+  const handleDelete = () => {
+    if (confirmed !== 'DELETE') return;
+    // Clear all localStorage data (demo mode)
+    if (typeof window !== 'undefined') {
+      localStorage.clear();
+    }
+    router.push('/register');
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
       <div
@@ -117,13 +128,14 @@ function DeleteModal({ onClose }: { onClose: () => void }) {
             Cancel
           </button>
           <button
+            onClick={handleDelete}
             disabled={confirmed !== 'DELETE'}
             className="flex-1 py-2.5 rounded-xl bg-[#ef4444] text-white text-sm font-bold disabled:opacity-40 flex items-center justify-center gap-1.5"
           >
             <Trash2 size={14} /> Delete
           </button>
         </div>
-        <p className="text-[10px] text-[#374151] text-center">Demo mode: account deletion is simulated</p>
+        <p className="text-[10px] text-[#374151] text-center">Demo mode: clears local data and redirects to register</p>
       </div>
     </div>
   );
@@ -150,13 +162,44 @@ export default function SettingsPage() {
   // Sports prefs from localStorage
   const [sportPrefs, setSportPrefs] = useState<string[]>(['nfl', 'nba', 'mlb']);
 
+  // Privacy settings
+  const [privacySettings, setPrivacySettings] = useState({
+    collectionVisibility: 'public' as 'public' | 'friends' | 'private',
+    battleHistoryPublic: true,
+    showOnLeaderboard: true,
+  });
+
+  // Display settings
+  const [displaySettings, setDisplaySettings] = useState({
+    cardDisplayStyle: 'grid' as 'grid' | 'list' | 'cards',
+    battleSortDefault: 'votes' as 'votes' | 'newest' | 'ending',
+    showCardValues: true,
+  });
+
+  // Notification settings (extended)
+  const [notifications, setNotifications] = useState({
+    battleResults: true,
+    newFollowers: true,
+    voteMilestones: false,
+    dailyPicks: true,
+    weeklyDigest: true,
+    priceAlerts: false,
+  });
+
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('cb_sports_prefs');
-      if (stored) {
-        try { setSportPrefs(JSON.parse(stored)); } catch {}
-      }
-    }
+    if (typeof window === 'undefined') return;
+    // Load sports prefs
+    const stored = localStorage.getItem('cb_sports_prefs');
+    if (stored) { try { setSportPrefs(JSON.parse(stored)); } catch {} }
+    // Load privacy settings
+    const storedPrivacy = localStorage.getItem('cb_privacy_settings');
+    if (storedPrivacy) { try { setPrivacySettings(JSON.parse(storedPrivacy)); } catch {} }
+    // Load display settings
+    const storedDisplay = localStorage.getItem('cb_display_settings');
+    if (storedDisplay) { try { setDisplaySettings(JSON.parse(storedDisplay)); } catch {} }
+    // Load notification settings
+    const storedNotifs = localStorage.getItem('cb_notification_settings');
+    if (storedNotifs) { try { setNotifications(JSON.parse(storedNotifs)); } catch {} }
   }, []);
 
   const toggleSport = (id: string) => {
@@ -169,12 +212,54 @@ export default function SettingsPage() {
     });
   };
 
-  const [notifications, setNotifications] = useState({
-    battleResults: true,
-    newFollowers: true,
-    voteMilestones: false,
-    dailyPicks: true,
-  });
+  const updatePrivacy = (key: keyof typeof privacySettings, value: string | boolean) => {
+    setPrivacySettings(prev => {
+      const next = { ...prev, [key]: value };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('cb_privacy_settings', JSON.stringify(next));
+      }
+      return next;
+    });
+  };
+
+  const updateDisplay = (key: keyof typeof displaySettings, value: string | boolean) => {
+    setDisplaySettings(prev => {
+      const next = { ...prev, [key]: value };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('cb_display_settings', JSON.stringify(next));
+      }
+      return next;
+    });
+  };
+
+  const toggleNotif = (key: keyof typeof notifications) => {
+    setNotifications(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('cb_notification_settings', JSON.stringify(next));
+      }
+      return next;
+    });
+  };
+
+  const handleExportData = () => {
+    if (typeof window === 'undefined') return;
+    const data: Record<string, unknown> = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key) {
+        try { data[key] = JSON.parse(localStorage.getItem(key) ?? ''); }
+        catch { data[key] = localStorage.getItem(key); }
+      }
+    }
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `card-battles-data-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const { data: me, isLoading } = useQuery<MeData>({
     queryKey: ['auth-me'],
@@ -236,10 +321,6 @@ export default function SettingsPage() {
   const handleLogout = () => {
     if (typeof logout === 'function') logout();
     router.push('/login');
-  };
-
-  const toggleNotif = (key: keyof typeof notifications) => {
-    setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   return (
@@ -336,11 +417,117 @@ export default function SettingsPage() {
           enabled={notifications.dailyPicks}
           onChange={() => toggleNotif('dailyPicks')}
         />
+        <Toggle
+          label="Weekly digest"
+          desc="Weekly summary of top battles"
+          enabled={notifications.weeklyDigest}
+          onChange={() => toggleNotif('weeklyDigest')}
+        />
+        <div className="flex items-center justify-between gap-3 py-1">
+          <div className="flex-1">
+            <p className="text-sm text-white font-medium">Price alerts</p>
+            <p className="text-xs text-[#64748b] mt-0.5">Alerts when card values change</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {notifications.priceAlerts && (
+              <Link href="/alerts" className="text-xs text-[#6c47ff] hover:underline">Configure</Link>
+            )}
+            <button
+              onClick={() => toggleNotif('priceAlerts')}
+              className={`relative w-10 h-6 rounded-full transition-colors shrink-0 ${notifications.priceAlerts ? 'bg-[#6c47ff]' : 'bg-[#1e1e2e]'}`}
+            >
+              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${notifications.priceAlerts ? 'translate-x-5' : 'translate-x-1'}`} />
+            </button>
+          </div>
+        </div>
         <p className="text-[10px] text-[#374151]">Notification preferences are saved locally (demo mode)</p>
         <div className="pt-2 border-t border-[#1e1e2e]">
           <p className="text-xs font-semibold text-[#94a3b8] mb-2">Browser Push Notifications</p>
           <PushNotificationSetup />
         </div>
+      </Section>
+
+      {/* Privacy settings section */}
+      <Section title="Privacy" icon={Shield} iconColor="text-[#3b82f6]">
+        <div>
+          <p className="text-sm text-white font-medium mb-1.5">Collection Visibility</p>
+          <div className="flex gap-1.5">
+            {(['public', 'friends', 'private'] as const).map(opt => (
+              <button
+                key={opt}
+                onClick={() => updatePrivacy('collectionVisibility', opt)}
+                className="flex-1 py-2 rounded-lg text-xs font-semibold border transition-all capitalize"
+                style={privacySettings.collectionVisibility === opt
+                  ? { background: 'rgba(108,71,255,0.15)', borderColor: '#6c47ff', color: '#a78bfa' }
+                  : { background: '#0a0a0f', borderColor: '#1e1e2e', color: '#64748b' }}
+              >
+                {opt === 'public' ? '🌐' : opt === 'friends' ? '👥' : '🔒'} {opt}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Toggle
+          label="Battle history: Public"
+          desc="Let others see your voting history"
+          enabled={privacySettings.battleHistoryPublic}
+          onChange={v => updatePrivacy('battleHistoryPublic', v)}
+        />
+        <Toggle
+          label="Show on leaderboard"
+          desc="Appear in public leaderboard rankings"
+          enabled={privacySettings.showOnLeaderboard}
+          onChange={v => updatePrivacy('showOnLeaderboard', v)}
+        />
+        <p className="text-[10px] text-[#374151]">Privacy settings saved locally (demo mode)</p>
+      </Section>
+
+      {/* Display settings section */}
+      <Section title="Display" icon={LayoutGrid} iconColor="text-[#22c55e]">
+        <div>
+          <p className="text-sm text-white font-medium mb-1.5">Card Display Style</p>
+          <div className="flex gap-1.5">
+            {(['grid', 'list', 'cards'] as const).map(opt => (
+              <button
+                key={opt}
+                onClick={() => updateDisplay('cardDisplayStyle', opt)}
+                className="flex-1 py-2 rounded-lg text-xs font-semibold border transition-all capitalize"
+                style={displaySettings.cardDisplayStyle === opt
+                  ? { background: 'rgba(34,197,94,0.12)', borderColor: '#22c55e', color: '#22c55e' }
+                  : { background: '#0a0a0f', borderColor: '#1e1e2e', color: '#64748b' }}
+              >
+                {opt === 'grid' ? '⊞' : opt === 'list' ? '≡' : '⊟'} {opt}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="text-sm text-white font-medium mb-1.5">Battle Sort Default</p>
+          <div className="flex gap-1.5">
+            {([
+              { id: 'votes', label: 'Most Votes' },
+              { id: 'newest', label: 'Newest' },
+              { id: 'ending', label: 'Ending Soon' },
+            ] as const).map(opt => (
+              <button
+                key={opt.id}
+                onClick={() => updateDisplay('battleSortDefault', opt.id)}
+                className="flex-1 py-2 rounded-lg text-[10px] font-semibold border transition-all"
+                style={displaySettings.battleSortDefault === opt.id
+                  ? { background: 'rgba(34,197,94,0.12)', borderColor: '#22c55e', color: '#22c55e' }
+                  : { background: '#0a0a0f', borderColor: '#1e1e2e', color: '#64748b' }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Toggle
+          label="Show card values"
+          desc="Display estimated card values in your collection"
+          enabled={displaySettings.showCardValues}
+          onChange={v => updateDisplay('showCardValues', v)}
+        />
+        <p className="text-[10px] text-[#374151]">Display preferences saved locally</p>
       </Section>
 
       {/* Preferences section */}
@@ -373,7 +560,7 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between gap-3 py-1">
           <div>
             <p className="text-sm text-white font-medium">Dark Mode</p>
-            <p className="text-xs text-[#64748b] mt-0.5">Card Battles is always dark — it's who we are</p>
+            <p className="text-xs text-[#64748b] mt-0.5">Card Battles is always dark — it&apos;s who we are</p>
           </div>
           <div
             className="relative w-10 h-6 rounded-full bg-[#6c47ff] cursor-not-allowed opacity-80"
@@ -389,6 +576,12 @@ export default function SettingsPage() {
       {/* Danger zone */}
       <Section title="Danger Zone" icon={AlertTriangle} iconColor="text-[#ef4444]">
         <div className="space-y-2">
+          <button
+            onClick={handleExportData}
+            className="w-full py-2.5 rounded-xl border border-[#1e1e2e] text-[#94a3b8] text-sm font-semibold flex items-center justify-center gap-2 hover:border-[#374151] hover:text-white transition-colors"
+          >
+            <Download size={15} /> Export Your Data
+          </button>
           <button
             onClick={handleLogout}
             className="w-full py-2.5 rounded-xl border border-[#1e1e2e] text-[#64748b] text-sm font-semibold flex items-center justify-center gap-2 hover:border-[#374151] hover:text-white transition-colors"
@@ -412,7 +605,7 @@ export default function SettingsPage() {
         </div>
         <div className="flex items-center justify-between">
           <span className="text-sm text-[#94a3b8]">Build</span>
-          <span className="text-sm text-[#374151] font-mono">weekend-sprint</span>
+          <span className="text-sm text-[#374151] font-mono">wave-31</span>
         </div>
         <div className="pt-1 flex gap-4">
           <Link href="/privacy" className="text-xs text-[#6c47ff] hover:underline">Privacy Policy</Link>

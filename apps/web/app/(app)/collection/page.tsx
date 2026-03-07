@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Trash2, BookMarked, ExternalLink, Share2, Globe, Lock } from 'lucide-react';
 import { BackButton } from '../../../components/ui/BackButton';
 import { showToast } from '../../../components/ui/Toast';
+import { RarityBadge, getRarityTier } from '../../../components/ui/RarityBadge';
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
@@ -85,6 +86,9 @@ function CardTile({ card, onRemove }: { card: CollectedCard; onRemove: () => voi
         <div>
           <p className="text-sm font-bold text-white truncate">{card.player_name ?? card.title}</p>
           {card.year && <p className="text-[11px] text-[#64748b]">{card.year} · PSA 10 Est.</p>}
+          <div className="mt-1">
+            <RarityBadge tier={getRarityTier(card.player_name ?? '', card.year)} size="sm" />
+          </div>
         </div>
         <div className="flex gap-1.5 mt-auto">
           <Link

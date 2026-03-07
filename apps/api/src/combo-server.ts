@@ -2899,6 +2899,101 @@ app.get('/api/v1/milestones', async (c) => {
   return c.json({ milestones, total: milestones.length });
 });
 
+// ── GIFT CARDS ────────────────────────────────────────────────────────────────
+
+type GiftCard = { id: string; code: string; fromUserId: string; fromUsername: string; toUsername?: string; amount: number; redeemed: boolean; redeemedBy?: string; createdAt: string; expiresAt: string };
+const giftCards = new Map<string, GiftCard>();
+
+function generateGiftCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length: 16}, (_, i) => (i > 0 && i % 4 === 0 ? '-' : '') + chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+app.post('/api/v1/gift-cards', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const { toUsername, amount } = await c.req.json().catch(() => ({}));
+  if (!amount || ![5, 10, 25, 50].includes(Number(amount))) return c.json({ error: 'amount must be 5, 10, 25, or 50' }, 400);
+  const ur = await pg.query('SELECT username FROM users WHERE id=$1', [userId]);
+  const fromUsername = (ur.rows as {username:string}[])[0]?.username || 'user';
+  const id = randomUUID();
+  const code = generateGiftCode();
+  const gc: GiftCard = { id, code, fromUserId: userId, fromUsername, toUsername, amount: Number(amount), redeemed: false, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 365 * 86400000).toISOString() };
+  giftCards.set(id, gc);
+  return c.json({ ...gc, message: 'Gift card created! Share the code with your friend.' }, 201);
+});
+
+app.post('/api/v1/gift-cards/redeem', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const { code } = await c.req.json().catch(() => ({}));
+  if (!code) return c.json({ error: 'code required' }, 400);
+  const normalizedInput = String(code).toUpperCase().replace(/-/g, '');
+  const gc = Array.from(giftCards.values()).find(g => {
+    const normalizedStored = g.code.replace(/-/g, '');
+    return normalizedStored === normalizedInput;
+  });
+  if (!gc) return c.json({ error: 'Invalid gift card code' }, 400);
+  if (gc.redeemed) return c.json({ error: 'Gift card already redeemed' }, 400);
+  if (new Date(gc.expiresAt) < new Date()) return c.json({ error: 'Gift card expired' }, 400);
+  gc.redeemed = true;
+  gc.redeemedBy = userId;
+  return c.json({ success: true, amount: gc.amount, message: `$${gc.amount} Pro credit applied! (Demo — no real charge)` });
+});
+
+app.get('/api/v1/me/gift-cards', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const mine = Array.from(giftCards.values()).filter(g => g.fromUserId === userId);
+  return c.json({ giftCards: mine, total: mine.length });
+});
+
+// ── RARITY TIERS ─────────────────────────────────────────────────────────────
+
+const RARITY_TIERS: Record<string, {label: string; color: string; glow: string; description: string; emoji: string}> = {
+  common: { label: 'Common', color: '#64748b', glow: '#64748b33', description: 'Standard card, widely available', emoji: '⚪' },
+  uncommon: { label: 'Uncommon', color: '#22c55e', glow: '#22c55e33', description: 'Less common, some collector interest', emoji: '🟢' },
+  rare: { label: 'Rare', color: '#3b82f6', glow: '#3b82f633', description: 'Short print or limited run', emoji: '🔵' },
+  epic: { label: 'Epic', color: '#8b5cf6', glow: '#8b5cf633', description: 'Numbered /100 or less, auto or patch', emoji: '🟣' },
+  legendary: { label: 'Legendary', color: '#f59e0b', glow: '#f59e0b33', description: '1/1 or printer proof, absolute pinnacle', emoji: '🟡' },
+};
+
+app.get('/api/v1/rarity-tiers', (c) => c.json({ tiers: RARITY_TIERS }));
+
+app.get('/api/v1/cards/:id/rarity', async (c) => {
+  const { id } = c.req.param();
+  const r = await pg.query('SELECT player_name, year FROM card_assets WHERE id=$1', [id]);
+  const card = (r.rows as {player_name:string;year:number}[])[0];
+  if (!card) return c.json({ error: 'Not found' }, 404);
+
+  const LEGEND_PLAYERS = ['Michael Jordan', 'Babe Ruth', 'Roberto Clemente', 'Sandy Koufax', 'Wilt Chamberlain'];
+  const EPIC_PLAYERS = ['LeBron James', 'Kobe Bryant', 'Tom Brady', 'Shohei Ohtani'];
+  const RARE_PLAYERS = ['Patrick Mahomes', 'Stephen Curry', 'Mike Trout', 'Luka Doncic'];
+
+  let tierKey = 'common';
+  if (LEGEND_PLAYERS.includes(card.player_name) || card.year < 1970) tierKey = 'legendary';
+  else if (EPIC_PLAYERS.includes(card.player_name) || card.year < 1990) tierKey = 'epic';
+  else if (RARE_PLAYERS.includes(card.player_name) || card.year < 2000) tierKey = 'rare';
+  else if (card.year < 2015) tierKey = 'uncommon';
+
+  return c.json({ cardId: id, tier: tierKey, ...RARITY_TIERS[tierKey] });
+});
+
+// ── BATTLE CATEGORIES ─────────────────────────────────────────────────────────
+
+const AVAILABLE_CATEGORIES = [
+  { id: 'investment', label: 'Investment', emoji: '💰', description: 'Which will be worth more in 5 years?' },
+  { id: 'coolest', label: 'Coolest', emoji: '😎', description: 'Which has the better look and design?' },
+  { id: 'rarity', label: 'Rarity', emoji: '💎', description: 'Which is harder to find in top grade?' },
+  { id: 'rookie', label: 'Rookie Impact', emoji: '⭐', description: 'Which rookie had more impact?' },
+  { id: 'goat', label: 'GOAT Factor', emoji: '🐐', description: 'Which is more legendary overall?' },
+  { id: 'nostalgia', label: 'Nostalgia', emoji: '🎞️', description: 'Which brings back more memories?' },
+  { id: 'condition', label: 'Condition', emoji: '🔍', description: 'Which is in better condition?' },
+  { id: 'pop', label: 'Pop Culture', emoji: '🌟', description: 'Which player has more cultural impact?' },
+];
+
+app.get('/api/v1/categories', (c) => c.json({ categories: AVAILABLE_CATEGORIES }));
+
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────
 app.all('*', async (c) => {
   const req = c.req.raw;

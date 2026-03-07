@@ -764,7 +764,7 @@ function BattleStatsPanel({ battleId, battle }: { battleId: string; battle: Batt
   }
 
   const cats = ['investment', 'coolest', 'rarity'];
-  const catEmoji: Record<string, string> = { investment: '📈', coolest: '🔥', rarity: '💎' };
+  const catEmoji: Record<string, string> = { investment: '💰', coolest: '😎', rarity: '💎', rookie: '⭐', goat: '🐐', nostalgia: '🎞️', condition: '🔍', pop: '🌟' };
   const momentumSide = stats.momentum === 'left' ? (battle.left.playerName ?? 'Left') : (battle.right.playerName ?? 'Right');
 
   return (
@@ -1043,7 +1043,7 @@ function VoteAllButton({ battleId, battle, onVoted }: { battleId: string; battle
       style={{ background: 'rgba(108,71,255,0.05)' }}
     >
       <p className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider text-center">⚡ Vote All Categories</p>
-      <p className="text-[10px] text-[#64748b] text-center">Cast your vote in all 3 categories at once</p>
+      <p className="text-[10px] text-[#64748b] text-center">Cast your vote in all categories at once</p>
       <div className="flex gap-2">
         <button
           onClick={() => handleVoteAll('left')}

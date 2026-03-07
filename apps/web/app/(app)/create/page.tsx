@@ -9,9 +9,14 @@ import { showToast } from '../../../components/ui/Toast';
 const SPORTS = ['nfl', 'nba', 'mlb', 'nhl', 'soccer', 'other'];
 
 const CATEGORIES = [
-  { id: 'investment', label: '📈 Investment' },
-  { id: 'coolest', label: '🔥 Coolest' },
-  { id: 'rarity', label: '💎 Rarest' },
+  { id: 'investment', label: 'Investment', emoji: '💰', description: 'Which will be worth more in 5 years?' },
+  { id: 'coolest', label: 'Coolest', emoji: '😎', description: 'Which has the better look and design?' },
+  { id: 'rarity', label: 'Rarity', emoji: '💎', description: 'Which is harder to find in top grade?' },
+  { id: 'rookie', label: 'Rookie Impact', emoji: '⭐', description: 'Which rookie had more impact?' },
+  { id: 'goat', label: 'GOAT Factor', emoji: '🐐', description: 'Which is more legendary overall?' },
+  { id: 'nostalgia', label: 'Nostalgia', emoji: '🎞️', description: 'Which brings back more memories?' },
+  { id: 'condition', label: 'Condition', emoji: '🔍', description: 'Which is in better condition?' },
+  { id: 'pop', label: 'Pop Culture', emoji: '🌟', description: 'Which player has more cultural impact?' },
 ];
 
 const DURATIONS = [
@@ -484,7 +489,7 @@ export default function CreatePage() {
   const [left, setLeft] = useState<CardInput>(emptyCard());
   const [right, setRight] = useState<CardInput>(emptyCard());
   const [battleTitle, setBattleTitle] = useState('');
-  const [selectedCats, setSelectedCats] = useState<string[]>(['investment', 'coolest', 'rarity']);
+  const [selectedCats, setSelectedCats] = useState<string[]>(['investment', 'coolest']);
   const [duration, setDuration] = useState(86400);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -570,15 +575,23 @@ export default function CreatePage() {
   };
 
   const toggleCat = (id: string) => {
-    setSelectedCats((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
-    );
+    setSelectedCats((prev) => {
+      if (prev.includes(id)) {
+        // Don't allow deselecting if only 2 remain
+        if (prev.length <= 2) return prev;
+        return prev.filter((c) => c !== id);
+      } else {
+        // Don't allow selecting more than 4
+        if (prev.length >= 4) return prev;
+        return [...prev, id];
+      }
+    });
   };
 
   const handleSubmit = async () => {
     if (!left.title.trim()) return setError('Enter a title for the left card');
     if (!right.title.trim()) return setError('Enter a title for the right card');
-    if (selectedCats.length === 0) return setError('Select at least one category');
+    if (selectedCats.length < 2) return setError('Select at least 2 categories');
 
     setError('');
     setSubmitting(true);
@@ -803,20 +816,33 @@ export default function CreatePage() {
 
       {/* Categories */}
       <div>
-        <label className="text-xs font-bold text-[#64748b] uppercase tracking-widest block mb-2">Vote Categories</label>
-        <div className="flex flex-wrap gap-2">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => toggleCat(cat.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all
-                ${selectedCats.includes(cat.id)
-                  ? 'bg-[#6c47ff]/15 border-[#6c47ff] text-[#6c47ff]'
-                  : 'bg-[#12121a] border-[#1e1e2e] text-[#64748b] hover:border-[#374151]'}`}
-            >
-              {cat.label}
-            </button>
-          ))}
+        <label className="text-xs font-bold text-[#64748b] uppercase tracking-widest block mb-1">Vote Categories</label>
+        <p className="text-[10px] text-[#64748b] mb-2">Select 2–4 categories · {selectedCats.length}/4 selected</p>
+        <div className="grid grid-cols-2 gap-2">
+          {CATEGORIES.map((cat) => {
+            const isSelected = selectedCats.includes(cat.id);
+            const atMax = selectedCats.length >= 4 && !isSelected;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => toggleCat(cat.id)}
+                disabled={atMax}
+                className={`p-3 rounded-xl border-2 text-left transition-all disabled:opacity-40 ${
+                  isSelected
+                    ? 'bg-[#6c47ff]/15 border-[#6c47ff]'
+                    : 'bg-[#12121a] border-[#1e1e2e] hover:border-[#374151]'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-lg">{cat.emoji}</span>
+                  <span className={`text-xs font-bold ${isSelected ? 'text-[#a78bfa]' : 'text-[#94a3b8]'}`}>
+                    {cat.label}
+                  </span>
+                </div>
+                <p className="text-[9px] text-[#64748b] leading-tight">{cat.description}</p>
+              </button>
+            );
+          })}
         </div>
       </div>
 

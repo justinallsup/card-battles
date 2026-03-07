@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Crown, Check, Sparkles, Zap, BarChart2, BadgeCheck, Lock, Copy, Twitter, Users } from 'lucide-react';
+import { Crown, Check, Sparkles, Zap, BarChart2, BadgeCheck, Lock, Copy, Twitter, Users, Gift, CreditCard, ClipboardCheck } from 'lucide-react';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
@@ -28,6 +28,261 @@ interface ReferralData {
   message: string;
 }
 
+// ── Gift Card Section ─────────────────────────────────────────────────────────
+
+interface GiftCardData {
+  id: string;
+  code: string;
+  fromUsername: string;
+  toUsername?: string;
+  amount: number;
+  redeemed: boolean;
+  createdAt: string;
+  expiresAt: string;
+}
+
+function GiftCardSection() {
+  const [selectedAmount, setSelectedAmount] = useState<number>(10);
+  const [toUsername, setToUsername] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [createdCard, setCreatedCard] = useState<GiftCardData | null>(null);
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [redeemCode, setRedeemCode] = useState('');
+  const [redeemStatus, setRedeemStatus] = useState<{ success?: boolean; message?: string; error?: string } | null>(null);
+  const [redeeming, setRedeeming] = useState(false);
+  const [sentCards, setSentCards] = useState<GiftCardData[]>([]);
+  const [loadingCards, setLoadingCards] = useState(false);
+
+  const AMOUNTS = [5, 10, 25, 50];
+
+  useEffect(() => {
+    const token = localStorage.getItem('cb_access_token');
+    if (!token) return;
+    setLoadingCards(true);
+    fetch(`${BASE_URL}/me/gift-cards`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(d => { setSentCards(d.giftCards ?? []); setLoadingCards(false); })
+      .catch(() => setLoadingCards(false));
+  }, [createdCard]);
+
+  const handleCreate = async () => {
+    const token = localStorage.getItem('cb_access_token');
+    if (!token) { alert('Log in to create gift cards'); return; }
+    setCreating(true);
+    try {
+      const res = await fetch(`${BASE_URL}/gift-cards`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ amount: selectedAmount, toUsername: toUsername.trim() || undefined }),
+      });
+      const data = await res.json() as GiftCardData & { message?: string };
+      if (res.ok) {
+        setCreatedCard(data);
+        setToUsername('');
+      }
+    } catch {}
+    setCreating(false);
+  };
+
+  const handleCopyCode = async () => {
+    if (!createdCard) return;
+    try {
+      await navigator.clipboard.writeText(createdCard.code);
+      setCodeCopied(true);
+      setTimeout(() => setCodeCopied(false), 2000);
+    } catch {}
+  };
+
+  const handleRedeem = async () => {
+    if (!redeemCode.trim()) return;
+    const token = localStorage.getItem('cb_access_token');
+    if (!token) { setRedeemStatus({ error: 'You must be logged in to redeem' }); return; }
+    setRedeeming(true);
+    setRedeemStatus(null);
+    try {
+      const res = await fetch(`${BASE_URL}/gift-cards/redeem`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ code: redeemCode.trim() }),
+      });
+      const data = await res.json() as { success?: boolean; message?: string; error?: string };
+      if (res.ok) {
+        setRedeemStatus({ success: true, message: data.message });
+        setRedeemCode('');
+      } else {
+        setRedeemStatus({ error: data.error || 'Invalid code' });
+      }
+    } catch {
+      setRedeemStatus({ error: 'Failed to redeem. Please try again.' });
+    }
+    setRedeeming(false);
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Purchase Gift Card */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-black text-white flex items-center gap-2">
+          <Gift size={16} className="text-[#f59e0b]" />
+          Give the Gift of Pro
+        </h3>
+        <p className="text-xs text-[#64748b]">Gift a Pro credit to any collector. They get the perks, you get the karma.</p>
+
+        {/* Amount tiles */}
+        <div className="grid grid-cols-4 gap-2">
+          {AMOUNTS.map(amt => (
+            <button
+              key={amt}
+              onClick={() => setSelectedAmount(amt)}
+              className="py-3 rounded-xl border-2 text-center transition-all"
+              style={selectedAmount === amt
+                ? { background: 'rgba(245,158,11,0.15)', borderColor: '#f59e0b', color: '#f59e0b' }
+                : { background: '#0a0a0f', borderColor: '#1e1e2e', color: '#64748b' }}
+            >
+              <p className="text-sm font-black">${amt}</p>
+              <p className="text-[9px] mt-0.5">{amt === 5 ? '~2wk' : amt === 10 ? '~1mo' : amt === 25 ? '~3mo' : '~6mo'}</p>
+            </button>
+          ))}
+        </div>
+
+        {/* To username */}
+        <div>
+          <label className="text-xs text-[#64748b] block mb-1">To: @username (optional)</label>
+          <input
+            type="text"
+            value={toUsername}
+            onChange={e => setToUsername(e.target.value.replace('@', ''))}
+            placeholder="username"
+            className="w-full bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-[#374151] focus:outline-none focus:border-[#f59e0b] transition-colors"
+          />
+        </div>
+
+        <button
+          onClick={handleCreate}
+          disabled={creating}
+          className="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-60"
+          style={{ background: 'linear-gradient(135deg, #f59e0b, #f97316)', color: 'white' }}
+        >
+          {creating ? (
+            <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+          ) : (
+            <><CreditCard size={16} /> Purchase Gift Card — ${selectedAmount}</>
+          )}
+        </button>
+      </div>
+
+      {/* Created card display */}
+      {createdCard && (
+        <div
+          className="rounded-2xl p-4 space-y-3"
+          style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)' }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🎁</span>
+            <div>
+              <p className="text-sm font-black text-white">Gift Card Created!</p>
+              <p className="text-xs text-[#64748b]">Share this code with your friend</p>
+            </div>
+          </div>
+          <div
+            className="rounded-xl p-3 flex items-center justify-between gap-3"
+            style={{ background: 'rgba(0,0,0,0.3)' }}
+          >
+            <p className="text-xl font-black text-white tracking-widest font-mono">{createdCard.code}</p>
+            <button
+              onClick={handleCopyCode}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0"
+              style={codeCopied
+                ? { background: 'rgba(34,197,94,0.15)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }
+                : { background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }
+              }
+            >
+              {codeCopied ? <><Check size={11} /> Copied!</> : <><Copy size={11} /> Copy</>}
+            </button>
+          </div>
+          <div className="flex justify-between text-xs text-[#64748b]">
+            <span>Amount: <span className="text-white font-bold">${createdCard.amount}</span></span>
+            <span>Expires: {new Date(createdCard.expiresAt).toLocaleDateString()}</span>
+          </div>
+          <button
+            onClick={() => setCreatedCard(null)}
+            className="w-full py-2 rounded-lg text-xs text-[#64748b] hover:text-white transition-colors"
+          >
+            Create another →
+          </button>
+        </div>
+      )}
+
+      {/* Redeem section */}
+      <div
+        className="rounded-2xl p-4 space-y-3"
+        style={{ background: '#12121a', border: '1px solid #1e1e2e' }}
+      >
+        <h3 className="text-sm font-black text-white flex items-center gap-2">
+          <ClipboardCheck size={16} className="text-[#22c55e]" />
+          Redeem a Gift Card
+        </h3>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={redeemCode}
+            onChange={e => setRedeemCode(e.target.value.toUpperCase())}
+            placeholder="XXXX-XXXX-XXXX-XXXX"
+            className="flex-1 bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-[#374151] focus:outline-none focus:border-[#22c55e] font-mono tracking-wider"
+          />
+          <button
+            onClick={handleRedeem}
+            disabled={!redeemCode.trim() || redeeming}
+            className="px-4 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
+            style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e' }}
+          >
+            {redeeming ? '…' : 'Redeem'}
+          </button>
+        </div>
+        {redeemStatus?.success && (
+          <p className="text-xs text-[#22c55e] flex items-center gap-1.5"><Check size={12} /> {redeemStatus.message}</p>
+        )}
+        {redeemStatus?.error && (
+          <p className="text-xs text-[#ef4444]">❌ {redeemStatus.error}</p>
+        )}
+      </div>
+
+      {/* Sent cards list */}
+      {sentCards.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold text-[#64748b] uppercase tracking-wider">Your Gift Cards Sent</h3>
+          {sentCards.map(card => (
+            <div
+              key={card.id}
+              className="flex items-center justify-between p-3 rounded-xl border border-[#1e1e2e] bg-[#12121a]"
+            >
+              <div>
+                <p className="text-sm font-mono font-bold text-white">{card.code}</p>
+                <p className="text-xs text-[#64748b]">
+                  ${card.amount} {card.toUsername ? `→ @${card.toUsername}` : ''}
+                  {' · '}{new Date(card.createdAt).toLocaleDateString()}
+                </p>
+              </div>
+              <span
+                className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={card.redeemed
+                  ? { background: 'rgba(34,197,94,0.1)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.3)' }
+                  : { background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }
+                }
+              >
+                {card.redeemed ? '✓ Redeemed' : 'Active'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Referral Section ──────────────────────────────────────────────────────────
 function ReferralSection() {
   const [referral, setReferral] = useState<ReferralData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -410,6 +665,11 @@ export default function ProPage() {
       {/* Referral section */}
       <div className="bg-[#12121a] rounded-2xl border border-[#1e1e2e] p-5">
         <ReferralSection />
+      </div>
+
+      {/* Gift Card section */}
+      <div className="bg-[#12121a] rounded-2xl border border-[#f59e0b]/20 p-5">
+        <GiftCardSection />
       </div>
 
       <p className="text-center text-xs text-[#374151] pb-2">

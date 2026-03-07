@@ -5,6 +5,7 @@ import { getToken } from '../../../lib/api';
 import { showToast } from '../../../components/ui/Toast';
 import { X, Search, Plus, Store, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
+import { RarityBadge, getRarityTier } from '../../../components/ui/RarityBadge';
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
@@ -266,6 +267,9 @@ function ListingCard({ listing, onContact }: { listing: Listing; onContact: (id:
         <div>
           <p className="text-sm font-bold text-white truncate">{listing.playerName}</p>
           <p className="text-xs text-[#64748b]">{listing.year}</p>
+          <div className="mt-1">
+            <RarityBadge tier={getRarityTier(listing.playerName, listing.year)} size="sm" />
+          </div>
         </div>
         <p className="text-[10px] text-[#64748b] truncate">{listing.title}</p>
         {listing.description && (

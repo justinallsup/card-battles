@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BackButton } from '../../../components/ui/BackButton';
+import { RarityBadge, getRarityTier } from '../../../components/ui/RarityBadge';
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
@@ -129,7 +130,10 @@ function InducteeRow({ inductee }: { inductee: Inductee }) {
           <span className="text-xs">{SPORT_EMOJI[inductee.sport] || '🃏'}</span>
         </div>
         <p className="text-[10px] text-[#64748b] truncate">{inductee.title}</p>
-        <p className="text-[10px] text-[#475569]">Inducted {inductee.inducted}</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <p className="text-[10px] text-[#475569]">Inducted {inductee.inducted}</p>
+          <RarityBadge tier={getRarityTier(inductee.playerName, inductee.year)} size="sm" />
+        </div>
       </div>
 
       {/* Stats */}
