@@ -2274,6 +2274,65 @@ app.get('/api/v1/me/recommendations', async (c) => {
   });
 });
 
+// ── PRICE ALERTS ─────────────────────────────────────────────────────────────
+type PriceAlert = { id: string; userId: string; playerName: string; targetPrice: number; direction: 'above' | 'below'; triggered: boolean; triggeredAt?: string; createdAt: string };
+const priceAlerts = new Map<string, PriceAlert>();
+
+const PRICE_VALUATIONS: Record<string, number> = {
+  'Patrick Mahomes': 280, 'Tom Brady': 520, 'LeBron James': 1400, 'Michael Jordan': 15000,
+  'Victor Wembanyama': 180, 'Shohei Ohtani': 380, 'Mike Trout': 780, 'Luka Doncic': 460,
+  'Stephen Curry': 340, 'Josh Allen': 210, 'Lamar Jackson': 195, 'Giannis Antetokounmpo': 165,
+  'Nikola Jokic': 220, 'Anthony Edwards': 310,
+};
+
+function getCurrentPrice(playerName: string): number {
+  const base = PRICE_VALUATIONS[playerName] || 45;
+  const jitter = (Math.random() - 0.5) * 0.1;
+  return Math.round(base * (1 + jitter));
+}
+
+function checkAlertTriggered(alert: PriceAlert): boolean {
+  const currentPrice = getCurrentPrice(alert.playerName);
+  if (alert.direction === 'above' && currentPrice >= alert.targetPrice) return true;
+  if (alert.direction === 'below' && currentPrice <= alert.targetPrice) return true;
+  return false;
+}
+
+app.get('/api/v1/me/price-alerts', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  // Re-check triggers on fetch
+  for (const [id, alert] of priceAlerts.entries()) {
+    if (!alert.triggered && alert.userId === authUid && checkAlertTriggered(alert)) {
+      priceAlerts.set(id, { ...alert, triggered: true, triggeredAt: new Date().toISOString() });
+    }
+  }
+  const myAlerts = Array.from(priceAlerts.values()).filter(a => a.userId === authUid);
+  return c.json({ alerts: myAlerts, total: myAlerts.length });
+});
+
+app.post('/api/v1/me/price-alerts', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const { playerName, targetPrice, direction } = await c.req.json().catch(() => ({}));
+  if (!playerName || !targetPrice || !['above', 'below'].includes(direction)) {
+    return c.json({ error: 'playerName, targetPrice, and direction (above/below) required' }, 400);
+  }
+  const id = randomUUID();
+  const alert: PriceAlert = { id, userId: authUid, playerName, targetPrice: Number(targetPrice), direction, triggered: false, createdAt: new Date().toISOString() };
+  priceAlerts.set(id, alert);
+  return c.json(alert, 201);
+});
+
+app.delete('/api/v1/me/price-alerts/:id', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const alert = priceAlerts.get(c.req.param('id'));
+  if (!alert || alert.userId !== authUid) return c.json({ error: 'Not found' }, 404);
+  priceAlerts.delete(c.req.param('id'));
+  return c.json({ message: 'Alert deleted' });
+});
+
 // ── REPORTS ───────────────────────────────────────────────────────────────────
 
 app.post('/api/v1/reports', async (c) => {
