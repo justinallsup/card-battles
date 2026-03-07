@@ -87,7 +87,7 @@ export default function GetAppPage() {
       if (typeof navigator !== 'undefined' && 'share' in navigator) {
         await (navigator as Navigator).share(shareData);
       } else {
-        await navigator.clipboard.writeText('https://cardbattles.app');
+        await (navigator as Navigator).clipboard.writeText('https://cardbattles.app');
         setShareToast(true);
         setTimeout(() => setShareToast(false), 2500);
       }

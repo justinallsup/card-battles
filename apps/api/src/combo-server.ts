@@ -291,9 +291,42 @@ function uid(h:string|undefined):string|null {
 }
 
 
+// ── SANITIZE ──────────────────────────────────────────────────────────────────
+function sanitize(s: string): string {
+  return s.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').trim().slice(0, 2000);
+}
+
+// ── RATE LIMITER ──────────────────────────────────────────────────────────────
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+function rateLimit(ip: string, max = 100, windowMs = 60_000): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + windowMs });
+    return true; // allowed
+  }
+  entry.count++;
+  return entry.count <= max; // false = rate limited
+}
+
 const app = new Hono();
 app.use('*', logger());
-app.use('*', cors({origin:'*',credentials:true}));
+app.use('*', cors({origin: process.env.CORS_ORIGIN || '*', credentials: true}));
+
+// Apply rate limiting to all API routes
+app.use('/api/*', async (c, next) => {
+  const ip = c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown';
+  if (!rateLimit(ip, 200, 60_000)) {
+    return c.json({ error: 'Too many requests, please slow down' }, 429);
+  }
+  await next();
+});
+
+// Global error handler
+app.onError((err, c) => {
+  console.error('Unhandled error:', err.message);
+  return c.json({ error: 'Internal server error' }, 500);
+});
 
 app.get('/health', async (c) => {
   const battleCount = await pg.query('SELECT COUNT(*) as n FROM battles');
@@ -504,7 +537,7 @@ app.get('/api/v1/users/:username/battles', async (c) => {
 app.patch('/api/v1/auth/me', async (c) => {
   const u=uid(c.req.header('Authorization'));if(!u)return c.json({error:'Unauthorized'},401);
   const{bio}=await c.req.json().catch(()=>({}));
-  if(bio!==undefined)await pg.query('UPDATE users SET bio=$1 WHERE id=$2',[bio,u]);
+  if(bio!==undefined)await pg.query('UPDATE users SET bio=$1 WHERE id=$2',[sanitize(bio),u]);
   const r=await pg.query('SELECT id,username,email,avatar_url,bio,pro_status,created_at FROM users WHERE id=$1',[u]);
   return c.json((r.rows as unknown[])[0]);
 });
@@ -1030,7 +1063,7 @@ app.post('/api/v1/battles/:id/comments', async (c) => {
   if (!text?.trim() || text.length > 280) return c.json({ error: 'Text required (max 280 chars)' }, 400);
   const ur = await pg.query('SELECT username FROM users WHERE id=$1', [authUid]);
   const username = (ur.rows as {username:string}[])[0]?.username || 'unknown';
-  const comment: Comment = { id: randomUUID(), battleId: battleId, userId: authUid, username, text: text.trim(), createdAt: new Date().toISOString(), likes: 0 };
+  const comment: Comment = { id: randomUUID(), battleId: battleId, userId: authUid, username, text: sanitize(text.trim()), createdAt: new Date().toISOString(), likes: 0 };
   if (!comments.has(battleId)) comments.set(battleId, []);
   comments.get(battleId)!.push(comment);
   return c.json(comment, 201);
@@ -1613,7 +1646,7 @@ app.post('/api/v1/marketplace', async (c) => {
   const ur = await pg.query('SELECT username FROM users WHERE id=$1', [userId]);
   const username = (ur.rows as {username:string}[])[0]?.username || 'user';
   const id = randomUUID();
-  const listing: Listing = { id, sellerId: userId, sellerName: username, cardId, playerName: card.player_name, imageUrl: card.image_url, title: card.title, year: card.year, askingPrice: Number(askingPrice), condition: condition || 'Raw', grade: null, description: description || '', status: 'active', createdAt: new Date().toISOString() };
+  const listing: Listing = { id, sellerId: userId, sellerName: username, cardId, playerName: card.player_name, imageUrl: card.image_url, title: card.title, year: card.year, askingPrice: Number(askingPrice), condition: condition || 'Raw', grade: null, description: description ? sanitize(description) : '', status: 'active', createdAt: new Date().toISOString() };
   marketplace.set(id, listing);
   return c.json(listing, 201);
 });
@@ -1789,7 +1822,7 @@ app.post('/api/v1/trades', async (c) => {
   const fromUsername = (ur.rows as {username:string}[])[0]?.username || 'user';
   const toUsername = (tor.rows as {username:string}[])[0]?.username || 'user';
   const id = randomUUID();
-  const trade: TradeProposal = { id, fromUserId: userId, fromUsername, toUserId, toUsername, offeredCardIds, requestedCardIds, message: message || '', status: 'pending', createdAt: new Date().toISOString() };
+  const trade: TradeProposal = { id, fromUserId: userId, fromUsername, toUserId, toUsername, offeredCardIds, requestedCardIds, message: message ? sanitize(message) : '', status: 'pending', createdAt: new Date().toISOString() };
   tradeProposals.set(id, trade);
   return c.json(trade, 201);
 });
