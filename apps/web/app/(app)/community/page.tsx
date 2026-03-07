@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Globe, Users, Swords, Zap, Star, MessageSquare, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { showToast } from '../../../components/ui/Toast';
-import { MilestonesFeed } from '../milestones/page';
+import { MilestonesFeed } from '../../../components/milestones/MilestonesFeed';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
 

@@ -11,6 +11,7 @@ const EXPLORE_CATEGORIES = [
   {
     label: 'Compete',
     tiles: [
+      { href: '/blitz',        label: 'Blitz',       icon: '⚡',  desc: '5-min speed battles'  },
       { href: '/leaderboards', label: 'Battles',     icon: '⚔️',  desc: 'Active card battles'  },
       { href: '/tournaments',  label: 'Tournaments', icon: '🏆',  desc: 'Bracket battles'      },
       { href: '/bracket',      label: 'Bracket',     icon: '📊',  desc: 'Build a bracket'      },

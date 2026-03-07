@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.0.0-beta] - 2026-03-07
+
+### Added (Waves 30-34)
+- Sold comparable sales panel (4th tab on battle detail)
+- Community milestones feed
+- Battle scoring formula explainer with interactive calculator
+- Gift cards for Pro gifting ($5/$10/$25/$50)
+- 5-tier card rarity system (Common/Uncommon/Rare/Epic/Legendary)
+- RarityBadge component on Hall of Fame, Collection, Marketplace
+- 8 selectable battle categories (up from 3 fixed)
+- Settings: privacy, display, notification preferences, export/delete account
+- Card vintage calculator (era, age premium, anniversary milestones)
+- Voting insights panel (per-category summary, majority alignment)
+- Friend challenges with trash talk
+- Social proof on landing page (real stats, count-up animation)
+- Card set completion tracker with progress bar
+- Battle reminders (15/30/60/120 min before end)
+- Richer user profiles (location, favorite player, trophy case, battle history)
+- Card price comparison floating widget
+- Blitz Battles (5-minute speed battles with live countdown)
+- Collector persona quiz (4 archetypes)
+- 86 tests passing (12 test files)
+- Production build: 60+ routes, clean TypeScript
+
 ## [0.9.0] - 2026-03-07
 
 ### Added (Waves 19-29)

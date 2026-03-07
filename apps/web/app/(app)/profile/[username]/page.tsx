@@ -321,6 +321,45 @@ function EditProfileModal({ user: profileUser, onClose }: { user: { bio?: string
   );
 }
 
+// ── Persona CTA ──────────────────────────────────────────────────────────────
+function PersonaCTA() {
+  const [persona, setPersona] = useState<{name:string;emoji:string;color:string;description:string} | null>(null);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('cb_persona');
+      if (saved) setPersona(JSON.parse(saved));
+    }
+  }, []);
+
+  if (persona) {
+    return (
+      <div className="rounded-xl border p-4 flex items-center gap-3" style={{ background: '#12121a', borderColor: `${persona.color}40` }}>
+        <div className="text-3xl">{persona.emoji}</div>
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-bold uppercase tracking-widest mb-0.5" style={{ color: persona.color }}>Your Persona</div>
+          <div className="text-sm font-black text-white">{persona.name}</div>
+          <div className="text-xs text-[#94a3b8] truncate">{persona.description}</div>
+        </div>
+        <Link href="/persona" className="text-xs font-bold text-[#6c47ff] hover:underline whitespace-nowrap">Retake →</Link>
+      </div>
+    );
+  }
+
+  return (
+    <Link href="/persona" className="block rounded-xl border border-dashed border-[#6c47ff]/40 p-4 hover:border-[#6c47ff] transition-colors"
+      style={{ background: '#12121a' }}>
+      <div className="flex items-center gap-3">
+        <div className="text-3xl">🎭</div>
+        <div className="flex-1">
+          <div className="text-sm font-black text-white">Discover Your Collector Persona</div>
+          <div className="text-xs text-[#94a3b8]">Take a 5-question quiz to find out what kind of collector you are!</div>
+        </div>
+        <div className="text-xs font-bold text-[#6c47ff]">→</div>
+      </div>
+    </Link>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = use(params);
@@ -504,7 +543,12 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         </div>
       )}
 
-      {/* Trophy Case — top 3 badges */}
+      {/* Collector Persona CTA */}
+      {isOwnProfile && (
+        <PersonaCTA />
+      )}
+
+            {/* Trophy Case — top 3 badges */}
       {earnedBadges.length > 0 && (
         <div>
           <h2 className="text-xs font-semibold text-[#64748b] uppercase tracking-widest mb-3">🏆 Trophy Case</h2>

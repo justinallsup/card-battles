@@ -295,6 +295,7 @@ async function seedDb() {
   });
 
   await seedMarketplace();
+  await seedBlitz();
   console.log('[Seed] ✅ Done — cardking@demo.com / password123');
 }
 
@@ -1945,6 +1946,98 @@ app.get('/api/v1/cards/:id/price-history', async (c) => {
 
   return c.json({ cardId: id, playerName: card.player_name, points, high, low, current, changePct, trend: changePct > 0 ? 'up' : 'down' });
 });
+
+// ── BATCH PRICES ──────────────────────────────────────────────────────────────
+app.get('/api/v1/cards/batch-prices', async (c) => {
+  const ids = c.req.query('ids')?.split(',').slice(0, 3) || [];
+  if (!ids.length) return c.json({ error: 'Provide card IDs as ?ids=id1,id2,id3' }, 400);
+
+  const r = await pg.query('SELECT id, player_name, image_url, year FROM card_assets WHERE id=ANY($1)', [ids]);
+  const cards = r.rows as {id:string;player_name:string;image_url:string;year:number}[];
+
+  const VALUATIONS: Record<string,number> = {
+    'Patrick Mahomes': 280, 'Tom Brady': 520, 'LeBron James': 1400, 'Michael Jordan': 15000,
+    'Victor Wembanyama': 180, 'Caitlin Clark': 145, 'Kobe Bryant': 2800, 'Shohei Ohtani': 380,
+    'Mike Trout': 780, 'Stephen Curry': 340,
+  };
+
+  const prices = cards.map(card => ({
+    cardId: card.id, playerName: card.player_name, imageUrl: card.image_url, year: card.year,
+    psa10: VALUATIONS[card.player_name] || 45,
+    psa9: Math.round((VALUATIONS[card.player_name] || 45) * 0.4),
+    psa8: Math.round((VALUATIONS[card.player_name] || 45) * 0.2),
+    raw: Math.round((VALUATIONS[card.player_name] || 45) * 0.05),
+    trend: Math.random() > 0.5 ? 'up' : 'down',
+    changePct: Math.round((Math.random() - 0.4) * 20 * 10) / 10,
+  }));
+
+  return c.json({ prices, comparedAt: new Date().toISOString() });
+});
+
+// ── BLITZ BATTLES ─────────────────────────────────────────────────────────────
+type BlitzBattle = {
+  id: string; leftAssetId: string; rightAssetId: string;
+  leftPlayer: string; rightPlayer: string; leftImage: string; rightImage: string;
+  leftVotes: number; rightVotes: number; endsAt: string; status: 'live' | 'ended';
+  winner?: 'left' | 'right'; createdAt: string;
+};
+const blitzBattles = new Map<string, BlitzBattle>();
+
+async function seedBlitz() {
+  const r = await pg.query('SELECT id, player_name, image_url FROM card_assets ORDER BY RANDOM() LIMIT 2');
+  const cards = r.rows as {id:string;player_name:string;image_url:string}[];
+  if (cards.length < 2) return;
+  const id = randomUUID();
+  blitzBattles.set(id, {
+    id, leftAssetId: cards[0].id, rightAssetId: cards[1].id,
+    leftPlayer: cards[0].player_name, rightPlayer: cards[1].player_name,
+    leftImage: cards[0].image_url, rightImage: cards[1].image_url,
+    leftVotes: Math.floor(Math.random() * 20), rightVotes: Math.floor(Math.random() * 20),
+    endsAt: new Date(Date.now() + 5 * 60000).toISOString(),
+    status: 'live', createdAt: new Date().toISOString(),
+  });
+}
+
+app.get('/api/v1/blitz', async (c) => {
+  const now = new Date();
+  for (const [, b] of blitzBattles) {
+    if (new Date(b.endsAt) < now && b.status === 'live') {
+      b.status = 'ended';
+      b.winner = b.leftVotes >= b.rightVotes ? 'left' : 'right';
+    }
+  }
+  const live = Array.from(blitzBattles.values()).filter(b => b.status === 'live');
+  // Auto-create a new blitz if none live
+  if (!live.length) {
+    await seedBlitz();
+    const newLive = Array.from(blitzBattles.values()).filter(b => b.status === 'live');
+    return c.json({ battles: Array.from(blitzBattles.values()).slice(-5), live: newLive[0] || null });
+  }
+  return c.json({ battles: Array.from(blitzBattles.values()).slice(-5), live: live[0] || null });
+});
+
+app.post('/api/v1/blitz/:id/vote', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const battle = blitzBattles.get(c.req.param('id'));
+  if (!battle || battle.status !== 'live') return c.json({ error: 'Battle not live' }, 400);
+  if (new Date(battle.endsAt) < new Date()) return c.json({ error: 'Battle ended' }, 400);
+  const { choice } = await c.req.json().catch(() => ({} as {choice?:string}));
+  if (!['left','right'].includes(choice ?? '')) return c.json({ error: 'Invalid choice' }, 400);
+  if (choice === 'left') battle.leftVotes++;
+  else battle.rightVotes++;
+  return c.json({ battle, choice });
+});
+
+// ── COLLECTOR PERSONAS ─────────────────────────────────────────────────────────
+app.get('/api/v1/personas', (c) => c.json({
+  personas: [
+    { id: 'investor', name: 'The Investor', emoji: '📈', description: 'You treat cards like stocks. ROI is everything.', color: '#22c55e' },
+    { id: 'hunter', name: 'The Hunter', emoji: '🎯', description: 'Chasing the rarest, hardest-to-find cards.', color: '#ef4444' },
+    { id: 'fan', name: 'The Fan', emoji: '❤️', description: 'You collect the players you love, full stop.', color: '#6c47ff' },
+    { id: 'historian', name: 'The Historian', emoji: '🏺', description: 'Vintage cards are your passion. The older the better.', color: '#f59e0b' },
+  ]
+}));
 
 // ── CARD SCAN ─────────────────────────────────────────────────────────────────
 app.post('/api/v1/cards/scan', async (c) => {

@@ -20,6 +20,7 @@ import { ReportModal, ReportButton } from '../../../../components/ui/ReportModal
 import { VintageInfoSection } from '../../../../components/battles/VintageInfo';
 import { VotingInsights } from '../../../../components/battles/VotingInsights';
 import { ChallengeFriendButton } from '../../../../components/battles/ChallengeFriendButton';
+import { CardPriceComparison } from '../../../../components/CardPriceComparison';
 import Link from 'next/link';
 import type { Battle } from '@card-battles/types';
 
@@ -1716,6 +1717,14 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
           onClose={() => setLightboxSrc(null)}
         />
       )}
+
+      {/* Floating price comparison widget */}
+      <CardPriceComparison
+        leftCardId={battle.left.assetId}
+        rightCardId={battle.right.assetId}
+        leftPlayerName={battle.left.playerName ?? undefined}
+        rightPlayerName={battle.right.playerName ?? undefined}
+      />
     </div>
   );
 }
