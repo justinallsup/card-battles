@@ -82,6 +82,8 @@ export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => { document.title = 'My Analytics | Card Battles'; }, []);
+
   useEffect(() => {
     const token = getToken();
     if (!token) { setLoading(false); return; }

@@ -130,6 +130,32 @@ async function seedDb() {
     {p:'Fernando Tatis Jr',y:2019,s:'mlb',c:'2f241d/fd5a1e',t:'Tatis 2019 Bowman Chrome Auto'},
     {p:'Julio Rodriguez',y:2022,s:'mlb',c:'005c5c/0052a5',t:'JRod 2022 Topps Chrome RC PSA 10'},
     {p:'Jackson Holliday',y:2024,s:'mlb',c:'df4601/000000',t:'Holliday 2024 Topps RC Auto'},
+    // Wave 19 — new cards for expanded battles
+    {p:'Trae Young',y:2018,s:'nba',c:'c8102e/010101',t:'Trae Young 2018 Prizm Rookie Auto'},
+    {p:'Justin Jefferson',y:2020,s:'nfl',c:'4f2683/ffffff',t:'Jefferson 2020 Prizm Rookie Auto'},
+    {p:'Davante Adams',y:2014,s:'nfl',c:'203731/ffb612',t:'D. Adams 2014 Prizm RC PSA 10'},
+    {p:'Caitlin Clark',y:2024,s:'nba',c:'041e42/bec0c2',t:'Clark 2024 Rookie Auto PSA 10'},
+    {p:'Angel Reese',y:2024,s:'nba',c:'5a2d82/ffffff',t:'Reese 2024 Rookie Auto'},
+    {p:'Wilt Chamberlain',y:1961,s:'nba',c:'003da5/ee1c25',t:'Wilt 1961 Fleer Rookie PSA 6'},
+    {p:'Bill Russell',y:1957,s:'nba',c:'007a33/ffffff',t:'Russell 1957 Topps RC PSA 5'},
+    {p:'Roberto Clemente',y:1955,s:'mlb',c:'002d62/d50032',t:'Clemente 1955 Topps RC PSA 5'},
+    {p:'Hank Aaron',y:1954,s:'mlb',c:'002263/b5a642',t:'Aaron 1954 Topps RC PSA 6'},
+    {p:'Travis Kelce',y:2013,s:'nfl',c:'e31837/ffb612',t:'Kelce 2013 Prizm RC PSA 10'},
+    {p:'Rob Gronkowski',y:2010,s:'nfl',c:'002244/c60c30',t:'Gronk 2010 Topps RC PSA 10'},
+    {p:'Joel Embiid',y:2014,s:'nba',c:'006bb6/ed174c',t:'Embiid 2014 Prizm RC PSA 10'},
+    {p:'Bo Jackson',y:1986,s:'mlb',c:'004687/ef3e42',t:'Bo 1986 Topps RC PSA 9'},
+    {p:'Deion Sanders',y:1989,s:'nfl',c:'a71930/000000',t:'Prime Time 1989 Score RC PSA 9'},
+    {p:'Kobe Bryant',y:1996,s:'nba',c:'552583/fdb927',t:'Kobe 1996 Topps Chrome RC PSA 10'},
+    {p:'Dirk Nowitzki',y:1998,s:'nba',c:'00538c/b8c4ca',t:'Dirk 1998 Topps Chrome RC PSA 10'},
+    {p:'Sandy Koufax',y:1955,s:'mlb',c:'005a9c/ffffff',t:'Koufax 1955 Topps RC PSA 4'},
+    {p:'Bob Gibson',y:1959,s:'mlb',c:'c41e3a/0c2340',t:'Gibson 1959 Topps RC PSA 5'},
+    {p:'Jamal Murray',y:2016,s:'nba',c:'0e2240/fec524',t:'Murray 2016 Prizm RC PSA 10'},
+    {p:'Tyler Herro',y:2019,s:'nba',c:'98002e/f9a01b',t:'Herro 2019 Prizm Rookie Auto'},
+    {p:'Gunnar Henderson',y:2023,s:'mlb',c:'df4601/000000',t:'Henderson 2023 Bowman Chrome Auto'},
+    {p:'Kawhi Leonard',y:2011,s:'nba',c:'003da5/c4ced4',t:'Kawhi 2011 Prizm RC PSA 10'},
+    {p:'Riley Greene',y:2023,s:'mlb',c:'0c2c56/fa4616',t:'Greene 2023 Topps Chrome RC'},
+    {p:'Brock Purdy',y:2022,s:'nfl',c:'aa0000/b3995d',t:'Purdy 2022 Prizm RC PSA 10'},
+    {p:'Paul Goldschmidt',y:2011,s:'mlb',c:'a71930/000000',t:'Goldschmidt 2011 Topps RC PSA 10'},
   ];
   const assetIds: string[] = [];
   for (const c of cards) {
@@ -147,6 +173,12 @@ async function seedDb() {
   // 22=Lamar, 23=Hurts, 24=Herbert, 25=Tua, 26=Drake Maye, 27=Daniels
   // 28=Jokic, 29=Giannis, 30=KD, 31=Booker, 32=Edwards, 33=Paolo
   // 34=Harper, 35=Betts, 36=Tatis, 37=JRod, 38=Holliday
+  // Wave 19:
+  // 39=TraeYoung, 40=JJefferson, 41=DAdams, 42=CaitlinClark, 43=AngelReese
+  // 44=Wilt, 45=BillRussell, 46=Clemente, 47=HankAaron, 48=Kelce, 49=Gronk
+  // 50=Embiid, 51=BoJackson, 52=DeionSanders, 53=Kobe, 54=Dirk
+  // 55=Koufax, 56=BGibson, 57=JMurray, 58=Herro, 59=GHenderson
+  // 60=Kawhi, 61=RGreene, 62=BPurdy, 63=PGoldschmidt
   const battles = [
     {l:0,r:1,title:'Mahomes vs Brady — GOAT Rookie Debate 🐐',sp:true},
     {l:4,r:5,title:'LeBron vs Jordan — The Greatest Debate Ever',sp:true},
@@ -179,6 +211,27 @@ async function seedDb() {
     {l:27,r:20,title:'Jayden Daniels vs CJ Stroud — NFC East Rising'},
     {l:33,r:6,title:'Paolo Banchero vs Wemby — Next Gen Bigs 🏀'},
     {l:35,r:9,title:'Mookie Betts vs Mike Trout — Outfield GOATs'},
+    // Wave 19 — 20 new battles (total: 50)
+    {l:16,r:39,title:'Ja Morant vs Trae Young — 2021 Rookie Battle 🔥'},
+    {l:34,r:14,title:'Bryce Harper vs Ronald Acuña Jr. — NL Superstars ⚾'},
+    {l:40,r:41,title:'Justin Jefferson vs Davante Adams — WR Royalty 🏈'},
+    {l:42,r:43,title:'Caitlin Clark vs Angel Reese — WNBA Revolution 🏀'},
+    {l:44,r:45,title:'Wilt Chamberlain vs Bill Russell — NBA Legends Debate 🐐'},
+    {l:46,r:47,title:'Roberto Clemente vs Hank Aaron — Baseball Immortals ⚾'},
+    {l:48,r:49,title:'Travis Kelce vs Rob Gronkowski — Greatest TE Ever? 🏈'},
+    {l:28,r:50,title:'Nikola Jokic vs Joel Embiid — MVP Wars 🏆'},
+    {l:18,r:15,title:'Aaron Judge vs Juan Soto — AL vs NL Sluggers ⚾'},
+    {l:51,r:52,title:'Bo Jackson vs Deion Sanders — Dual-Sport Legends 🌟'},
+    {l:53,r:54,title:'Kobe Bryant vs Dirk Nowitzki — 2000s NBA Icons 🏀'},
+    {l:55,r:56,title:'Sandy Koufax vs Bob Gibson — Pitching GOAT Debate ⚾'},
+    {l:57,r:58,title:'Jamal Murray vs Tyler Herro — Clutch Shooters 🎯'},
+    {l:20,r:21,title:'CJ Stroud vs Anthony Richardson — Rookie Class Revisited 🏈'},
+    {l:10,r:59,title:'Elly De La Cruz vs Gunnar Henderson — 2023 MLB Rookies ⚾'},
+    {l:30,r:60,title:'Kevin Durant vs Kawhi Leonard — Elite Wings Showdown 🏀'},
+    {l:37,r:61,title:'Julio Rodriguez vs Riley Greene — MLB Youth Movement ⚾'},
+    {l:62,r:23,title:'Brock Purdy vs Jalen Hurts — NFL Rising Stars 🏈'},
+    {l:13,r:31,title:'Jayson Tatum vs Devin Booker — Eastern vs Western Stars 🏀'},
+    {l:19,r:63,title:'Freddie Freeman vs Paul Goldschmidt — First Base GOATs ⚾'},
   ];
   const spId = randomUUID();
   await pg.query('INSERT INTO sponsors (id,name) VALUES ($1,$2)', [spId, 'PSA Grading']);
@@ -711,6 +764,16 @@ app.get('/api/v1/users/:username/follow-status', async (c) => {
   const followerCount = Array.from(following.values()).filter(s => s.has(target.id)).length;
   const followingCount = following.get(target.id)?.size ?? 0;
   return c.json({ isFollowing, followerCount, followingCount });
+});
+
+// ── BATTLE WIDGET (embeddable iframe) ─────────────────────────────────────────
+app.get('/api/v1/battles/:id/widget', async (c) => {
+  const { id } = c.req.param();
+  const r = await pg.query(`SELECT b.*, la.player_name as lp, la.image_url as li, ra.player_name as rp, ra.image_url as ri, b.total_votes_cached FROM battles b LEFT JOIN card_assets la ON la.id=b.left_asset_id LEFT JOIN card_assets ra ON ra.id=b.right_asset_id WHERE b.id=$1`, [id]);
+  const b = (r.rows as Record<string,unknown>[])[0];
+  if (!b) return c.json({error:'Not found'}, 404);
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0a0a0f;color:white;font-family:system-ui;padding:12px}.battle{display:flex;gap:12px;align-items:center}.card{flex:1;background:#12121a;border-radius:8px;padding:8px;text-align:center}img{width:100%;height:80px;object-fit:cover;border-radius:4px;margin-bottom:4px}.name{font-size:11px;font-weight:700}.vs{font-size:20px;font-weight:900;color:#6c47ff;flex-shrink:0}.votes{text-align:center;font-size:10px;color:#64748b;margin-top:8px}a{display:block;margin-top:8px;background:#6c47ff;color:white;text-decoration:none;padding:6px;border-radius:6px;text-align:center;font-size:11px;font-weight:700}</style></head><body><div class="battle"><div class="card"><img src="${b.li}" alt="${b.lp}"><div class="name">${b.lp}</div></div><div class="vs">VS</div><div class="card"><img src="${b.ri}" alt="${b.rp}"><div class="name">${b.rp}</div></div></div><div class="votes">${Number(b.total_votes_cached||0).toLocaleString()} votes</div><a href="https://cardbattles.app/battles/${id}" target="_blank">⚔️ Vote Now</a></body></html>`;
+  return new Response(html, { headers: { 'Content-Type': 'text/html', 'X-Frame-Options': 'ALLOWALL', 'Access-Control-Allow-Origin': '*' }});
 });
 
 // ── OG SHARE IMAGE ────────────────────────────────────────────────────────────

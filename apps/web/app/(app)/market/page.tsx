@@ -128,6 +128,8 @@ export default function MarketPage() {
     },
   });
 
+  useEffect(() => { document.title = 'Market | Card Battles'; }, []);
+
   useEffect(() => {
     const interval = setInterval(() => {
       const diffMs = Date.now() - dataUpdatedAt;

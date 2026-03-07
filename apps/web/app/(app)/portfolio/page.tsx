@@ -96,6 +96,8 @@ export default function PortfolioPage() {
   const [data, setData] = useState<PortfolioData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => { document.title = 'My Portfolio | Card Battles'; }, []);
+
   useEffect(() => {
     if (!user) return;
     fetch(`${BASE}/me/portfolio`, { headers: { Authorization: `Bearer ${getToken()}` } })

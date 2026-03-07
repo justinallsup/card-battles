@@ -1,6 +1,6 @@
 'use client';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Globe, Users, Swords, Zap, Star, MessageSquare, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { showToast } from '../../../components/ui/Toast';
@@ -88,6 +88,7 @@ function eventText(event: FeedEvent) {
 
 export default function CommunityPage() {
   const [chatModal, setChatModal] = useState<string | null>(null);
+  useEffect(() => { document.title = 'Community | Card Battles'; }, []);
 
   const { data: stats } = useQuery<CommunityStats>({
     queryKey: ['community-stats'],

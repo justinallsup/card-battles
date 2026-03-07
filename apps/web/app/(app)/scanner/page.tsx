@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { BackButton } from '../../../components/ui/BackButton';
 import { Camera, Upload, Zap, Star } from 'lucide-react';
@@ -34,6 +34,7 @@ export default function ScannerPage() {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { document.title = 'Card Scanner | Card Battles'; }, []);
 
   const runScan = async (delayMs = 3000) => {
     setScanState('scanning');

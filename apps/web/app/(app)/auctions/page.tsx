@@ -173,6 +173,7 @@ export default function AuctionsPage() {
   }, []);
 
   useEffect(() => { fetchAuctions(); }, [fetchAuctions]);
+  useEffect(() => { document.title = 'Live Auctions | Card Battles'; }, []);
 
   const handleBid = async (amount: number) => {
     const token = getToken();

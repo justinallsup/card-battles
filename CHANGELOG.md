@@ -1,5 +1,55 @@
 # Changelog
 
+## [0.8.0] - 2026-03-07
+
+### Added
+- Card Grading Simulator with animated grade reveal
+- Battle Stats charts (SVG donut + bar charts)
+- Referral system with code generation and redemption
+- Market Feed with simulated price movements
+- Card Comparison tool with side-by-side metrics
+- Advanced Search with filters, grid/list toggle, trending suggestions
+- Bulk Battle Creator for admin users
+- Live Auctions with countdown timers and bid simulation
+- Card Sets browser (Prizm, Topps Chrome, Bowman, Fleer, SP Auth, National Treasures)
+- Personal Analytics dashboard
+- Improved OG share images with card photos and glow effects
+- Community Hub with live event feed and rising stars
+- Daily Picks streak reward milestones (3/7/14/30 days)
+- Card Grading Guide with PSA scale, glossary, tips
+- Toast notification system
+- 8 new production DB tables (comments, collections, watchlist, follows, tournaments, fantasy)
+- Integration test suite (12 E2E scenarios)
+- CI: TypeScript + build + integration test jobs
+- Card Marketplace (list, browse, contact seller)
+- Player profile pages (directory + per-player stats)
+- Vote All button (3 categories in 1 click)
+- BackButton component on 10+ pages
+- Category Insights expandable section on battle detail
+- 30-day Price History sparkline charts
+- Card Scanner UI with animated recognition
+- Hall of Fame for most-voted cards
+- PWA App download page with waitlist
+- Trade Proposals system
+- Portfolio Tracker with SVG value chart
+- Battle Replay with scrubber and auto-play
+- Rich Social Sharing modal with 3 tabs (Share / OG Card / Embed)
+- BattleWidget embeddable iframe endpoint (`/api/v1/battles/:id/widget`)
+- WhatsApp share button with pre-filled battle text
+- Real Twitter/X share URLs with hashtags and player names
+- Dynamic document.title on 15+ pages for SEO/deep-links
+- 10 new API tests (53 total passing)
+- 50 seed battles across NFL, NBA, MLB, WNBA
+
+### Changed
+- Daily Picks enhanced with streak rewards
+- Search page revamped with filters and suggestions
+- Notifications page with category filters
+- Admin dashboard with Bulk Create tab (5th tab)
+- Battle detail page: 3 tabs (Overview / Stats / Replay)
+- Share modal upgraded to 3-tab layout (Share / OG Card / Embed)
+- Seed data expanded: 64 card assets, 50 battles, new players (WNBA, legends, 2023 rookies)
+
 ## [0.1.0] - 2026-03-07 (Weekend Sprint)
 
 ### Added
@@ -43,3 +93,4 @@
 - BullMQ worker for battle resolution
 - MinIO/S3 asset storage
 - GitHub Actions CI
+

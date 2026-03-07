@@ -33,25 +33,31 @@ function formatTimeAgo(iso: string): string {
 
 // ── Share Modal ────────────────────────────────────────────────────────────────
 function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }) {
-  const shareUrl = `https://cardbattles.app/battles/${battle.id}`;
-  const ogImageUrl = `http://localhost:3333/api/v1/share/${battle.id}/og`;
+  const shareUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/battles/${battle.id}`
+    : `https://cardbattles.app/battles/${battle.id}`;
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
+  const ogImageUrl = `${apiBase}/share/${battle.id}/og`;
+  const widgetUrl = `${apiBase}/battles/${battle.id}/widget`;
   const [copied, setCopied] = useState(false);
-  const [copiedImg, setCopiedImg] = useState(false);
+  const [copiedEmbed, setCopiedEmbed] = useState(false);
+  const [activeTab, setActiveTabShare] = useState<'share' | 'ogcard' | 'embed'>('share');
+
+  const leftPlayer = battle.left.playerName ?? 'Left';
+  const rightPlayer = battle.right.playerName ?? 'Right';
+  const sport = (battle.left as unknown as Record<string,string>).sport ?? 'sports';
+
+  const twitterText = `🥊 Card Battle: ${leftPlayer} vs ${rightPlayer}\nVote now and pick the 🏆\n#${sport}Cards #CardBattles #SportCards`;
+  const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(twitterText)}&url=${encodeURIComponent(shareUrl)}`;
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${twitterText}\n${shareUrl}`)}`;
+  const embedCode = `<iframe src="${widgetUrl}" width="320" height="200" frameborder="0" style="border-radius:12px;overflow:hidden;" allowfullscreen></iframe>`;
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {}
+    try { await navigator.clipboard.writeText(shareUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {}
   };
 
-  const handleCopyImgUrl = async () => {
-    try {
-      await navigator.clipboard.writeText(ogImageUrl);
-      setCopiedImg(true);
-      setTimeout(() => setCopiedImg(false), 2000);
-    } catch {}
+  const handleCopyEmbed = async () => {
+    try { await navigator.clipboard.writeText(embedCode); setCopiedEmbed(true); setTimeout(() => setCopiedEmbed(false), 2000); } catch {}
   };
 
   const handleDownload = async () => {
@@ -60,16 +66,14 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `battle-${battle.id}.svg`;
-      a.click();
+      a.href = url; a.download = `battle-${battle.id}.svg`; a.click();
       URL.revokeObjectURL(url);
     } catch {}
   };
 
-  const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-    `I voted on "${battle.title}" on Card Battles!`
-  )}&url=${encodeURIComponent(shareUrl)}`;
+  const tabStyle = (tab: 'share' | 'ogcard' | 'embed') => activeTab === tab
+    ? { color: '#a78bfa', borderBottom: '2px solid #6c47ff', background: 'rgba(108,71,255,0.08)' }
+    : { color: '#64748b' };
 
   return (
     <div
@@ -81,6 +85,7 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
         style={{ background: '#12121a', boxShadow: '0 -8px 40px rgba(0,0,0,0.6)' }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e1e2e]">
           <div className="flex items-center gap-2">
             <Share2 size={15} className="text-[#6c47ff]" />
@@ -91,92 +96,158 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
           </button>
         </div>
 
-        {/* OG Image Preview */}
-        <div className="px-4 pt-3">
-          <p className="text-[10px] text-[#64748b] uppercase tracking-widest font-semibold mb-2">Battle Card</p>
-          <div className="rounded-xl overflow-hidden border border-[#1e1e2e] bg-[#0a0a0f] relative" style={{ aspectRatio: '1200/630' }}>
-            <img
-              src={ogImageUrl}
-              alt="Battle card preview"
-              className="w-full h-full object-cover"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-            />
-          </div>
-          <div className="flex gap-2 mt-2">
+        {/* Tabs */}
+        <div className="flex border-b border-[#1e1e2e]">
+          {(['share', 'ogcard', 'embed'] as const).map(tab => (
             <button
-              onClick={handleDownload}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold border border-[#1e1e2e] text-[#64748b] hover:border-[#6c47ff] hover:text-[#6c47ff] transition-colors"
+              key={tab}
+              onClick={() => setActiveTabShare(tab)}
+              className="flex-1 py-2 text-xs font-bold transition-all"
+              style={tabStyle(tab)}
             >
-              <Download size={12} /> Download Card
+              {tab === 'share' ? '🔗 Share' : tab === 'ogcard' ? '🖼️ OG Card' : '📋 Embed'}
             </button>
-            <button
-              onClick={handleCopyImgUrl}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold border border-[#1e1e2e] transition-colors"
-              style={{ color: copiedImg ? '#22c55e' : '#64748b', borderColor: copiedImg ? 'rgba(34,197,94,0.4)' : undefined }}
-            >
-              {copiedImg ? <><Check size={12} /> Copied!</> : <><Copy size={12} /> Copy URL</>}
-            </button>
-          </div>
+          ))}
         </div>
 
-        {/* URL */}
-        <div className="px-4 py-3">
-          <div className="flex items-center gap-2 bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl px-3 py-2.5">
-            <span className="flex-1 text-xs text-[#64748b] truncate font-mono">{shareUrl}</span>
-            <button
-              onClick={handleCopy}
-              className="shrink-0 text-xs font-bold px-2.5 py-1 rounded-lg transition-all"
-              style={{
-                background: copied ? 'rgba(34,197,94,0.15)' : 'rgba(108,71,255,0.15)',
-                color: copied ? '#22c55e' : '#6c47ff',
-                border: `1px solid ${copied ? 'rgba(34,197,94,0.3)' : 'rgba(108,71,255,0.3)'}`,
-              }}
-            >
-              {copied ? (
-                <span className="flex items-center gap-1"><Check size={11} /> Copied!</span>
-              ) : (
-                <span className="flex items-center gap-1"><Copy size={11} /> Copy</span>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Options */}
-        <div className="px-4 pb-4 space-y-2">
-          <a
-            href={twitterUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-[#1e1e2e] hover:border-[#1da1f2]/40 hover:bg-[#1da1f2]/5 transition-all group"
-          >
-            <div className="w-8 h-8 rounded-lg bg-[#1da1f2]/10 flex items-center justify-center">
-              <Twitter size={15} className="text-[#1da1f2]" />
+        {/* Share Tab */}
+        {activeTab === 'share' && (
+          <div className="p-4 space-y-3">
+            {/* Copy link */}
+            <div className="flex items-center gap-2 bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl px-3 py-2.5">
+              <span className="flex-1 text-xs text-[#64748b] truncate font-mono">{shareUrl}</span>
+              <button
+                onClick={handleCopy}
+                className="shrink-0 text-xs font-bold px-2.5 py-1 rounded-lg transition-all"
+                style={{
+                  background: copied ? 'rgba(34,197,94,0.15)' : 'rgba(108,71,255,0.15)',
+                  color: copied ? '#22c55e' : '#6c47ff',
+                  border: `1px solid ${copied ? 'rgba(34,197,94,0.3)' : 'rgba(108,71,255,0.3)'}`,
+                }}
+              >
+                {copied ? <span className="flex items-center gap-1"><Check size={11} /> Copied!</span>
+                  : <span className="flex items-center gap-1"><Copy size={11} /> Copy</span>}
+              </button>
             </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-semibold text-white">Share on Twitter / X</p>
-              <p className="text-xs text-[#64748b]">Post this battle to your followers</p>
-            </div>
-            <ExternalLink size={12} className="text-[#374151] group-hover:text-[#1da1f2] transition-colors" />
-          </a>
 
-          {typeof navigator !== 'undefined' && 'share' in navigator && (
-            <button
-              onClick={async () => {
-                try { await (navigator as Navigator).share({ title: battle.title, url: shareUrl }); } catch {}
-                onClose();
-              }}
-              className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-[#1e1e2e] hover:border-[#6c47ff]/40 hover:bg-[#6c47ff]/5 transition-all"
+            {/* Twitter/X button */}
+            <a
+              href={twitterUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-[#1e1e2e] hover:border-[#1da1f2]/40 hover:bg-[#1da1f2]/5 transition-all group"
             >
-              <div className="w-8 h-8 rounded-lg bg-[#6c47ff]/10 flex items-center justify-center">
-                <Share2 size={15} className="text-[#6c47ff]" />
+              <div className="w-8 h-8 rounded-lg bg-[#1da1f2]/10 flex items-center justify-center">
+                <Twitter size={15} className="text-[#1da1f2]" />
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-semibold text-white">More options…</p>
-                <p className="text-xs text-[#64748b]">Share via your device</p>
+                <p className="text-sm font-semibold text-white">Share on Twitter / X</p>
+                <p className="text-xs text-[#64748b]">Post this battle to your followers</p>
               </div>
+              <ExternalLink size={12} className="text-[#374151] group-hover:text-[#1da1f2] transition-colors" />
+            </a>
+
+            {/* WhatsApp button */}
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-[#1e1e2e] hover:border-[#25d366]/40 hover:bg-[#25d366]/5 transition-all group"
+            >
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base" style={{ background: 'rgba(37,211,102,0.1)' }}>
+                💬
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-semibold text-white">Share on WhatsApp</p>
+                <p className="text-xs text-[#64748b]">Send to friends and groups</p>
+              </div>
+              <ExternalLink size={12} className="text-[#374151] group-hover:text-[#25d366] transition-colors" />
+            </a>
+
+            {/* Native share */}
+            {typeof navigator !== 'undefined' && 'share' in navigator && (
+              <button
+                onClick={async () => {
+                  try { await (navigator as Navigator).share({ title: battle.title, text: twitterText, url: shareUrl }); } catch {}
+                  onClose();
+                }}
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-[#1e1e2e] hover:border-[#6c47ff]/40 hover:bg-[#6c47ff]/5 transition-all"
+              >
+                <div className="w-8 h-8 rounded-lg bg-[#6c47ff]/10 flex items-center justify-center">
+                  <Share2 size={15} className="text-[#6c47ff]" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-semibold text-white">More options…</p>
+                  <p className="text-xs text-[#64748b]">Share via your device</p>
+                </div>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* OG Card Tab */}
+        {activeTab === 'ogcard' && (
+          <div className="p-4 space-y-3">
+            <p className="text-[10px] text-[#64748b] uppercase tracking-widest font-semibold">Battle Card Preview</p>
+            <div className="rounded-xl overflow-hidden border border-[#1e1e2e] bg-[#0a0a0f]" style={{ aspectRatio: '1200/630' }}>
+              <img
+                src={ogImageUrl}
+                alt="Battle card preview"
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDownload}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors"
+                style={{ background: 'rgba(108,71,255,0.1)', border: '1px solid rgba(108,71,255,0.3)', color: '#a78bfa' }}
+              >
+                <Download size={12} /> Download SVG
+              </button>
+              <a
+                href={ogImageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors"
+                style={{ background: 'rgba(30,30,46,0.8)', border: '1px solid #1e1e2e', color: '#64748b' }}
+              >
+                <ExternalLink size={12} /> Open Full Size
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* Embed Tab */}
+        {activeTab === 'embed' && (
+          <div className="p-4 space-y-3">
+            <p className="text-[10px] text-[#64748b] uppercase tracking-widest font-semibold">Embed this Battle</p>
+            <p className="text-xs text-[#94a3b8]">Copy and paste this code into your website or blog.</p>
+            <div className="bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl p-3">
+              <code className="text-[10px] text-[#a78bfa] break-all leading-relaxed font-mono whitespace-pre-wrap">
+                {embedCode}
+              </code>
+            </div>
+            <button
+              onClick={handleCopyEmbed}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
+              style={copiedEmbed
+                ? { background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e' }
+                : { background: 'rgba(108,71,255,0.1)', border: '1px solid rgba(108,71,255,0.3)', color: '#6c47ff' }}
+            >
+              {copiedEmbed ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy Embed Code</>}
             </button>
-          )}
-        </div>
+            <div className="rounded-xl overflow-hidden border border-[#1e1e2e]" style={{ height: 200 }}>
+              <iframe
+                src={widgetUrl}
+                width="100%"
+                height="200"
+                style={{ border: 'none', borderRadius: 8 }}
+                title="Battle widget preview"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -879,6 +950,16 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
   const [activeTab, setActiveTab] = useState<'overview' | 'stats' | 'replay'>('overview');
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Set document title
+  useEffect(() => {
+    if (battle) {
+      const left = battle.left.playerName ?? 'Left';
+      const right = battle.right.playerName ?? 'Right';
+      document.title = `${left} vs ${right} | Card Battles`;
+    }
+    return () => { document.title = 'Card Battles'; };
+  }, [battle]);
+
   // Load "more battles"
   useEffect(() => {
     battlesApi.feed({ cursor: undefined }).then((res) => {
@@ -966,8 +1047,11 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
 
   const allComments = [...optimisticComments, ...(commentsData?.comments ?? [])];
   const commentCount = (commentsData?.total ?? 0) + optimisticComments.length;
-  const shareUrl = `https://cardbattles.app/battles/${battle.id}`;
-  const twitterShareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(`I voted on "${battle.title}" on Card Battles!`)}&url=${encodeURIComponent(shareUrl)}`;
+  const shareUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/battles/${battle.id}`
+    : `https://cardbattles.app/battles/${battle.id}`;
+  const twitterShareText = `🥊 Card Battle: ${battle.left.playerName ?? 'Left'} vs ${battle.right.playerName ?? 'Right'}\nVote now and pick the 🏆\n#CardBattles #SportCards`;
+  const twitterShareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(twitterShareText)}&url=${encodeURIComponent(shareUrl)}`;
 
   return (
     <div className="space-y-4">

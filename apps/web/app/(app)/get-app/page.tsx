@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { BackButton } from '../../../components/ui/BackButton';
 import { Zap, Bell, WifiOff, Share2, Check } from 'lucide-react';
@@ -54,6 +54,7 @@ export default function GetAppPage() {
   const [waitlistState, setWaitlistState] = useState<'idle' | 'loading' | 'done'>('idle');
   const [position, setPosition] = useState<number | null>(null);
   const [shareToast, setShareToast] = useState(false);
+  useEffect(() => { document.title = 'Get the App | Card Battles'; }, []);
 
   const handleWaitlist = async () => {
     if (!email.includes('@') || waitlistState !== 'idle') return;

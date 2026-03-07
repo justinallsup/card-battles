@@ -147,6 +147,8 @@ export default function HallOfFamePage() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string>('');
 
+  useEffect(() => { document.title = 'Hall of Fame | Card Battles'; }, []);
+
   useEffect(() => {
     fetch(`${BASE}/hall-of-fame`)
       .then(r => r.json())

@@ -18,7 +18,7 @@
 | Auth | JWT (access + refresh tokens) |
 | Payments | Stripe (scaffolded) |
 | Package manager | pnpm |
-| Testing | Vitest (42 tests, combo-server in-memory) |
+| Testing | Vitest (53 tests, combo-server in-memory) |
 
 ---
 
@@ -42,7 +42,7 @@ pnpm demo
 # 3. Open http://localhost:3333
 ```
 
-The demo server seeds 40+ cards, 30+ battles, and 5 demo users automatically.
+The demo server seeds 64 cards, 50 battles, and 5 demo users automatically.
 
 To expose publicly (useful for sharing):
 ```bash
@@ -70,7 +70,7 @@ pnpm install
 # 5. Run database migrations
 pnpm db:migrate
 
-# 6. Seed demo data (100 cards, 30+ battles, 5 users)
+# 6. Seed demo data (64 cards, 50 battles, 5 users)
 pnpm db:seed
 ```
 
@@ -122,7 +122,7 @@ pnpm db:generate     # Generate new migration from schema changes
 pnpm db:studio       # Open Drizzle Studio (DB browser)
 
 # Testing
-pnpm test            # Run all tests (42 tests, combo-server)
+pnpm test            # Run all tests (53 tests, combo-server)
 
 # Type checking
 pnpm typecheck       # Check types across all packages
@@ -168,7 +168,7 @@ pnpm lint            # Lint web app
 - **API** — Hono REST API, JWT auth, rate limiting, Drizzle ORM
 - **Combo Server** — Single-port demo: Hono + PGlite in-memory, no Docker needed
 - **Worker** — Resolves ended battles, auto-generates content (BullMQ)
-- **PostgreSQL** — Primary data store (12+ tables)
+- **PostgreSQL** — Primary data store (20+ tables)
 - **Redis** — Rate limiting + job queue broker
 - **MinIO** — S3-compatible local object storage for card images
 
@@ -177,13 +177,13 @@ pnpm lint            # Lint web app
 ## Features
 
 ### ⚔️ Card Battles
-Head-to-head card matchups with multi-category voting (investment value, coolness, rarity). Sponsored battles with CTA overlays. Live vote results via SSE. Battle feed with pagination and sport filters.
+Head-to-head card matchups with multi-category voting (investment value, coolness, rarity). Sponsored battles with CTA overlays. Live vote results via SSE. Battle feed with pagination and sport filters. Vote All button for 3 categories at once. Battle Replay with scrubber and auto-play.
 
 ### 📊 Leaderboards
 Creator leaderboard (ranked by battles won) and voter leaderboard (ranked by votes cast). Weekly/monthly/all-time periods.
 
 ### 🎯 Daily Picks
-Predict daily card winners, track accuracy. Community-wide entry stats.
+Predict daily card winners, track accuracy. Streak rewards at 3/7/14/30 day milestones. Community-wide entry stats.
 
 ### 💬 Comments
 Battle comment threads with likes. Up to 280 characters.
@@ -195,19 +195,46 @@ Bracket-style tournaments (NFL GOAT Card Tournament, NBA Greatest of All Time, e
 Draft rosters of up to 5 cards. League standings based on battle performance.
 
 ### 👤 User Profiles
-Stats, battle history, follow/unfollow system, card collection, watchlist.
+Stats, battle history, follow/unfollow system, card collection, watchlist. Player profile pages with per-player stats.
 
 ### 💎 Card Valuations
-Real-time market value estimates for PSA 10 graded cards.
+Real-time market value estimates for PSA 10 graded cards. 30-day price history sparkline charts. Price alerts (localStorage). Market Feed with simulated price movements.
 
 ### 🔍 Search & Discovery
-Full-text battle search, card search, trending battles, sport filters.
+Advanced full-text battle search with filters, grid/list toggle, trending suggestions. Sport filters. Hall of Fame for most-voted cards.
 
 ### 🛡️ Admin Panel
-User management (suspend/unsuspend/promote), battle moderation, platform stats.
+User management (suspend/unsuspend/promote), battle moderation, Bulk Battle Creator (5-tab dashboard), platform stats.
 
 ### 💳 Pro Subscriptions
 Stripe-powered Pro tier (scaffolded): unlimited battles, advanced analytics, Pro badge.
+
+### 📱 Social & Sharing
+Rich 3-tab share modal: Share (Twitter/X, WhatsApp, copy link), OG Card (SVG preview + download), Embed (iframe code). Real Twitter/X share URLs with hashtags. Embeddable battle widget (`/api/v1/battles/:id/widget`). Dynamic page titles on all key routes.
+
+### 🎓 Card Grading
+Card Grading Simulator with animated grade reveal. Grading Guide with full PSA scale, glossary, and tips. Card Comparison tool with side-by-side metrics.
+
+### 🏪 Marketplace & Trading
+Card Marketplace (list, browse, contact seller). Trade Proposals system. Portfolio Tracker with SVG value chart.
+
+### 📈 Analytics
+Personal Analytics dashboard with battle stats, voting trends, and performance metrics.
+
+### 🎴 Card Sets
+Browser for major card sets: Prizm, Topps Chrome, Bowman, Fleer, SP Auth, National Treasures.
+
+### 🔔 Notifications & Alerts
+Notification center with category filters. Price alerts. Referral system with code generation and redemption.
+
+### 📸 Card Scanner
+Animated card recognition scanner UI with camera/upload support.
+
+### 🏟️ Live Auctions
+Countdown timers, bid simulation, real-time auction feed.
+
+### 🌐 Community Hub
+Live event feed, rising stars, community stats, and discussion boards.
 
 ---
 
@@ -216,47 +243,88 @@ Stripe-powered Pro tier (scaffolded): unlimited battles, advanced analytics, Pro
 | Route | Description |
 |-------|-------------|
 | `/` | Landing page |
-| `/battles` | Battle feed |
+| `/feed` | Battle feed |
 | `/battles/[id]` | Single battle view + voting |
-| `/battles/create` | Create battle wizard |
-| `/leaderboard` | Creator + voter rankings |
+| `/create` | Create battle wizard |
+| `/leaderboards` | Creator + voter rankings |
 | `/daily-picks` | Daily prediction contest |
-| `/profile/[username]` | User profile + stats |
+| `/search` | Advanced search with filters |
+| `/market` | Market Feed — price movements |
+| `/marketplace` | Buy/sell card marketplace |
+| `/hall-of-fame` | Most-voted cards of all time |
+| `/community` | Community hub + live events |
+| `/portfolio` | Personal portfolio tracker |
+| `/trades` | Trade proposals |
+| `/analytics` | Personal analytics dashboard |
+| `/scanner` | Card scanner |
+| `/learn` | Grading guide (PSA scale) |
+| `/get-app` | PWA download + waitlist |
+| `/auctions` | Live auctions |
+| `/grader` | Card grading simulator |
+| `/compare` | Card comparison tool |
+| `/sets` | Card sets browser |
+| `/players` | Player directory |
+| `/players/[name]` | Per-player stats + battles |
 | `/collection` | Saved card collection |
 | `/watchlist` | Watched battles |
-| `/search` | Search battles |
-| `/trending` | Trending battles |
+| `/history` | Vote history |
 | `/tournaments` | Tournament brackets |
 | `/fantasy` | Fantasy leagues |
+| `/pull-arena` | Share pack pulls |
+| `/notifications` | Notification center |
+| `/alerts` | Price alerts |
+| `/activity` | Activity feed |
+| `/profile` | My profile |
+| `/profile/[username]` | Public user profile |
 | `/admin` | Admin dashboard (admin only) |
-| `/billing` | Subscription management |
+| `/pro` | Pro subscription page |
 
 ---
 
-## API Documentation
+## API Endpoints
 
-Full OpenAPI 3.0 spec: [`docs/api/openapi.yaml`](./docs/api/openapi.yaml)
-
-Key endpoints:
-- `POST /api/v1/auth/register` — Register
-- `POST /api/v1/auth/login` — Login
-- `GET /api/v1/battles/feed` — Battle feed (paginated)
-- `POST /api/v1/battles/:id/vote` — Cast a vote
-- `GET /api/v1/battles/:id/results` — Vote percentages by category
-- `GET /api/v1/leaderboards?type=creators` — Leaderboards
-- `GET /api/v1/tournaments` — Tournaments
-- `GET /api/v1/fantasy/leagues` — Fantasy leagues
-- `GET /api/v1/users/:username/follow-status` — Follow status
-
----
-
-## Product Pillars
-
-1. **Card Battles** — Two cards face off, community votes on categories
-2. **Daily Picks** — Predict winners, build accuracy streaks
-3. **Fantasy Card Leagues** — Draft rosters, compete on battle performance
-4. **Tournaments** — Bracket-style card championships
-5. **Pull Arena** — Share your best pack pulls *(coming soon)*
+| Method | Route | Description |
+|--------|-------|-------------|
+| POST | `/api/v1/auth/register` | Register new user |
+| POST | `/api/v1/auth/login` | Login |
+| GET | `/api/v1/auth/me` | Current user |
+| PATCH | `/api/v1/auth/me` | Update profile |
+| GET | `/api/v1/battles/feed` | Battle feed (paginated) |
+| GET | `/api/v1/battles/trending` | Trending battles |
+| GET | `/api/v1/battles/search` | Search battles |
+| GET | `/api/v1/battles/:id` | Single battle |
+| POST | `/api/v1/battles` | Create battle |
+| POST | `/api/v1/battles/:id/vote` | Cast vote |
+| POST | `/api/v1/battles/:id/vote-all` | Vote all categories |
+| GET | `/api/v1/battles/:id/results` | Vote results |
+| GET | `/api/v1/battles/:id/stats` | Detailed stats |
+| GET | `/api/v1/battles/:id/live` | SSE live votes |
+| GET | `/api/v1/battles/:id/widget` | Embeddable iframe widget |
+| GET | `/api/v1/share/:id/og` | OG share image (SVG) |
+| GET | `/api/v1/leaderboards` | Leaderboards |
+| GET | `/api/v1/daily-picks/current` | Today's picks |
+| POST | `/api/v1/daily-picks/:id/enter` | Enter daily pick |
+| GET | `/api/v1/users/:username` | User profile |
+| GET | `/api/v1/users/:username/stats` | User stats |
+| GET | `/api/v1/users/:username/battles` | User battles |
+| POST | `/api/v1/assets/upload` | Upload card image |
+| GET | `/api/v1/tournaments` | Tournament list |
+| GET | `/api/v1/fantasy/leagues` | Fantasy leagues |
+| POST | `/api/v1/fantasy/leagues` | Create league |
+| GET | `/api/v1/auctions` | Live auctions |
+| GET | `/api/v1/hall-of-fame` | Hall of fame |
+| GET | `/api/v1/market/feed` | Market price feed |
+| GET | `/api/v1/marketplace/listings` | Marketplace listings |
+| GET | `/api/v1/trades` | Trade proposals |
+| POST | `/api/v1/trades` | Create trade proposal |
+| GET | `/api/v1/me/portfolio` | Portfolio data |
+| GET | `/api/v1/me/analytics` | Personal analytics |
+| GET | `/api/v1/referrals/me` | My referral code |
+| POST | `/api/v1/referrals/redeem` | Redeem referral |
+| GET | `/api/v1/card-sets` | Card sets |
+| GET | `/api/v1/players` | Player directory |
+| GET | `/api/v1/players/:name/stats` | Player stats |
+| GET | `/api/v1/community/stats` | Community stats |
 
 ---
 
@@ -265,24 +333,43 @@ Key endpoints:
 - [x] User can register and log in
 - [x] User can upload two card images and create a battle
 - [x] Other users can vote on battle categories
+- [x] Vote All button (3 categories at once)
 - [x] Battle resolves automatically after timer ends
+- [x] Battle Replay with scrubber and auto-play
 - [x] Leaderboards update (creators + voters)
 - [x] Sponsored CTA can be displayed and clicked
 - [x] Admin can remove a battle
 - [x] Feed populated by user-created + auto-generated battles
-- [x] Daily pick contests with results
+- [x] Daily pick contests with streak rewards
 - [x] Battle comments with likes
 - [x] User follow/unfollow system
 - [x] Card collection and watchlist
 - [x] Fantasy leagues with roster picks
 - [x] Tournament brackets (stub)
-- [x] Card market valuations
+- [x] Card market valuations + 30-day sparklines
 - [x] Live vote updates (SSE)
-- [x] OG share images (SVG)
-- [x] Battle search + trending
-- [x] Admin user management
+- [x] OG share images (SVG with player images)
+- [x] Rich share modal (3 tabs: Share / OG Card / Embed)
+- [x] Embeddable battle widget (iframe)
+- [x] Dynamic page titles (SEO/deep-link)
+- [x] Battle search + trending + Hall of Fame
+- [x] Admin user management + Bulk Battle Creator
 - [x] Pro subscription checkout (Stripe scaffolded)
-- [x] 42 automated tests passing
+- [x] Card Grading Simulator + Guide
+- [x] Card Comparison tool
+- [x] Card Sets browser
+- [x] Marketplace (list/browse/contact)
+- [x] Trade Proposals
+- [x] Portfolio Tracker
+- [x] Personal Analytics
+- [x] Card Scanner UI
+- [x] Live Auctions
+- [x] Community Hub
+- [x] Player profiles + directory
+- [x] Referral system
+- [x] Market Feed (simulated price movements)
+- [x] 53 automated tests passing
+- [x] 50 seed battles (NFL, NBA, MLB, WNBA, legends)
 
 ---
 
@@ -293,10 +380,12 @@ Key endpoints:
 | MVP | Auth · Battles · Voting · Leaderboards | ✅ Done |
 | v1 | Sharing · Daily Picks · Comments · Following | ✅ Done |
 | v1.5 | Collections · Watchlist · Search · Trending | ✅ Done |
-| v2 | Fantasy Leagues · Tournaments · Card Valuations | ✅ Done (stubs) |
-| v2.5 | Subscriptions · Sponsored Tools · Analytics | 🚧 In Progress |
-| v3 | Pull Arena · Real-time · Mobile App | 📋 Planned |
-| v4 | Marketplace · Card Trading · Price History | 📋 Planned |
+| v2 | Fantasy Leagues · Tournaments · Card Valuations | ✅ Done |
+| v2.5 | Grading · Comparison · Sets · Analytics · Replay | ✅ Done |
+| v2.8 | Marketplace · Trading · Portfolio · Auctions | ✅ Done |
+| v3.0 | Rich Sharing · Deep-links · 50 Battles · Polish | ✅ Done |
+| v3.5 | Real-time Multiplayer · Mobile App | 📋 Planned |
+| v4 | Live Card Prices · Trading Engine · Escrow | 📋 Planned |
 
 ---
 
@@ -304,5 +393,5 @@ Key endpoints:
 
 See [`docs/`](./docs/) for product spec, epics, and architecture decisions.
 
-Tests: `pnpm test` — all 42 tests must pass.
+Tests: `pnpm test` — all 53 tests must pass.
 Types: `pnpm typecheck` — must be error-free.

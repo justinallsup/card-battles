@@ -295,6 +295,7 @@ export default function TradesPage() {
     }
   };
 
+  useEffect(() => { document.title = 'Trades | Card Battles'; }, []);
   useEffect(() => { fetchTrades(); }, [user]);
 
   const myId = user?.id || '';

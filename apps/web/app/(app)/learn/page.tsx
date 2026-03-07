@@ -1,4 +1,5 @@
 'use client';
+import { useEffect } from 'react';
 import { BookOpen, Award, HelpCircle, Send, BookMarked, TrendingUp, ExternalLink } from 'lucide-react';
 
 const GRADES = [
@@ -39,6 +40,7 @@ const INVESTMENT_TIPS = [
 ];
 
 export default function LearnPage() {
+  useEffect(() => { document.title = 'Grading Guide | Card Battles'; }, []);
   return (
     <div className="space-y-6">
       {/* Header */}
