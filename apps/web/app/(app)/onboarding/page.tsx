@@ -551,8 +551,16 @@ export default function OnboardingPage() {
   }, [router]);
 
   const TOTAL_STEPS = 5;
+  const LAST_STEP = TOTAL_STEPS - 1;
 
   const stepLabels = ['Welcome', 'Sports', 'Vote', 'Follow', 'Complete'];
+
+  const handleSkip = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cb_onboarded', 'true');
+    }
+    router.replace('/feed');
+  };
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center px-4 py-12"
@@ -583,6 +591,18 @@ export default function OnboardingPage() {
             {step === 3 && <StepFollow onNext={() => setStep(4)} />}
             {step === 4 && <StepComplete />}
           </div>
+
+          {/* Skip link — show on all steps except the last */}
+          {step < LAST_STEP && (
+            <div className="mt-5 text-center">
+              <button
+                onClick={handleSkip}
+                className="text-xs text-[#374151] hover:text-[#64748b] transition-colors underline underline-offset-2"
+              >
+                Skip for now
+              </button>
+            </div>
+          )}
         </div>
 
         <p className="text-center mt-6 text-xs text-[#374151]">

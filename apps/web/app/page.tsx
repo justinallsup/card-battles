@@ -76,7 +76,14 @@ export default function Home() {
   const [stats, setStats] = useState<CommunityStats | null>(null);
 
   useEffect(() => {
-    if (isLoggedIn()) router.replace('/feed');
+    if (isLoggedIn()) {
+      const onboarded = typeof window !== 'undefined' ? localStorage.getItem('cb_onboarded') : null;
+      if (onboarded) {
+        router.replace('/feed');
+      } else {
+        router.replace('/onboarding');
+      }
+    }
   }, [router]);
 
   useEffect(() => {

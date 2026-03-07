@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Shield, Flag, Users, Sword, BarChart2, Trash2, Ban, CheckCircle, Zap } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
@@ -35,11 +35,74 @@ function StatCard({ label, value, icon: Icon, color }: { label: string; value: n
 }
 
 // ── Overview tab ───────────────────────────────────────────────────────────────
+interface AnalyticsOverview {
+  totalBattles: number;
+  totalVotes: number;
+  totalUsers: number;
+  liveBattles: number;
+  topSport: string;
+  avgVotesPerBattle: number;
+  generatedAt: string;
+}
+
+interface SportBreakdown {
+  sport: string;
+  votes: string;
+  battles: string;
+}
+
+interface CategoryBreakdown {
+  category: string;
+  n: string;
+}
+
+function MiniBarChart({ data }: { data: SportBreakdown[] }) {
+  if (!data.length) return null;
+  const maxVotes = Math.max(...data.map(d => parseInt(d.votes)));
+  const SPORT_COLORS: Record<string, string> = { nfl: '#ef4444', nba: '#f59e0b', mlb: '#3b82f6' };
+  return (
+    <svg width="100%" height="60" viewBox={`0 0 ${data.length * 60} 60`} preserveAspectRatio="none">
+      {data.map((d, i) => {
+        const pct = maxVotes > 0 ? parseInt(d.votes) / maxVotes : 0;
+        const barH = Math.max(4, Math.round(pct * 44));
+        const color = SPORT_COLORS[d.sport] || '#6c47ff';
+        return (
+          <g key={d.sport}>
+            <rect x={i * 60 + 10} y={50 - barH} width={40} height={barH} rx="4" fill={color} opacity="0.85" />
+            <text x={i * 60 + 30} y={58} textAnchor="middle" fill="#94a3b8" fontSize="10" fontWeight="bold">
+              {d.sport.toUpperCase()}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 function OverviewTab() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: () => adminFetch('/admin/stats'),
   });
+
+  const [analytics, setAnalytics] = useState<AnalyticsOverview | null>(null);
+  const [sportBreakdown, setSportBreakdown] = useState<SportBreakdown[]>([]);
+  const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdown[]>([]);
+
+  useEffect(() => {
+    fetch(`${BASE_URL}/analytics/overview`)
+      .then(r => r.json())
+      .then((d: AnalyticsOverview) => setAnalytics(d))
+      .catch(() => {});
+    fetch(`${BASE_URL}/analytics/votes-by-sport`)
+      .then(r => r.json())
+      .then((d: { breakdown: SportBreakdown[] }) => setSportBreakdown(d.breakdown || []))
+      .catch(() => {});
+    fetch(`${BASE_URL}/analytics/top-categories`)
+      .then(r => r.json())
+      .then((d: { categories: CategoryBreakdown[] }) => setCategoryBreakdown((d.categories || []).slice(0, 5)))
+      .catch(() => {});
+  }, []);
 
   if (isLoading) {
     return (
@@ -59,6 +122,72 @@ function OverviewTab() {
         <StatCard label="Total Votes"    value={data?.totalVotes ?? 0}    icon={BarChart2} color="text-[#22c55e]" />
         <StatCard label="Active Battles" value={data?.activeBattles ?? 0} icon={CheckCircle} color="text-[#f59e0b]" />
       </div>
+
+      {/* Platform Analytics */}
+      <div className="bg-[#12121a] border border-[#1e1e2e] rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-[#1e1e2e] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BarChart2 size={14} className="text-[#6c47ff]" />
+            <p className="text-sm font-bold text-white">Platform Analytics</p>
+          </div>
+          {analytics && (
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-xs text-green-400 font-semibold">{analytics.liveBattles} Live</span>
+            </div>
+          )}
+        </div>
+        <div className="p-4 space-y-4">
+          {analytics && (
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-[#0a0a0f] rounded-xl p-2">
+                <p className="text-lg font-black text-white">{analytics.totalVotes.toLocaleString()}</p>
+                <p className="text-[10px] text-[#64748b]">Total Votes</p>
+              </div>
+              <div className="bg-[#0a0a0f] rounded-xl p-2">
+                <p className="text-lg font-black text-white">{analytics.avgVotesPerBattle}</p>
+                <p className="text-[10px] text-[#64748b]">Avg / Battle</p>
+              </div>
+              <div className="bg-[#0a0a0f] rounded-xl p-2">
+                <p className="text-lg font-black text-white uppercase">{analytics.topSport}</p>
+                <p className="text-[10px] text-[#64748b]">Top Sport</p>
+              </div>
+            </div>
+          )}
+
+          {/* Votes by sport mini bar chart */}
+          {sportBreakdown.length > 0 && (
+            <div>
+              <p className="text-[10px] font-black text-[#64748b] uppercase tracking-widest mb-2">Votes by Sport</p>
+              <MiniBarChart data={sportBreakdown} />
+            </div>
+          )}
+
+          {/* Top categories */}
+          {categoryBreakdown.length > 0 && (
+            <div>
+              <p className="text-[10px] font-black text-[#64748b] uppercase tracking-widest mb-2">Top Vote Categories</p>
+              <div className="space-y-1.5">
+                {categoryBreakdown.map((cat, i) => {
+                  const maxN = parseInt(categoryBreakdown[0].n);
+                  const pct = maxN > 0 ? parseInt(cat.n) / maxN : 0;
+                  return (
+                    <div key={cat.category} className="flex items-center gap-2">
+                      <span className="text-[10px] text-[#64748b] w-4">{i + 1}</span>
+                      <span className="text-xs font-semibold text-white capitalize w-24 truncate">{cat.category}</span>
+                      <div className="flex-1 h-1.5 bg-[#1e1e2e] rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-[#6c47ff]" style={{ width: `${pct * 100}%` }} />
+                      </div>
+                      <span className="text-[10px] text-[#64748b] font-mono w-8 text-right">{cat.n}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="bg-[#12121a] border border-[#1e1e2e] rounded-xl p-4">
         <p className="text-sm font-bold text-white mb-1">Demo Mode</p>
         <p className="text-xs text-[#64748b]">This admin panel runs in demo mode. All actions take effect on the in-memory database and reset on server restart.</p>

@@ -43,14 +43,21 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
+  try {
+    const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Request failed' }));
-    throw Object.assign(new Error(err.error || 'Request failed'), { status: res.status, data: err });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Request failed' }));
+      throw Object.assign(new Error(err.error || 'Request failed'), { status: res.status, data: err });
+    }
+
+    return res.json();
+  } catch (err) {
+    if (err instanceof TypeError && (err.message.includes('fetch') || err.message.includes('Failed to fetch') || err.message.includes('NetworkError'))) {
+      throw new Error('Cannot connect to server. Please check your connection.');
+    }
+    throw err;
   }
-
-  return res.json();
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────

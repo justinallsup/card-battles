@@ -99,7 +99,17 @@ export function AppHeader() {
   const router = useRouter();
   const { unreadCount } = useNotificationStore();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [apiOk, setApiOk] = useState(true);
   const rank = useUserRank(!!user);
+
+  useEffect(() => {
+    const check = () => fetch(`${BASE_URL.replace('/api/v1', '')}/health`)
+      .then(() => setApiOk(true))
+      .catch(() => setApiOk(false));
+    check();
+    const interval = setInterval(check, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 bg-[#0a0a0f]/95 backdrop-blur border-b border-[#1e1e2e]"
@@ -131,6 +141,11 @@ export function AppHeader() {
               BATTLES
             </span>
           </span>
+          {/* Connection status dot */}
+          <div
+            className={`w-2 h-2 rounded-full ${apiOk ? 'bg-green-400' : 'bg-red-400'}`}
+            title={apiOk ? 'Connected' : 'Disconnected'}
+          />
         </Link>
 
         <div className="flex items-center gap-3">

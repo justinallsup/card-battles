@@ -1822,6 +1822,96 @@ app.get('/api/v1/community/stats', async (c) => {
   });
 });
 
+// ── GRADING SERVICES ──────────────────────────────────────────────────────────
+app.get('/api/v1/grading-services', (c) => c.json({
+  services: [
+    {
+      id: 'psa', name: 'PSA', fullName: 'Professional Sports Authenticator',
+      founded: 1991, gradingScale: '1-10', turnaroundTiers: [
+        { name: 'Economy', time: '120 business days', price: 25 },
+        { name: 'Regular', time: '45 business days', price: 50 },
+        { name: 'Express', time: '15 business days', price: 150 },
+        { name: 'Super Express', time: '5 business days', price: 300 },
+      ],
+      pros: ['Most widely recognized', 'Best liquidity on eBay', 'Pop reports available', 'Established secondary market'],
+      cons: ['Slower turnaround', 'More expensive for bulk', 'Label less visually striking'],
+      bestFor: 'Vintage cards and high-value modern cards',
+      marketShare: 0.65, avgPremium: 1.0, websiteUrl: 'https://www.psacard.com',
+    },
+    {
+      id: 'bgs', name: 'BGS', fullName: 'Beckett Grading Services',
+      founded: 1999, gradingScale: '1-10 (with subgrades)',
+      turnaroundTiers: [
+        { name: 'Economy', time: '90 business days', price: 22 },
+        { name: 'Standard', time: '30 business days', price: 35 },
+        { name: 'Express', time: '10 business days', price: 99 },
+      ],
+      pros: ['Subgrades (centering, corners, edges, surface)', 'Black label BGS 10 is prestigious', 'Modern card friendly', 'Half-point grades'],
+      cons: ['Lower liquidity than PSA', 'BGS 9.5 often comparable to PSA 10 in price'],
+      bestFor: 'Modern cards where subgrades matter',
+      marketShare: 0.22, avgPremium: 0.85, websiteUrl: 'https://www.beckett.com/grading',
+    },
+    {
+      id: 'sgc', name: 'SGC', fullName: 'Sportscard Guaranty Corporation',
+      founded: 1998, gradingScale: '1-10',
+      turnaroundTiers: [
+        { name: 'Standard', time: '30 business days', price: 19 },
+        { name: 'Express', time: '10 business days', price: 59 },
+      ],
+      pros: ['Most affordable', 'Faster turnaround', 'Growing recognition', 'Black label look'],
+      cons: ['Less liquidity than PSA/BGS', 'Smaller collector base'],
+      bestFor: 'Vintage pre-1980 cards and budget submissions',
+      marketShare: 0.13, avgPremium: 0.7, websiteUrl: 'https://www.sgccard.com',
+    },
+  ]
+}));
+
+// ── ANALYTICS OVERVIEW ────────────────────────────────────────────────────────
+app.get('/api/v1/analytics/overview', async (c) => {
+  const [battles, votes, users, liveBattles] = await Promise.all([
+    pg.query('SELECT COUNT(*) as n FROM battles'),
+    pg.query('SELECT COUNT(*) as n FROM votes'),
+    pg.query('SELECT COUNT(*) as n FROM users'),
+    pg.query("SELECT COUNT(*) as n FROM battles WHERE status='live'"),
+  ]);
+
+  const topSport = await pg.query(`
+    SELECT ca.sport, COUNT(v.id) as vote_count
+    FROM votes v
+    JOIN battles b ON b.id=v.battle_id
+    JOIN card_assets ca ON ca.id=b.left_asset_id
+    GROUP BY ca.sport ORDER BY vote_count DESC LIMIT 1
+  `);
+
+  const avgVotesPerBattle = await pg.query('SELECT AVG(total_votes_cached) as avg FROM battles WHERE total_votes_cached > 0');
+
+  return c.json({
+    totalBattles: parseInt((battles.rows as {n:string}[])[0].n),
+    totalVotes: parseInt((votes.rows as {n:string}[])[0].n),
+    totalUsers: parseInt((users.rows as {n:string}[])[0].n),
+    liveBattles: parseInt((liveBattles.rows as {n:string}[])[0].n),
+    topSport: (topSport.rows as {sport:string}[])[0]?.sport || 'nfl',
+    avgVotesPerBattle: Math.round(parseFloat((avgVotesPerBattle.rows as {avg:string}[])[0]?.avg || '0')),
+    generatedAt: new Date().toISOString(),
+  });
+});
+
+app.get('/api/v1/analytics/votes-by-sport', async (c) => {
+  const r = await pg.query(`
+    SELECT ca.sport, COUNT(v.id) as votes, COUNT(DISTINCT b.id) as battles
+    FROM votes v
+    JOIN battles b ON b.id=v.battle_id
+    JOIN card_assets ca ON ca.id=b.left_asset_id
+    GROUP BY ca.sport ORDER BY votes DESC
+  `);
+  return c.json({ breakdown: r.rows });
+});
+
+app.get('/api/v1/analytics/top-categories', async (c) => {
+  const r = await pg.query('SELECT category, COUNT(*) as n FROM votes GROUP BY category ORDER BY n DESC');
+  return c.json({ categories: r.rows });
+});
+
 app.get('/api/v1/community/discussions', async (c) => {
   const r = await pg.query(`SELECT b.id, b.title, b.total_votes_cached, u.username FROM battles b LEFT JOIN users u ON u.id=b.created_by_user_id ORDER BY b.total_votes_cached DESC LIMIT 5`);
   return c.json({ battles: r.rows });

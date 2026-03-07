@@ -75,8 +75,9 @@ const EXPLORE_CATEGORIES = [
       { href: '/analytics',    label: 'Analytics',   icon: '📊',  desc: 'Your stats'           },
       { href: '/portfolio',    label: 'Portfolio',   icon: '💼',  desc: 'Collection value'     },
       { href: '/learn',        label: 'Learn',       icon: '📚',  desc: 'Card grading guide'   },
-      { href: '/condition',    label: 'Condition',   icon: '🔍',  desc: 'Check card condition' },
-      { href: '/how-it-works', label: 'How It Works', icon: '⚡', desc: 'Scoring explained'    },
+      { href: '/condition',        label: 'Condition',         icon: '🔍',  desc: 'Check card condition' },
+      { href: '/how-it-works',     label: 'How It Works',       icon: '⚡', desc: 'Scoring explained'    },
+      { href: '/grading-services', label: 'Grading Compare',    icon: '⚖️',  desc: 'PSA vs BGS vs SGC'   },
     ],
   },
 ];

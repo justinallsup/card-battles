@@ -583,6 +583,17 @@ export default function SettingsPage() {
             <Download size={15} /> Export Your Data
           </button>
           <button
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem('cb_onboarded');
+              }
+              router.push('/onboarding');
+            }}
+            className="w-full py-2.5 rounded-xl border border-[#6c47ff]/30 text-[#a78bfa] text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#6c47ff]/10 transition-colors"
+          >
+            🔄 Restart Setup Wizard
+          </button>
+          <button
             onClick={handleLogout}
             className="w-full py-2.5 rounded-xl border border-[#1e1e2e] text-[#64748b] text-sm font-semibold flex items-center justify-center gap-2 hover:border-[#374151] hover:text-white transition-colors"
           >
