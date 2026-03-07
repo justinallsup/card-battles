@@ -24,6 +24,7 @@ const EXPLORE_CATEGORIES = [
     tiles: [
       { href: '/pull-arena',   label: 'Pull Arena',  icon: '📦',  desc: 'Open card packs'      },
       { href: '/collection',   label: 'Collection',  icon: '🎴',  desc: 'Your saved cards'     },
+      { href: '/wishlist',     label: 'Wishlist',    icon: '💝',  desc: 'Cards you want'       },
       { href: '/marketplace',  label: 'Marketplace', icon: '🏪',  desc: 'Buy & sell cards'     },
       { href: '/trades',       label: 'Trades',      icon: '🔄',  desc: 'Trade proposals'      },
       { href: '/auctions',     label: 'Auctions',    icon: '🔨',  desc: 'Bid on graded cards'  },
@@ -49,7 +50,16 @@ const EXPLORE_CATEGORIES = [
       { href: '/discover',     label: 'Discover',    icon: '🔍',  desc: 'Find collectors'      },
       { href: '/hall-of-fame', label: 'Hall of Fame', icon: '🏛️', desc: 'Greatest cards ever'  },
       { href: '/rank',         label: 'Rank',        icon: '🏆',  desc: 'Your collector rank'  },
+      { href: '/predictions',  label: 'Predictions', icon: '🔮',  desc: 'Forecast battles'     },
       { href: '/multi-battles',label: 'Best of 3',   icon: '⚔️',  desc: '3-round battle series'},
+    ],
+  },
+  {
+    label: 'Creator',
+    tiles: [
+      { href: '/earnings',     label: 'Earnings',    icon: '💵',  desc: 'Creator revenue'      },
+      { href: '/analytics',    label: 'Analytics',   icon: '📊',  desc: 'Your stats'           },
+      { href: '/create',       label: 'New Battle',  icon: '⚔️',  desc: 'Start a battle'       },
     ],
   },
   {

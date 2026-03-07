@@ -327,6 +327,167 @@ function SaveCardButton({ assetId, cardName }: { assetId: string; cardName: stri
   );
 }
 
+// ── Wishlist Button ────────────────────────────────────────────────────────────
+function WishlistButton({ assetId, cardName }: { assetId: string; cardName: string }) {
+  const { user } = useAuth();
+  const [wished, setWished] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    fetch(`${BASE_URL}/me/wishlist/${assetId}/status`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    }).then(r => r.json()).then((d: { wished: boolean }) => setWished(d.wished)).catch(() => {});
+  }, [assetId, user]);
+
+  const toggle = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const method = wished ? 'DELETE' : 'POST';
+      await fetch(`${BASE_URL}/me/wishlist/${assetId}`, {
+        method,
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      setWished(!wished);
+      showToast(wished ? 'Removed from wishlist' : `💝 Added ${cardName} to wishlist!`, 'success');
+    } catch {}
+    setLoading(false);
+  };
+
+  if (!user) return null;
+
+  return (
+    <button
+      onClick={toggle}
+      disabled={loading}
+      title={wished ? 'Remove from wishlist' : `Add ${cardName} to wishlist`}
+      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all disabled:opacity-50"
+      style={wished
+        ? { background: 'rgba(236,72,153,0.1)', color: '#ec4899', border: '1px solid rgba(236,72,153,0.3)' }
+        : { background: 'rgba(108,71,255,0.08)', color: '#a78bfa', border: '1px solid rgba(108,71,255,0.2)' }
+      }
+    >
+      {wished ? <>❤️ Wishlisted</> : <>💝 Wishlist</>}
+    </button>
+  );
+}
+
+// ── Battle Prediction Section ──────────────────────────────────────────────────
+function PredictionSection({ battleId }: { battleId: string }) {
+  const { user } = useAuth();
+  const [predictedWinner, setPredictedWinner] = useState<'left' | 'right' | null>(null);
+  const [margin, setMargin] = useState(10);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [community, setCommunity] = useState<{ total: number; leftPct: number; rightPct: number } | null>(null);
+
+  useEffect(() => {
+    fetch(`${BASE_URL}/battles/${battleId}/predictions`)
+      .then(r => r.json())
+      .then(d => setCommunity(d))
+      .catch(() => {});
+  }, [battleId, submitted]);
+
+  const handleSubmit = async () => {
+    if (!user || !predictedWinner) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${BASE_URL}/battles/${battleId}/predict`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ predictedWinner, predictedMargin: margin }),
+      });
+      if (res.status === 409) { showToast('You already made a prediction!', 'error'); }
+      else if (res.ok) { setSubmitted(true); showToast('🔮 Prediction submitted!', 'success'); }
+    } catch {}
+    setSubmitting(false);
+  };
+
+  const MARGINS = [5, 10, 20, 30];
+
+  if (!user) return null;
+
+  return (
+    <div className="rounded-2xl border border-[#1e1e2e] p-4 space-y-4" style={{ background: '#12121a' }}>
+      <div className="flex items-center gap-2">
+        <span className="text-lg">🔮</span>
+        <h3 className="text-sm font-black text-white uppercase tracking-widest">Make a Prediction</h3>
+      </div>
+      <p className="text-xs text-[#94a3b8]">Who do you think will WIN this battle overall?</p>
+
+      {!submitted ? (
+        <>
+          {/* Winner choice */}
+          <div className="grid grid-cols-2 gap-2">
+            {(['left', 'right'] as const).map(side => (
+              <button
+                key={side}
+                onClick={() => setPredictedWinner(side)}
+                className="py-2.5 rounded-xl text-sm font-bold transition-all border"
+                style={predictedWinner === side
+                  ? { background: 'rgba(108,71,255,0.15)', borderColor: 'rgba(108,71,255,0.6)', color: '#a78bfa' }
+                  : { background: '#0a0a0f', borderColor: '#1e1e2e', color: '#64748b' }
+                }
+              >
+                {side === 'left' ? '◀ Left wins' : 'Right wins ▶'}
+              </button>
+            ))}
+          </div>
+
+          {/* Margin slider */}
+          <div>
+            <p className="text-xs text-[#64748b] mb-2">By how much?</p>
+            <div className="flex gap-2">
+              {MARGINS.map(m => (
+                <button
+                  key={m}
+                  onClick={() => setMargin(m)}
+                  className="flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all"
+                  style={margin === m
+                    ? { background: 'rgba(108,71,255,0.15)', borderColor: 'rgba(108,71,255,0.5)', color: '#a78bfa' }
+                    : { background: '#0a0a0f', borderColor: '#1e1e2e', color: '#64748b' }
+                  }
+                >
+                  {m === 30 ? '30%+' : `${m}%`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={handleSubmit}
+            disabled={!predictedWinner || submitting}
+            className="w-full py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
+            style={{ background: 'linear-gradient(135deg, #6c47ff, #8b5cf6)', color: 'white' }}
+          >
+            {submitting ? 'Submitting…' : '🔮 Submit Prediction'}
+          </button>
+        </>
+      ) : null}
+
+      {/* Community split */}
+      {community && community.total > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs text-[#64748b]">
+            Community: <span className="font-bold text-[#6c47ff]">{community.leftPct}% predict Left wins</span> · {community.rightPct}% Right · {community.total} total
+          </p>
+          <div className="h-2 rounded-full overflow-hidden bg-[#1e1e2e]">
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${community.leftPct}%`, background: 'linear-gradient(90deg, #6c47ff, #ec4899)' }}
+            />
+          </div>
+        </div>
+      )}
+
+      <Link href="/predictions" className="text-xs text-[#6c47ff] hover:underline">
+        My Predictions →
+      </Link>
+    </div>
+  );
+}
+
 // ── Animated progress bars ─────────────────────────────────────────────────────
 function BarFill({ pct, winner }: { pct: number; winner: boolean }) {
   const [width, setWidth] = useState(0);
@@ -1164,8 +1325,9 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
                 </div>
               )}
             </button>
-            <div className="flex justify-center">
+            <div className="flex justify-center gap-2 flex-wrap">
               <SaveCardButton assetId={asset.assetId} cardName={asset.playerName ?? asset.title} />
+              <WishlistButton assetId={asset.assetId} cardName={asset.playerName ?? asset.title} />
             </div>
           </div>
         ))}
@@ -1250,6 +1412,9 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Category Insights */}
       <CategoryInsights battleId={id} battle={battle} />
+
+      {/* Battle Predictions */}
+      {battle.status === 'live' && <PredictionSection battleId={id} />}
 
       {/* Vote All */}
       {battle.status === 'live' && (

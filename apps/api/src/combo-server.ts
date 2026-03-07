@@ -2569,6 +2569,116 @@ app.get('/api/v1/battle-templates', async (c) => {
   return c.json({ templates: enriched });
 });
 
+// ── WISHLIST ──────────────────────────────────────────────────────────────────
+
+const wishlistStore = new Map<string, Set<string>>(); // userId -> Set<assetId>
+
+app.get('/api/v1/me/wishlist', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const wished = wishlistStore.get(userId) || new Set<string>();
+  if (wished.size === 0) return c.json({ cards: [], total: 0, totalEstimatedCost: 0 });
+  const r = await pg.query('SELECT id,player_name,image_url,title,year,sport FROM card_assets WHERE id=ANY($1)', [Array.from(wished)]);
+  const VALUATIONS: Record<string,number> = { 'Patrick Mahomes': 280,'Tom Brady': 520,'LeBron James': 1400,'Michael Jordan': 15000,'Victor Wembanyama': 180,'Caitlin Clark': 145,'Kobe Bryant': 2800 };
+  const cards = (r.rows as Record<string,unknown>[]).map(row => ({ ...row, estimatedValue: VALUATIONS[row.player_name as string] || 45 }));
+  return c.json({ cards, total: cards.length, totalEstimatedCost: cards.reduce((s,row) => s + (row.estimatedValue as number), 0) });
+});
+
+app.post('/api/v1/me/wishlist/:assetId', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  if (!wishlistStore.has(userId)) wishlistStore.set(userId, new Set());
+  wishlistStore.get(userId)!.add(c.req.param('assetId'));
+  return c.json({ wished: true });
+});
+
+app.delete('/api/v1/me/wishlist/:assetId', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  wishlistStore.get(userId)?.delete(c.req.param('assetId'));
+  return c.json({ wished: false });
+});
+
+app.get('/api/v1/me/wishlist/:assetId/status', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ wished: false });
+  return c.json({ wished: wishlistStore.get(userId)?.has(c.req.param('assetId')) || false });
+});
+
+// ── BATTLE PREDICTIONS ────────────────────────────────────────────────────────
+
+type Prediction = { id: string; userId: string; battleId: string; predictedWinner: 'left' | 'right'; predictedMargin: number; correct?: boolean; createdAt: string };
+const predictions = new Map<string, Prediction>(); // `${userId}-${battleId}` -> Prediction
+
+app.post('/api/v1/battles/:id/predict', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const battleId = c.req.param('id');
+  const body = await c.req.json().catch(() => ({} as Record<string,unknown>));
+  const { predictedWinner, predictedMargin } = body as { predictedWinner?: string; predictedMargin?: number };
+  if (!predictedWinner || !['left','right'].includes(predictedWinner)) return c.json({ error: 'predictedWinner must be left or right' }, 400);
+  const key = `${userId}-${battleId}`;
+  if (predictions.has(key)) return c.json({ error: 'Already predicted' }, 409);
+  const pred: Prediction = { id: randomUUID(), userId, battleId, predictedWinner: predictedWinner as 'left'|'right', predictedMargin: Number(predictedMargin) || 10, createdAt: new Date().toISOString() };
+  predictions.set(key, pred);
+  return c.json(pred, 201);
+});
+
+app.get('/api/v1/battles/:id/predictions', async (c) => {
+  const battleId = c.req.param('id');
+  const battlePreds = Array.from(predictions.values()).filter(p => p.battleId === battleId);
+  const leftCount = battlePreds.filter(p => p.predictedWinner === 'left').length;
+  const rightCount = battlePreds.filter(p => p.predictedWinner === 'right').length;
+  const total = battlePreds.length;
+  return c.json({ total, leftPct: total > 0 ? Math.round(leftCount/total*100) : 50, rightPct: total > 0 ? Math.round(rightCount/total*100) : 50, userPrediction: null });
+});
+
+app.get('/api/v1/me/predictions', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const myPreds = Array.from(predictions.values()).filter(p => p.userId === userId);
+  return c.json({ predictions: myPreds, total: myPreds.length });
+});
+
+// ── CREATOR EARNINGS ──────────────────────────────────────────────────────────
+
+app.get('/api/v1/me/earnings', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const battlesR = await pg.query('SELECT id, title, total_votes_cached, created_at FROM battles WHERE created_by_user_id=$1 ORDER BY total_votes_cached DESC', [userId]);
+  const battleRows = battlesR.rows as {id:string;title:string;total_votes_cached:number;created_at:string}[];
+  const CPM = 0.50;
+  const earnings = battleRows.map(b => ({
+    battleId: b.id,
+    title: b.title,
+    votes: b.total_votes_cached || 0,
+    earned: Math.round((b.total_votes_cached || 0) / 1000 * CPM * 100) / 100,
+    createdAt: b.created_at,
+  }));
+  const totalEarned = earnings.reduce((s, e) => s + e.earned, 0);
+  const totalVotes = earnings.reduce((s, e) => s + e.votes, 0);
+  const monthly = Array.from({length: 6}, (_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - (5 - i));
+    return {
+      month: d.toLocaleDateString('en', {month:'short', year:'2-digit'}),
+      earned: Math.round(Math.random() * 5 * 100) / 100,
+      votes: Math.floor(Math.random() * 10000),
+    };
+  });
+  return c.json({
+    totalEarned: Math.round(totalEarned * 100) / 100,
+    totalVotes,
+    battleCount: battleRows.length,
+    earnings,
+    monthly,
+    payoutThreshold: 10.00,
+    pendingPayout: totalEarned < 10 ? Math.round(totalEarned * 100) / 100 : 0,
+    currency: 'USD',
+    note: 'Earnings are simulated at $0.50 CPM for demo purposes',
+  });
+});
+
 // ── REPORTS ───────────────────────────────────────────────────────────────────
 
 app.post('/api/v1/reports', async (c) => {
