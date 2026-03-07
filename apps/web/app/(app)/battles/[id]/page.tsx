@@ -40,7 +40,9 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
     : `https://cardbattles.app/battles/${battle.id}`;
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
   const ogImageUrl = `${apiBase}/share/${battle.id}/og`;
-  const widgetUrl = `${apiBase}/battles/${battle.id}/widget`;
+  const embedPageUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/embed/battle/${battle.id}`
+    : `http://localhost:3000/embed/battle/${battle.id}`;
   const [copied, setCopied] = useState(false);
   const [copiedEmbed, setCopiedEmbed] = useState(false);
   const [activeTab, setActiveTabShare] = useState<'share' | 'ogcard' | 'embed'>('share');
@@ -52,7 +54,7 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
   const twitterText = `🥊 Card Battle: ${leftPlayer} vs ${rightPlayer}\nVote now and pick the 🏆\n#${sport}Cards #CardBattles #SportCards`;
   const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(twitterText)}&url=${encodeURIComponent(shareUrl)}`;
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${twitterText}\n${shareUrl}`)}`;
-  const embedCode = `<iframe src="${widgetUrl}" width="320" height="200" frameborder="0" style="border-radius:12px;overflow:hidden;" allowfullscreen></iframe>`;
+  const embedCode = `<iframe src="${embedPageUrl}" width="320" height="220" frameborder="0" style="border-radius:12px;overflow:hidden;" allowfullscreen></iframe>`;
 
   const handleCopy = async () => {
     try { await navigator.clipboard.writeText(shareUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {}
@@ -239,13 +241,13 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
             >
               {copiedEmbed ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy Embed Code</>}
             </button>
-            <div className="rounded-xl overflow-hidden border border-[#1e1e2e]" style={{ height: 200 }}>
+            <div className="rounded-xl overflow-hidden border border-[#1e1e2e]" style={{ height: 220 }}>
               <iframe
-                src={widgetUrl}
+                src={embedPageUrl}
                 width="100%"
-                height="200"
+                height="220"
                 style={{ border: 'none', borderRadius: 8 }}
-                title="Battle widget preview"
+                title="Battle embed preview"
               />
             </div>
           </div>
