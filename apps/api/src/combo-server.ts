@@ -952,6 +952,11 @@ app.get('/api/v1/battles/:id/live', (c) => {
 });
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
+
+// Reports data store (shared between POST /reports and GET /admin/reports)
+type Report = { id: string; reporterId: string; targetType: 'battle' | 'comment' | 'user'; targetId: string; reason: string; createdAt: string; status: 'pending' | 'reviewed' };
+const reports = new Map<string, Report>();
+
 function requireAdmin(authHeader: string | undefined): boolean {
   // Demo mode: any authenticated user can access admin panel
   if (!authHeader?.startsWith('Bearer ')) return false;
@@ -1015,8 +1020,8 @@ app.post('/api/v1/admin/users/:id/make-admin', async (c) => {
 
 app.get('/api/v1/admin/reports', async (c) => {
   if (!requireAdmin(c.req.header('Authorization'))) return c.json({ error: 'Forbidden' }, 403);
-  // Reports are stored in-memory for demo (no reports table yet)
-  return c.json({ items: [], total: 0 });
+  // Reports are stored in the reports Map
+  return c.json({ reports: Array.from(reports.values()), total: reports.size });
 });
 
 // ── TOURNAMENTS ───────────────────────────────────────────────────────────────
@@ -2197,6 +2202,90 @@ app.delete('/api/v1/me/drafts/:id', async (c) => {
   if (!draft || draft.userId !== uid2) return c.json({ error: 'Not found' }, 404);
   battleDrafts.delete(c.req.param('id'));
   return c.json({ message: 'Draft deleted' });
+});
+
+// ── SPOTLIGHT ─────────────────────────────────────────────────────────────────
+app.get('/api/v1/spotlight', async (c) => {
+  const r = await pg.query(`
+    SELECT ca.id, ca.player_name, ca.image_url, ca.title, ca.year, ca.sport,
+      COUNT(v.id) as vote_count
+    FROM card_assets ca
+    JOIN battles b ON b.left_asset_id=ca.id OR b.right_asset_id=ca.id
+    JOIN votes v ON v.battle_id=b.id
+    WHERE v.created_at > NOW() - INTERVAL '24 hours'
+    GROUP BY ca.id
+    ORDER BY vote_count DESC
+    LIMIT 1
+  `);
+
+  // Fallback to random card if no votes today
+  const card = (r.rows as Record<string,unknown>[])[0] ||
+    (await pg.query('SELECT * FROM card_assets ORDER BY RANDOM() LIMIT 1')).rows[0];
+
+  if (!card) return c.json({ error: 'No cards found' }, 404);
+
+  const VALUATIONS: Record<string,number> = {
+    'Patrick Mahomes': 280, 'Tom Brady': 520, 'LeBron James': 1400, 'Michael Jordan': 15000,
+    'Victor Wembanyama': 180, 'Caitlin Clark': 145, 'Kobe Bryant': 2800,
+  };
+
+  return c.json({
+    card,
+    estimatedValue: VALUATIONS[card.player_name as string] || 45,
+    voteCount: Number(card.vote_count || 0),
+    featuredDate: new Date().toISOString().slice(0, 10),
+    reason: 'Most voted card in the last 24 hours',
+  });
+});
+
+// ── RECOMMENDATIONS ───────────────────────────────────────────────────────────
+app.get('/api/v1/me/recommendations', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ battles: [], basedOn: 'Popular battles' });
+
+  // Get user's voted sports
+  const votedR = await pg.query(`
+    SELECT DISTINCT ca.sport
+    FROM votes v
+    JOIN battles b ON b.id=v.battle_id
+    JOIN card_assets ca ON ca.id=b.left_asset_id OR ca.id=b.right_asset_id
+    WHERE v.user_id=$1
+    LIMIT 5
+  `, [authUid]);
+  const sports = (votedR.rows as {sport:string}[]).map(r => r.sport);
+
+  // Get battles the user hasn't voted on yet
+  const notVotedR = await pg.query(`
+    SELECT b.id, b.title, b.total_votes_cached, b.ends_at,
+      la.player_name as lp, la.image_url as li,
+      ra.player_name as rp, ra.image_url as ri
+    FROM battles b
+    LEFT JOIN card_assets la ON la.id=b.left_asset_id
+    LEFT JOIN card_assets ra ON ra.id=b.right_asset_id
+    WHERE b.status='live'
+      AND b.id NOT IN (SELECT battle_id FROM votes WHERE user_id=$1)
+    ORDER BY b.total_votes_cached DESC
+    LIMIT 6
+  `, [authUid]);
+
+  return c.json({
+    battles: notVotedR.rows,
+    basedOn: sports.length > 0 ? `Your ${sports[0]} interest` : 'Popular battles',
+  });
+});
+
+// ── REPORTS ───────────────────────────────────────────────────────────────────
+
+app.post('/api/v1/reports', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const { targetType, targetId, reason } = await c.req.json().catch(() => ({}));
+  if (!targetType || !targetId || !reason) return c.json({ error: 'targetType, targetId, and reason required' }, 400);
+  if (!['battle','comment','user'].includes(targetType)) return c.json({ error: 'Invalid targetType' }, 400);
+  const sanitizedReason = reason.replace(/</g,'&lt;').replace(/>/g,'&gt;').trim().slice(0, 500);
+  const id = randomUUID();
+  reports.set(id, { id, reporterId: authUid, targetType, targetId, reason: sanitizedReason, createdAt: new Date().toISOString(), status: 'pending' });
+  return c.json({ success: true, reportId: id, message: 'Report submitted. Our team will review it.' });
 });
 
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────

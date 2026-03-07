@@ -15,6 +15,7 @@ import { showToast } from '../../../../components/ui/Toast';
 import { PriceHistoryChart } from '../../../../components/ui/PriceHistoryChart';
 import { BattleReplayPanel } from '../../../../components/battles/BattleReplayPanel';
 import { BattleChat } from '../../../../components/battles/BattleChat';
+import { ReportModal, ReportButton } from '../../../../components/ui/ReportModal';
 import Link from 'next/link';
 import type { Battle } from '@card-battles/types';
 
@@ -937,6 +938,7 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
   const { user } = useAuth();
 
   const [reported, setReported] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [optimisticComments, setOptimisticComments] = useState<{ id: string; username: string; text: string; createdAt: string; likes: number }[]>([]);
@@ -1009,9 +1011,7 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
   };
 
   const handleReport = async () => {
-    if (reported) return;
-    await battlesApi.report(id, 'inappropriate');
-    setReported(true);
+    setShowReportModal(true);
   };
 
   const handleSubmitComment = async () => {
@@ -1317,13 +1317,22 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
           variant="ghost"
           size="sm"
           onClick={handleReport}
-          disabled={reported}
           className="text-[#ef4444]/60 hover:text-[#ef4444]"
         >
           <Flag size={14} />
-          {reported ? 'Reported' : 'Report'}
+          Report
         </Button>
       </div>
+
+      {/* Report Modal */}
+      {showReportModal && (
+        <ReportModal
+          targetType="battle"
+          targetId={id}
+          targetLabel={battle.title}
+          onClose={() => setShowReportModal(false)}
+        />
+      )}
 
       {/* Comments */}
       <div className="rounded-xl overflow-hidden" style={{ background: '#12121a', border: '1px solid #1e1e2e' }}>
@@ -1352,14 +1361,17 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
                   <p className="text-sm text-[#e2e8f0] break-words">{comment.text}</p>
                 </div>
                 {!comment.id.startsWith('temp-') && (
-                  <button
-                    onClick={() => likeComment(comment.id)}
-                    aria-label="Like comment"
-                    className="flex-shrink-0 flex flex-col items-center gap-0.5 text-[#374151] hover:text-[#ef4444] transition-colors"
-                  >
-                    <Heart size={13} />
-                    {comment.likes > 0 && <span className="text-[10px] font-semibold">{comment.likes}</span>}
-                  </button>
+                  <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                    <button
+                      onClick={() => likeComment(comment.id)}
+                      aria-label="Like comment"
+                      className="flex flex-col items-center gap-0.5 text-[#374151] hover:text-[#ef4444] transition-colors"
+                    >
+                      <Heart size={13} />
+                      {comment.likes > 0 && <span className="text-[10px] font-semibold">{comment.likes}</span>}
+                    </button>
+                    <ReportButton targetType="comment" targetId={comment.id} compact />
+                  </div>
                 )}
               </div>
             ))

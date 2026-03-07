@@ -9,6 +9,7 @@ import { Trophy, Sword, Target, Flame, Star, Zap, Edit2, X, Check, Swords, Setti
 import Link from 'next/link';
 import type { UserStats } from '@card-battles/types';
 import { useAuth } from '../../../../hooks/useAuth';
+import { ReportButton } from '../../../../components/ui/ReportModal';
 
 // ── Follow Button ─────────────────────────────────────────────────────────────
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
@@ -378,8 +379,16 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         )}
         {/* Follow section for other users' profiles */}
         {!isOwnProfile && (
-          <div className="mt-4">
+          <div className="mt-4 space-y-2">
             <FollowButton username={username} />
+            <div className="flex justify-end">
+              <ReportButton
+                targetType="user"
+                targetId={username}
+                targetLabel={`@${username}`}
+                className="flex items-center gap-1 text-[#374151] hover:text-[#ef4444] transition-colors text-xs py-1 px-2 rounded-lg hover:bg-[#ef4444]/5"
+              />
+            </div>
           </div>
         )}
       </div>

@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { useFeed } from '../../../hooks/useBattles';
 import { BattleCard } from '../../../components/battle/BattleCard';
 import { BattleCardSkeleton } from '../../../components/ui/LoadingSpinner';
-import { trending as trendingApi } from '../../../lib/api';
+import { trending as trendingApi, getToken } from '../../../lib/api';
 import { formatNumber } from '../../../lib/utils';
 import { RefreshCw, X } from 'lucide-react';
 import type { Battle } from '@card-battles/types';
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
 const SPORT_FILTERS = [
   { label: 'All', value: '' },
@@ -149,6 +151,232 @@ function OnboardingBanner() {
   );
 }
 
+// ── Card Spotlight ────────────────────────────────────────────────────────────
+interface SpotlightData {
+  card: {
+    id: string;
+    player_name: string;
+    image_url: string;
+    title: string;
+    year: number;
+    sport: string;
+  };
+  estimatedValue: number;
+  voteCount: number;
+  featuredDate: string;
+  reason: string;
+}
+
+function CardSpotlight() {
+  const { data, isLoading } = useQuery<SpotlightData>({
+    queryKey: ['spotlight'],
+    queryFn: async () => {
+      const res = await fetch(`${BASE_URL}/spotlight`);
+      if (!res.ok) throw new Error('No spotlight');
+      return res.json();
+    },
+    staleTime: 300_000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-[#1e1e2e] p-4 animate-pulse" style={{ background: '#12121a' }}>
+        <div className="h-3 w-32 bg-[#1e1e2e] rounded mb-3" />
+        <div className="flex gap-4">
+          <div className="w-24 h-32 rounded-xl bg-[#1e1e2e]" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-3/4 bg-[#1e1e2e] rounded" />
+            <div className="h-3 w-1/2 bg-[#1e1e2e] rounded" />
+            <div className="h-3 w-2/3 bg-[#1e1e2e] rounded" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data?.card) return null;
+
+  const { card, estimatedValue, voteCount } = data;
+  const sportEmoji = { nfl: '🏈', nba: '🏀', mlb: '⚾' }[card.sport] ?? '🃏';
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden border"
+      style={{ background: 'linear-gradient(135deg, #0f0721 0%, #12121a 60%)', borderColor: 'rgba(255,215,0,0.25)' }}
+    >
+      {/* Header */}
+      <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-base">⭐</span>
+          <span className="text-xs font-black text-[#ffd700] uppercase tracking-widest">Card Spotlight</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold"
+            style={{ background: 'rgba(255,215,0,0.15)', color: '#ffd700' }}>
+            Today's Pick
+          </span>
+        </div>
+        <Link href="/spotlight" className="text-[10px] text-[#6c47ff] hover:underline font-semibold">
+          Full spotlight →
+        </Link>
+      </div>
+
+      {/* Content */}
+      <div className="px-4 pb-4 flex gap-4 items-start">
+        {/* Card image */}
+        <Link href={`/search?q=${encodeURIComponent(card.player_name)}`} className="flex-shrink-0">
+          <div className="w-24 rounded-xl overflow-hidden border-2 shadow-lg transition-transform hover:scale-105"
+            style={{ aspectRatio: '3/4', borderColor: 'rgba(255,215,0,0.3)', boxShadow: '0 0 20px rgba(255,215,0,0.15)' }}>
+            <img src={card.image_url} alt={card.player_name}
+              className="w-full h-full object-cover" />
+          </div>
+        </Link>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0 space-y-2">
+          <div>
+            <p className="text-white font-black text-base leading-tight">{card.player_name}</p>
+            <p className="text-xs text-[#94a3b8]">{card.year} {sportEmoji} {card.sport.toUpperCase()}</p>
+          </div>
+
+          <p className="text-[11px] text-[#64748b]">Today's Most Voted Card</p>
+
+          <div className="flex items-center gap-3">
+            <div className="text-center">
+              <p className="text-lg font-black" style={{ color: '#ffd700' }}>${estimatedValue}</p>
+              <p className="text-[10px] text-[#64748b]">Est. Value</p>
+            </div>
+            <div className="w-px h-8 bg-[#1e1e2e]" />
+            <div className="text-center">
+              <p className="text-lg font-black text-white">{formatNumber(voteCount)}</p>
+              <p className="text-[10px] text-[#64748b]">Votes today</p>
+            </div>
+          </div>
+
+          <Link
+            href={`/search?q=${encodeURIComponent(card.player_name)}`}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black text-white transition-all hover:opacity-90 active:scale-95"
+            style={{ background: 'linear-gradient(135deg,#6c47ff,#8b5cf6)', boxShadow: '0 0 12px rgba(108,71,255,0.3)' }}
+          >
+            ⚔️ Vote in a Battle
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Recommendations ───────────────────────────────────────────────────────────
+interface RecommendedBattle {
+  id: string;
+  title: string;
+  total_votes_cached: number;
+  ends_at: string;
+  lp: string;
+  li: string;
+  rp: string;
+  ri: string;
+}
+
+interface RecommendationsData {
+  battles: RecommendedBattle[];
+  basedOn: string;
+}
+
+function RecommendedBattleCard({ battle }: { battle: RecommendedBattle }) {
+  return (
+    <Link
+      href={`/battles/${battle.id}`}
+      className="flex-shrink-0 w-56 rounded-2xl border border-[#1e1e2e] overflow-hidden hover:border-[#6c47ff]/40 transition-all group"
+      style={{ background: '#0a0a0f' }}
+    >
+      {/* Card images preview */}
+      <div className="flex h-28 overflow-hidden relative">
+        <div className="w-1/2 overflow-hidden">
+          <img src={battle.li || `https://placehold.co/120x160/6c47ff/ffffff?text=${encodeURIComponent(battle.lp?.split(' ')[0] ?? 'L')}`}
+            alt={battle.lp}
+            className="w-full h-full object-cover" />
+        </div>
+        <div className="w-1/2 overflow-hidden">
+          <img src={battle.ri || `https://placehold.co/120x160/1e1e2e/64748b?text=${encodeURIComponent(battle.rp?.split(' ')[0] ?? 'R')}`}
+            alt={battle.rp}
+            className="w-full h-full object-cover" />
+        </div>
+        {/* VS badge */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black text-white border border-[#6c47ff]"
+            style={{ background: '#0a0a0f', boxShadow: '0 0 8px rgba(0,0,0,0.6)' }}>VS</div>
+        </div>
+      </div>
+
+      {/* Info */}
+      <div className="p-3">
+        <p className="text-xs font-bold text-white line-clamp-2 leading-tight mb-1">{battle.title}</p>
+        <p className="text-[10px] text-[#64748b]">
+          🗳️ {formatNumber(battle.total_votes_cached ?? 0)} votes
+        </p>
+        <p className="text-[10px] text-[#6c47ff] font-semibold mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          Vote now →
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+function Recommendations() {
+  const token = getToken();
+  const { data, isLoading } = useQuery<RecommendationsData>({
+    queryKey: ['recommendations'],
+    queryFn: async () => {
+      const res = await fetch(`${BASE_URL}/me/recommendations`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return { battles: [], basedOn: 'Popular battles' };
+      return res.json();
+    },
+    staleTime: 120_000,
+    enabled: !!token,
+  });
+
+  if (!token) return null;
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-[#1e1e2e] p-4" style={{ background: '#12121a' }}>
+        <div className="h-3 w-48 bg-[#1e1e2e] rounded mb-3 animate-pulse" />
+        <div className="flex gap-3 overflow-hidden">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="flex-shrink-0 w-56 h-40 rounded-2xl bg-[#1e1e2e] animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const battles = data?.battles ?? [];
+  if (battles.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-[#1e1e2e] p-4 space-y-3" style={{ background: '#12121a' }}>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider flex items-center gap-1">
+            🎯 Recommended for You
+          </h2>
+          <p className="text-[10px] text-[#374151] mt-0.5">Based on {data?.basedOn ?? 'your activity'}</p>
+        </div>
+      </div>
+
+      {/* Horizontal scroll */}
+      <div
+        className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        {battles.map((battle) => (
+          <RecommendedBattleCard key={battle.id} battle={battle} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function FeedPage() {
   const [sportFilter, setSportFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -195,6 +423,9 @@ export default function FeedPage() {
     <div className="space-y-4">
       {/* Onboarding banner */}
       <OnboardingBanner />
+
+      {/* ⭐ Card Spotlight */}
+      <CardSpotlight />
 
       {/* Hero Banner */}
       <div
@@ -248,6 +479,9 @@ export default function FeedPage() {
         <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
         {isRefreshing ? 'Refreshing...' : 'Tap to refresh'}
       </button>
+
+      {/* 🎯 Recommendations */}
+      <Recommendations />
 
       {/* 🔥 Trending Now */}
       {topTrending.length > 0 && (

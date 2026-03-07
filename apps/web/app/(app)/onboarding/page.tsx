@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { battles as battlesApi, getToken } from '../../../lib/api';
 import type { Battle } from '@card-battles/types';
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
+
 const SPORTS = [
   { id: 'nfl', label: 'NFL', emoji: '🏈' },
   { id: 'nba', label: 'NBA', emoji: '🏀' },
@@ -15,8 +17,10 @@ const WELCOME_CARDS = [
   { icon: '⚔️', title: 'Battle Feed', desc: 'Vote on daily head-to-head matchups', href: '/feed' },
   { icon: '➕', title: 'Create Battle', desc: 'Start your own card matchup', href: '/create' },
   { icon: '🏆', title: 'Leaderboards', desc: 'See where you rank', href: '/leaderboards' },
-  { icon: '🗓️', title: 'Daily Picks', desc: 'Curator\'s top picks each day', href: '/daily-picks' },
+  { icon: '🗓️', title: 'Daily Picks', desc: "Curator's top picks each day", href: '/daily-picks' },
 ];
+
+const CONFETTI_COLORS = ['#6c47ff', '#ffd700', '#22c55e', '#ef4444', '#a78bfa', '#f59e0b'];
 
 function StepIndicator({ step, total }: { step: number; total: number }) {
   return (
@@ -41,6 +45,69 @@ function StepIndicator({ step, total }: { step: number; total: number }) {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+// Step 0: Welcome with animated fanning cards
+function StepWelcomeIntro({ onNext }: { onNext: () => void }) {
+  const fanCards = [
+    { bg: '#6c47ff', text: '🏈', rotate: -15, translateX: -60, translateY: 10, zIndex: 1 },
+    { bg: '#1d428a', text: '🏀', rotate: -7,  translateX: -25, translateY: 5,  zIndex: 2 },
+    { bg: '#12121a', text: '⚾', rotate: 0,   translateX: 0,   translateY: 0,  zIndex: 3 },
+    { bg: '#1a1a4e', text: '⚔️', rotate: 7,   translateX: 25,  translateY: 5,  zIndex: 2 },
+    { bg: '#003087', text: '🏆', rotate: 15,  translateX: 60,  translateY: 10, zIndex: 1 },
+  ];
+
+  return (
+    <div className="space-y-8">
+      <style>{`
+        @keyframes card-fan-in {
+          0% { transform: translateY(40px) rotate(0deg) translateX(0); opacity: 0; }
+          100% { transform: var(--card-transform); opacity: 1; }
+        }
+        .fan-card {
+          animation: card-fan-in 0.6s ease forwards;
+          animation-delay: var(--delay);
+          opacity: 0;
+        }
+      `}</style>
+
+      {/* Fan of cards */}
+      <div className="relative flex items-center justify-center h-44">
+        {fanCards.map((card, i) => (
+          <div
+            key={i}
+            className="fan-card absolute w-20 h-28 rounded-2xl flex items-center justify-center text-3xl border border-white/10 shadow-xl"
+            style={{
+              background: `linear-gradient(135deg, ${card.bg}, ${card.bg}cc)`,
+              zIndex: card.zIndex,
+              '--card-transform': `rotate(${card.rotate}deg) translateX(${card.translateX}px) translateY(${card.translateY}px)`,
+              '--delay': `${i * 0.1}s`,
+            } as React.CSSProperties}
+          >
+            {card.text}
+          </div>
+        ))}
+      </div>
+
+      <div className="text-center space-y-3">
+        <h2 className="text-3xl font-black text-white">Welcome to Card Battles! 🃏</h2>
+        <p className="text-[#94a3b8] text-lg leading-relaxed">
+          The ultimate sports card voting experience.
+          <br />
+          <span className="text-[#a78bfa] font-semibold">Vote. Collect. Compete.</span>
+        </p>
+        <p className="text-sm text-[#64748b]">Set up your profile in 4 quick steps.</p>
+      </div>
+
+      <button
+        onClick={onNext}
+        className="w-full py-4 rounded-2xl font-black text-white text-lg transition-all hover:opacity-90 active:scale-95"
+        style={{ background: 'linear-gradient(135deg,#6c47ff,#8b5cf6)', boxShadow: '0 0 24px rgba(108,71,255,0.35)' }}
+      >
+        Let's Go! →
+      </button>
     </div>
   );
 }
@@ -121,7 +188,6 @@ function StepVote({ onNext }: { onNext: () => void }) {
     if (!battle || voted) return;
     setVoted(choice);
     try {
-      // Use first category for the onboarding vote
       const category = battle.categories[0] ?? 'overall';
       await battlesApi.vote(battle.id, category, choice);
     } catch {
@@ -251,19 +317,197 @@ function StepVote({ onNext }: { onNext: () => void }) {
   );
 }
 
-// Step 3: Welcome
-function StepWelcome() {
-  const router = useRouter();
+// Step 3: Follow Top Collectors
+interface DiscoverUser {
+  id: string;
+  username: string;
+  avatar_url?: string;
+  bio?: string;
+  votes_cast?: number;
+  battles_won?: number;
+  followerCount?: number;
+}
+
+function StepFollow({ onNext }: { onNext: () => void }) {
+  const [users, setUsers] = useState<DiscoverUser[]>([]);
+  const [followed, setFollowed] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [followLoading, setFollowLoading] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`${BASE_URL}/users/discover`)
+      .then(r => r.json())
+      .then(data => {
+        const items = Array.isArray(data) ? data : (data.users ?? data.items ?? []);
+        setUsers(items.slice(0, 3));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleFollow = async (username: string) => {
+    const token = getToken();
+    if (!token || followLoading) return;
+    setFollowLoading(username);
+    try {
+      const endpoint = followed.has(username) ? 'unfollow' : 'follow';
+      await fetch(`${BASE_URL}/users/${username}/${endpoint}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setFollowed(prev => {
+        const next = new Set(prev);
+        if (next.has(username)) next.delete(username);
+        else next.add(username);
+        return next;
+      });
+    } catch {}
+    setFollowLoading(null);
+  };
 
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <div className="text-6xl mb-4">🎉</div>
+        <h2 className="text-2xl font-black text-white mb-2">Follow Top Collectors</h2>
+        <p className="text-[#64748b]">Stay updated with the community's best card battlers.</p>
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-20 rounded-2xl bg-[#1e1e2e] animate-pulse" />
+          ))}
+        </div>
+      ) : users.length === 0 ? (
+        <div className="text-center py-8 text-[#64748b]">
+          <p>No collectors found.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {users.map((user) => {
+            const isFollowed = followed.has(user.username);
+            const isLoadingThis = followLoading === user.username;
+            return (
+              <div
+                key={user.id}
+                className="flex items-center gap-4 p-4 rounded-2xl border transition-all"
+                style={{
+                  background: '#0a0a0f',
+                  borderColor: isFollowed ? 'rgba(108,71,255,0.4)' : '#1e1e2e',
+                }}
+              >
+                {/* Avatar */}
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-xl font-black flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg,#6c47ff,#8b5cf6)' }}
+                >
+                  {user.avatar_url
+                    ? <img src={user.avatar_url} alt={user.username} className="w-full h-full rounded-full object-cover" />
+                    : user.username[0].toUpperCase()
+                  }
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-black text-white text-sm">@{user.username}</p>
+                  <p className="text-xs text-[#64748b] mt-0.5 truncate">
+                    {user.bio || `${(user.votes_cast ?? 0).toLocaleString()} votes · ${(user.battles_won ?? 0)} wins`}
+                  </p>
+                  {(user.followerCount ?? 0) > 0 && (
+                    <p className="text-xs text-[#374151]">{user.followerCount} followers</p>
+                  )}
+                </div>
+
+                {/* Follow button */}
+                <button
+                  onClick={() => handleFollow(user.username)}
+                  disabled={isLoadingThis || !getToken()}
+                  className="flex-shrink-0 px-4 py-2 rounded-xl text-xs font-black transition-all disabled:opacity-50"
+                  style={isFollowed
+                    ? { background: 'rgba(108,71,255,0.15)', color: '#a78bfa', border: '1px solid rgba(108,71,255,0.4)' }
+                    : { background: 'linear-gradient(135deg,#6c47ff,#8b5cf6)', color: 'white', boxShadow: '0 0 12px rgba(108,71,255,0.3)' }
+                  }
+                >
+                  {isLoadingThis ? '...' : isFollowed ? '✓ Following' : '+ Follow'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <button
+        onClick={onNext}
+        className="w-full py-4 rounded-2xl font-black text-white text-lg transition-all hover:opacity-90 active:scale-95"
+        style={{ background: 'linear-gradient(135deg,#6c47ff,#8b5cf6)', boxShadow: '0 0 24px rgba(108,71,255,0.35)' }}
+      >
+        {followed.size > 0 ? `Following ${followed.size} collector${followed.size > 1 ? 's' : ''} →` : 'Skip →'}
+      </button>
+    </div>
+  );
+}
+
+// Step 4: Complete with confetti
+function StepComplete() {
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cb_onboarded', 'true');
+    }
+  }, []);
+
+  const confettiPieces = Array.from({ length: 20 }, (_, i) => ({
+    id: i,
+    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    left: `${(i / 20) * 100}%`,
+    delay: `${(i * 0.15) % 2}s`,
+    duration: `${2 + (i % 3) * 0.5}s`,
+    size: `${8 + (i % 4) * 4}px`,
+  }));
+
+  return (
+    <div className="space-y-6 relative overflow-hidden">
+      <style>{`
+        @keyframes confetti-fall {
+          0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+          100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        .confetti-piece {
+          position: fixed;
+          border-radius: 50%;
+          animation: confetti-fall var(--duration) var(--delay) ease-in infinite;
+          pointer-events: none;
+          z-index: 100;
+        }
+      `}</style>
+
+      {/* Confetti */}
+      {mounted && confettiPieces.map((piece) => (
+        <div
+          key={piece.id}
+          className="confetti-piece"
+          style={{
+            left: piece.left,
+            top: '-20px',
+            width: piece.size,
+            height: piece.size,
+            background: piece.color,
+            '--duration': piece.duration,
+            '--delay': piece.delay,
+          } as React.CSSProperties}
+        />
+      ))}
+
+      <div className="text-center relative z-10">
+        <div className="text-6xl mb-4 animate-bounce">🎉</div>
         <h2 className="text-3xl font-black text-white mb-2">You're all set!</h2>
         <p className="text-[#64748b] text-lg">Here's what you can do on CardBattles:</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 relative z-10">
         {WELCOME_CARDS.map((card) => (
           <Link
             key={card.href}
@@ -278,12 +522,18 @@ function StepWelcome() {
         ))}
       </div>
 
+      <div className="relative z-10 rounded-2xl p-4 border border-[#6c47ff]/20 text-center"
+        style={{ background: 'rgba(108,71,255,0.08)' }}>
+        <p className="text-sm font-semibold text-[#a78bfa]">🃏 Your journey starts now</p>
+        <p className="text-xs text-[#64748b] mt-1">Vote daily, climb the leaderboard, and discover the best cards.</p>
+      </div>
+
       <button
         onClick={() => router.replace('/feed')}
-        className="w-full py-4 rounded-2xl font-black text-white text-lg transition-all hover:opacity-90 active:scale-95"
+        className="w-full py-4 rounded-2xl font-black text-white text-lg transition-all hover:opacity-90 active:scale-95 relative z-10"
         style={{ background: 'linear-gradient(135deg,#6c47ff,#8b5cf6)', boxShadow: '0 0 24px rgba(108,71,255,0.35)' }}
       >
-        Go to Feed ⚔️
+        Let's Go! ⚔️
       </button>
     </div>
   );
@@ -300,7 +550,9 @@ export default function OnboardingPage() {
     }
   }, [router]);
 
-  const TOTAL_STEPS = 3;
+  const TOTAL_STEPS = 5;
+
+  const stepLabels = ['Welcome', 'Sports', 'Vote', 'Follow', 'Complete'];
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] flex flex-col items-center justify-center px-4 py-12"
@@ -319,15 +571,22 @@ export default function OnboardingPage() {
             <StepIndicator step={step} total={TOTAL_STEPS} />
           </div>
 
+          {/* Step label */}
+          <p className="text-center text-xs text-[#374151] font-semibold uppercase tracking-widest mb-4">
+            {stepLabels[step]}
+          </p>
+
           <div className="transition-all duration-300">
-            {step === 0 && <StepSports onNext={() => setStep(1)} />}
-            {step === 1 && <StepVote onNext={() => setStep(2)} />}
-            {step === 2 && <StepWelcome />}
+            {step === 0 && <StepWelcomeIntro onNext={() => setStep(1)} />}
+            {step === 1 && <StepSports onNext={() => setStep(2)} />}
+            {step === 2 && <StepVote onNext={() => setStep(3)} />}
+            {step === 3 && <StepFollow onNext={() => setStep(4)} />}
+            {step === 4 && <StepComplete />}
           </div>
         </div>
 
         <p className="text-center mt-6 text-xs text-[#374151]">
-          Step {step + 1} of {TOTAL_STEPS}
+          Step {step + 1} of {TOTAL_STEPS} — {stepLabels[step]}
         </p>
       </div>
     </div>

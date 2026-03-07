@@ -72,7 +72,7 @@ function ReportsTab() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ['admin-reports'],
-    queryFn: () => adminFetch('/admin/reports').catch(() => ({ items: [] })),
+    queryFn: () => adminFetch('/admin/reports').catch(() => ({ reports: [], total: 0 })),
   });
 
   const removeBattle = useMutation({
@@ -85,7 +85,8 @@ function ReportsTab() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-reports'] }),
   });
 
-  const reports = data?.items ?? [];
+  // Support both { reports: [...] } and { items: [...] } formats
+  const reports = data?.reports ?? data?.items ?? [];
 
   if (isLoading) return <div className="text-[#64748b] text-sm py-8 text-center">Loading reports...</div>;
 
@@ -101,16 +102,29 @@ function ReportsTab() {
 
   return (
     <div className="space-y-3">
-      {reports.map((r: { id: string; reason: string; targetType: string; targetId: string; reporterUserId: string; createdAt: string }) => (
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-[#64748b]">{reports.length} report{reports.length !== 1 ? 's' : ''} pending</p>
+      </div>
+      {reports.map((r: { id: string; reason: string; targetType: string; targetId: string; reporterId?: string; reporterUserId?: string; status?: string; createdAt: string }) => (
         <div key={r.id} className="bg-[#12121a] border border-[#1e1e2e] rounded-xl p-4 space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
                 <Flag size={12} className="text-[#ef4444]" />
                 <p className="text-sm font-bold text-white capitalize">{r.targetType} Report</p>
+                {r.status && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-bold"
+                    style={r.status === 'pending'
+                      ? { background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }
+                      : { background: 'rgba(34,197,94,0.15)', color: '#22c55e' }
+                    }>
+                    {r.status}
+                  </span>
+                )}
               </div>
               <p className="text-xs text-[#64748b] mt-1">{r.reason}</p>
-              <p className="text-xs text-[#374151] mt-0.5">Target: {r.targetId}</p>
+              <p className="text-xs text-[#374151] mt-0.5">Target ID: <span className="font-mono text-[10px]">{r.targetId.slice(0, 16)}...</span></p>
+              <p className="text-xs text-[#374151]">Reporter: <span className="font-mono text-[10px]">{(r.reporterId ?? r.reporterUserId ?? '').slice(0, 12)}...</span></p>
             </div>
             <span className="text-xs text-[#374151] whitespace-nowrap">{new Date(r.createdAt).toLocaleDateString()}</span>
           </div>
@@ -124,13 +138,13 @@ function ReportsTab() {
                 <Trash2 size={12} /> Remove Battle
               </button>
             )}
-            {r.reporterUserId && (
+            {(r.reporterId ?? r.reporterUserId) && (
               <button
-                onClick={() => suspendUser.mutate(r.reporterUserId)}
+                onClick={() => suspendUser.mutate((r.reporterId ?? r.reporterUserId)!)}
                 disabled={suspendUser.isPending}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#374151]/20 border border-[#374151]/40 text-[#64748b] text-xs font-semibold disabled:opacity-50"
               >
-                <Ban size={12} /> Suspend User
+                <Ban size={12} /> Suspend Reporter
               </button>
             )}
           </div>
