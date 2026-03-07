@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: card-battles-api
+    runtime: node
+    rootDir: apps/api
+    buildCommand: npm install -g pnpm && pnpm install --no-frozen-lockfile && pnpm run build:combo
+    startCommand: node dist/combo-server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    healthCheckPath: /health

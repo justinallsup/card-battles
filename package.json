@@ -17,6 +17,7 @@
     "db:generate": "pnpm --filter @card-battles/api run db:generate",
     "db:studio": "pnpm --filter @card-battles/api run db:studio"
   },
+  "packageManager": "pnpm@9.0.0",
   "devDependencies": {
     "typescript": "^5.4.5"
   }
