@@ -8,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 
 // Explore drawer feature tiles
 const EXPLORE_TILES = [
+  { href: '/news',         label: 'Card News',     icon: '📰', desc: 'Latest card news'    },
   { href: '/marketplace',  label: 'Marketplace',  icon: '🏪', desc: 'Buy & sell cards'    },
   { href: '/scanner',      label: 'Card Scanner',  icon: '📸', desc: 'Scan & identify'    },
   { href: '/hall-of-fame', label: 'Hall of Fame',  icon: '🏛️', desc: 'Greatest cards ever' },
@@ -33,6 +34,7 @@ const EXPLORE_TILES = [
   { href: '/portfolio',    label: 'Portfolio',      icon: '💼', desc: 'Collection value'   },
   { href: '/discover',     label: 'Discover',      icon: '🔍', desc: 'Find collectors'    },
   { href: '/calculator',   label: 'Calculator',    icon: '💰', desc: 'Card ROI estimator' },
+  { href: '/bracket',      label: 'Bracket',       icon: '🏆', desc: 'Build a bracket'    },
   { href: '/search',       label: 'Search',        icon: '🔎', desc: 'Find anything'      },
   { href: '/pro',          label: 'Pro',           icon: '⭐', desc: 'Upgrade account'    },
 ];
@@ -139,7 +141,7 @@ export function BottomNav() {
           {navItems.map(({ href, label, icon: Icon, accent, key, action }) => {
             const active = href ? (pathname === href || pathname.startsWith(href + '/')) : false;
             const isProfileActive = key === 'profile' && user?.username && (pathname === `/profile/${user.username}` || pathname.startsWith('/profile/'));
-            const isExploreActive = key === 'explore' && ['/pull-arena','/tournaments','/fantasy','/market','/compare','/activity','/daily-picks','/collection','/watchlist','/search','/notifications','/pro','/history','/alerts','/grader','/auctions','/sets','/analytics','/community','/learn','/marketplace','/players','/scanner','/hall-of-fame','/get-app','/trades','/portfolio','/discover','/calculator','/bracket'].some(p => pathname.startsWith(p));
+            const isExploreActive = key === 'explore' && ['/news','/pull-arena','/tournaments','/fantasy','/market','/compare','/activity','/daily-picks','/collection','/watchlist','/search','/notifications','/pro','/history','/alerts','/grader','/auctions','/sets','/analytics','/community','/learn','/marketplace','/players','/scanner','/hall-of-fame','/get-app','/trades','/portfolio','/discover','/calculator','/bracket'].some(p => pathname.startsWith(p));
 
             if (accent) {
               return (
