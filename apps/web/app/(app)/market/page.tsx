@@ -2,10 +2,27 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, TrendingDown, Minus, RefreshCw, Filter, ArrowUpDown } from 'lucide-react';
+import Link from 'next/link';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
-interface MarketItem {
+interface MarketMoverMini {
+  playerName: string;
+  sport: string;
+  imageUrl: string;
+  estimatedValue: number;
+  changePct: number;
+  trend: 'up' | 'down';
+}
+
+interface MarketMoversData {
+  gainers: MarketMoverMini[];
+  losers: MarketMoverMini[];
+  mostActive: MarketMoverMini[];
+  updatedAt: string;
+}
+
+
   cardId: string;
   title: string;
   playerName: string;

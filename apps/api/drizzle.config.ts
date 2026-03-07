@@ -1,12 +1,12 @@
-import { defineConfig } from 'drizzle-kit';
+import type { Config } from 'drizzle-kit';
+import * as dotenv from 'dotenv';
+dotenv.config();
 
-export default defineConfig({
+export default {
   schema: './src/db/schema.ts',
-  out: './drizzle',
+  out: './src/db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    url: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/card_battles',
   },
-  verbose: true,
-  strict: true,
-});
+} satisfies Config;

@@ -331,6 +331,7 @@ async function seedDb() {
   await seedMarketplace();
   await seedBlitz();
   await seedAuctions();
+  seedCommChallenges();
   console.log('[Seed] ✅ Done — cardking@demo.com / password123');
 }
 
@@ -3743,6 +3744,122 @@ app.get('/api/v1/me/export', async (c) => {
   }
 
   return c.json(data);
+});
+
+// ── FLIP GAME ──────────────────────────────────────────────────────────────────
+app.get('/api/v1/flip-game', async (c) => {
+  const r = await pg.query('SELECT id, player_name, image_url, year, sport FROM card_assets ORDER BY RANDOM() LIMIT 2');
+  const cards = r.rows as {id:string;player_name:string;image_url:string;year:number;sport:string}[];
+  if (cards.length < 2) return c.json({ error: 'Not enough cards' }, 400);
+  const VALUATIONS: Record<string,number> = {
+    'Patrick Mahomes': 280, 'Tom Brady': 520, 'LeBron James': 1400, 'Michael Jordan': 15000,
+    'Victor Wembanyama': 180, 'Caitlin Clark': 145, 'Kobe Bryant': 2800, 'Shohei Ohtani': 380,
+    'Mike Trout': 780, 'Stephen Curry': 340, 'Josh Allen': 210, 'Luka Doncic': 460,
+  };
+  const withValues = cards.map(card => ({
+    ...card, value: VALUATIONS[card.player_name] || Math.floor(Math.random() * 100) + 20
+  }));
+  const answerId = withValues[0].value >= withValues[1].value ? withValues[0].id : withValues[1].id;
+  return c.json({
+    gameId: randomUUID(),
+    cards: withValues.map(card => ({ id: card.id, playerName: card.player_name, imageUrl: card.image_url, sport: card.sport })),
+    answerId,
+    values: withValues.map(card => ({ id: card.id, value: card.value })),
+  });
+});
+
+app.post('/api/v1/flip-game/result', async (c) => {
+  const { gameId, guess, answerId, values } = await c.req.json().catch(() => ({})) as {gameId:string;guess:string;answerId:string;values:{id:string;value:number}[]};
+  const correct = guess === answerId;
+  return c.json({ correct, answerId, values, message: correct ? '🎉 Correct! You know your card values!' : '❌ Wrong! Check the prices.' });
+});
+
+// ── MARKET MOVERS ──────────────────────────────────────────────────────────────
+app.get('/api/v1/market/movers', async (c) => {
+  const r = await pg.query(`
+    SELECT ca.player_name, ca.sport, ca.image_url,
+      COUNT(v.id) as total_votes,
+      COUNT(CASE WHEN v.created_at > NOW() - INTERVAL '24 hours' THEN 1 END) as recent_votes
+    FROM card_assets ca
+    JOIN battles b ON b.left_asset_id=ca.id OR b.right_asset_id=ca.id
+    JOIN votes v ON v.battle_id=b.id
+    GROUP BY ca.player_name, ca.sport, ca.image_url
+    ORDER BY recent_votes DESC
+    LIMIT 20
+  `);
+  const VALUATIONS: Record<string,number> = {
+    'Patrick Mahomes': 280, 'Tom Brady': 520, 'LeBron James': 1400, 'Michael Jordan': 15000,
+    'Victor Wembanyama': 180, 'Caitlin Clark': 145, 'Kobe Bryant': 2800,
+  };
+  const players = (r.rows as {player_name:string;sport:string;image_url:string;total_votes:string;recent_votes:string}[]).map(p => ({
+    playerName: p.player_name,
+    sport: p.sport,
+    imageUrl: p.image_url,
+    totalVotes: parseInt(p.total_votes),
+    recentVotes: parseInt(p.recent_votes),
+    estimatedValue: VALUATIONS[p.player_name] || 45,
+    changePct: Math.round((Math.random() - 0.3) * 30 * 10) / 10,
+    trend: Math.random() > 0.4 ? 'up' : 'down',
+  }));
+  return c.json({
+    gainers: players.filter(p => p.trend === 'up').slice(0, 5),
+    losers: players.filter(p => p.trend === 'down').slice(0, 5),
+    mostActive: players.slice(0, 5),
+    updatedAt: new Date().toISOString(),
+  });
+});
+
+// ── COMMUNITY CHALLENGES ───────────────────────────────────────────────────────
+type CommChallenge = {
+  id: string; title: string; description: string; sport: string;
+  creatorId: string; creatorName: string;
+  type: 'prediction' | 'vote_streak' | 'collection';
+  target: number; participants: number; completions: number;
+  reward: string; endsAt: string; createdAt: string;
+};
+const commChallenges = new Map<string, CommChallenge>();
+
+function seedCommChallenges() {
+  const challenges: CommChallenge[] = [
+    { id: randomUUID(), title: 'NFL MVP Prediction', description: 'Vote on 10 NFL battles this week', sport: 'nfl', creatorId: 'user_cardking', creatorName: 'cardking', type: 'vote_streak', target: 10, participants: 234, completions: 45, reward: '🏆 NFL Expert Badge', endsAt: new Date(Date.now() + 5*86400000).toISOString(), createdAt: new Date().toISOString() },
+    { id: randomUUID(), title: 'Basketball GOAT Debate', description: 'Vote in 5 NBA battles and predict the winner', sport: 'nba', creatorId: 'user_slabmaster', creatorName: 'slabmaster', type: 'prediction', target: 5, participants: 189, completions: 32, reward: '🏀 Hoops Historian Badge', endsAt: new Date(Date.now() + 3*86400000).toISOString(), createdAt: new Date().toISOString() },
+    { id: randomUUID(), title: 'Vintage Baseball Collection', description: 'Find and vote on 3 pre-1980 baseball cards', sport: 'mlb', creatorId: 'user_gradegod', creatorName: 'gradegod', type: 'collection', target: 3, participants: 78, completions: 12, reward: '⚾ Vintage Collector Badge', endsAt: new Date(Date.now() + 7*86400000).toISOString(), createdAt: new Date().toISOString() },
+  ];
+  challenges.forEach(ch => commChallenges.set(ch.id, ch));
+}
+
+app.get('/api/v1/community/challenges', (c) => {
+  return c.json({ challenges: Array.from(commChallenges.values()), total: commChallenges.size });
+});
+
+app.post('/api/v1/community/challenges', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const user = await pg.query('SELECT username FROM users WHERE id=$1', [authUid]);
+  const { title, description, sport, type, target, reward, daysUntilEnd } = await c.req.json().catch(() => ({})) as Record<string,unknown>;
+  if (!title || !description) return c.json({ error: 'Title and description required' }, 400);
+  const id = randomUUID();
+  const challenge: CommChallenge = {
+    id, title: String(title), description: String(description),
+    sport: String(sport || 'all'), creatorId: authUid,
+    creatorName: (user.rows as {username:string}[])[0]?.username || 'Anonymous',
+    type: (type as CommChallenge['type']) || 'vote_streak',
+    target: Number(target) || 10, participants: 0, completions: 0,
+    reward: String(reward || '🏅 Challenge Badge'),
+    endsAt: new Date(Date.now() + Number(daysUntilEnd || 7) * 86400000).toISOString(),
+    createdAt: new Date().toISOString(),
+  };
+  commChallenges.set(id, challenge);
+  return c.json(challenge, 201);
+});
+
+app.post('/api/v1/community/challenges/:id/join', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const ch = commChallenges.get(c.req.param('id'));
+  if (!ch) return c.json({ error: 'Not found' }, 404);
+  ch.participants++;
+  return c.json({ joined: true, challenge: ch });
 });
 
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────

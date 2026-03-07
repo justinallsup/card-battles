@@ -15,7 +15,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "build:combo": "esbuild src/combo-server.ts --bundle --platform=node --outfile=dist/combo-server.js --external:@electric-sql/pglite --external:pg-native"
+    "build:combo": "esbuild src/combo-server.ts --bundle --platform=node --outfile=dist/combo-server.js --external:@electric-sql/pglite --external:pg-native",
+    "build:render": "pnpm run build:combo",
+    "migrate": "tsx src/db/migrate.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.556.0",

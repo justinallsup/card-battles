@@ -3,6 +3,8 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
+import { sql } from 'drizzle-orm';
+import { db } from './db';
 import { initStorage } from './utils/initStorage';
 import authRouter from './routes/auth';
 import battlesRouter from './routes/battles';
@@ -28,16 +30,27 @@ app.use('*', cors({
   credentials: true,
 }));
 
-app.get('/health', (c) => c.json({
-  status: 'ok',
-  timestamp: new Date().toISOString(),
-  version: '0.1.0',
-  routes: [
-    '/api/v1/auth', '/api/v1/battles', '/api/v1/assets', '/api/v1/users',
-    '/api/v1/leaderboards', '/api/v1/daily-picks', '/api/v1/share', '/api/v1/analytics',
-    '/api/v1/collections', '/api/v1/tournaments', '/api/v1/fantasy',
-  ],
-}));
+// Health check — queries real Postgres if DATABASE_URL is set
+app.get('/health', async (c) => {
+  try {
+    const result = await db.execute(sql`SELECT COUNT(*) as battles FROM battles`);
+    return c.json({
+      status: 'ok',
+      db: 'connected',
+      battles: result.rows[0]?.battles || 0,
+      timestamp: new Date().toISOString(),
+      version: '0.1.0',
+    });
+  } catch (e) {
+    return c.json({
+      status: 'ok',
+      db: 'disconnected',
+      error: String(e),
+      timestamp: new Date().toISOString(),
+      version: '0.1.0',
+    }, 200);
+  }
+});
 
 const api = new Hono();
 api.route('/auth', authRouter);

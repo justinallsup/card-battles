@@ -16,8 +16,11 @@ const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET!;
 const ACCESS_EXPIRES = `${process.env.JWT_ACCESS_EXPIRES_MINUTES || 60}m`;
 const REFRESH_EXPIRES = `${process.env.JWT_REFRESH_EXPIRES_DAYS || 30}d`;
 
-function makeTokens(user: { id: string; username: string; isAdmin: boolean; isMod: boolean }) {
-  const payload = { sub: user.id, username: user.username, isAdmin: user.isAdmin, isMod: user.isMod };
+function makeTokens(user: { id: string; username: string; role?: string; isAdmin?: boolean; isMod?: boolean }) {
+  // Support both old (isAdmin/isMod) and new (role) schema
+  const isAdmin = user.isAdmin ?? (user.role === 'admin' || user.role === 'superadmin');
+  const isMod = user.isMod ?? (user.role === 'mod' || user.role === 'admin' || user.role === 'superadmin');
+  const payload = { sub: user.id, username: user.username, isAdmin, isMod };
   const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_EXPIRES } as jwt.SignOptions);
   const refreshToken = jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: REFRESH_EXPIRES } as jwt.SignOptions);
   return { accessToken, refreshToken };

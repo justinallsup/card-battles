@@ -1,17 +1,10 @@
 [build]
 builder = "nixpacks"
+buildCommand = "cd apps/api && npm install -g pnpm && pnpm install && pnpm run build:combo"
 
 [deploy]
 startCommand = "node apps/api/dist/combo-server.js"
 healthcheckPath = "/health"
-healthcheckTimeout = 300
+healthcheckTimeout = 30
 restartPolicyType = "on_failure"
-
-[phases.setup]
-nixPkgs = ["nodejs_22"]
-
-[phases.install]
-cmds = ["npm install -g pnpm", "pnpm install --frozen-lockfile"]
-
-[phases.build]
-cmds = ["pnpm --filter @card-battles/api build:combo"]
+restartPolicyMaxRetries = 3
