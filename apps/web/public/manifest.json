@@ -1,21 +1,50 @@
 {
   "name": "Card Battles",
   "short_name": "CardBattles",
-  "description": "The ultimate sports card battle platform",
+  "description": "Head-to-head sports card battles. Vote, collect, compete.",
   "start_url": "/feed",
   "display": "standalone",
   "background_color": "#0a0a0f",
   "theme_color": "#6c47ff",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "maskable any"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Feed",
+      "url": "/feed",
+      "description": "Browse card battles"
+    },
+    {
+      "name": "Blitz Battles",
+      "url": "/blitz",
+      "description": "5-minute speed battles"
+    },
+    {
+      "name": "Leaderboard",
+      "url": "/leaderboard",
+      "description": "Top collectors"
+    }
+  ],
+  "categories": ["sports", "entertainment", "games"],
+  "screenshots": [
+    {
+      "src": "/screenshot-feed.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow"
     }
   ]
 }

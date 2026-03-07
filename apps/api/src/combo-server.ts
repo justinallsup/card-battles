@@ -71,6 +71,40 @@ async function initDb() {
   console.log('[DB] Tables ready');
 }
 
+// ── AUCTION STORE (declared early so seedDb can call seedAuctions) ──────────
+type AuctionListing = {
+  id: string; cardName: string; cardImage: string; sport: string;
+  startingBid: number; currentBid: number; highBidder: string | null;
+  bidCount: number; endsAt: string; status: 'live' | 'ended';
+  condition: string; sellerId: string; sellerName: string;
+};
+const auctionStore = new Map<string, AuctionListing>();
+
+async function seedAuctions() {
+  try {
+    const r = await pg.query('SELECT id, player_name, image_url, sport FROM card_assets ORDER BY RANDOM() LIMIT 3');
+    const cards = r.rows as {id:string;player_name:string;image_url:string;sport:string}[];
+    const users = ['cardking','slabmaster','rookiehunter'];
+    cards.forEach((card, i) => {
+      const id = randomUUID();
+      const ending = new Date(Date.now() + [2*3600000, 45*60000, 8*3600000][i]);
+      auctionStore.set(id, {
+        id, cardName: card.player_name, cardImage: card.image_url, sport: card.sport,
+        startingBid: [25, 50, 100][i], currentBid: [87, 50, 145][i],
+        highBidder: (['packripper', null, 'gradegod'] as (string|null)[])[i],
+        bidCount: [4, 0, 2][i],
+        endsAt: ending.toISOString(),
+        status: new Date() < ending ? 'live' : 'ended',
+        condition: ['PSA 9', 'Raw NM', 'BGS 9.5'][i],
+        sellerId: `user_${users[i]}`, sellerName: users[i],
+      });
+    });
+    console.log(`[Seed] Seeded ${auctionStore.size} auctions`);
+  } catch (e) {
+    console.error('[seedAuctions] error:', e);
+  }
+}
+
 async function seedDb() {
   console.log('[Seed] Loading demo data...');
   const hash = bcrypt.hashSync('password123', 10);
@@ -296,6 +330,7 @@ async function seedDb() {
 
   await seedMarketplace();
   await seedBlitz();
+  await seedAuctions();
   console.log('[Seed] ✅ Done — cardking@demo.com / password123');
 }
 
@@ -1681,46 +1716,51 @@ app.post('/api/v1/admin/bulk-create-battles', async (c) => {
 });
 
 // ── LIVE AUCTIONS ────────────────────────────────────────────────────────────
-const auctionData = [
-  { player: 'Patrick Mahomes', bid: 287, start: 100, bids: 14, grade: 10 },
-  { player: 'Michael Jordan', bid: 16500, start: 10000, bids: 31, grade: 9 },
-  { player: 'LeBron James', bid: 1420, start: 800, bids: 22, grade: 10 },
-  { player: 'Victor Wembanyama', bid: 195, start: 75, bids: 8, grade: 10 },
-  { player: 'Tom Brady', bid: 545, start: 200, bids: 19, grade: 9 },
-];
+app.get('/api/v1/auctions', (c) => {
+  const now = new Date();
+  for (const [, a] of auctionStore) {
+    if (new Date(a.endsAt) < now) a.status = 'ended';
+  }
+  const status = c.req.query('status') || 'live';
+  const listings = Array.from(auctionStore.values()).filter(a => status === 'all' || a.status === status);
+  return c.json({ listings, total: listings.length });
+});
 
-app.get('/api/v1/auctions', async (c) => {
-  const r = await pg.query("SELECT id,image_url,player_name,title,year FROM card_assets WHERE player_name IN ('Patrick Mahomes','Michael Jordan','LeBron James','Victor Wembanyama','Tom Brady') LIMIT 5");
-  const cards = r.rows as {id:string;image_url:string;player_name:string;title:string;year:number}[];
-  const mockAuctions = cards.map((card, i) => {
-    const data = auctionData[i] || { bid: 100, start: 50, bids: 5, grade: 9 };
-    const hoursLeft = Math.random() * 23 + 1;
-    return {
-      id: `auction-${card.id}`,
-      cardId: card.id,
-      playerName: card.player_name,
-      imageUrl: card.image_url,
-      title: card.title,
-      currentBid: data.bid,
-      startingBid: data.start,
-      bidCount: data.bids,
-      highBidder: ['cardking', 'slabmaster', 'gradegod'][i % 3],
-      endsAt: new Date(Date.now() + hoursLeft * 3600000).toISOString(),
-      status: 'live' as const,
-      grade: data.grade,
-      certNumber: String(Math.floor(Math.random() * 90000000) + 10000000),
-    };
-  });
-  return c.json({ auctions: mockAuctions, total: mockAuctions.length });
+app.get('/api/v1/auctions/:id', (c) => {
+  const a = auctionStore.get(c.req.param('id'));
+  if (!a) return c.json({ error: 'Not found' }, 404);
+  return c.json(a);
 });
 
 app.post('/api/v1/auctions/:id/bid', async (c) => {
   const authUid = uid(c.req.header('Authorization'));
   if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
-  const { amount } = await c.req.json().catch(() => ({}));
-  if (!amount || amount < 1) return c.json({ error: 'Invalid bid amount' }, 400);
-  return c.json({ success: true, bidId: randomUUID(), amount, message: 'Bid placed! (Demo mode — bids are not real)' });
+  const a = auctionStore.get(c.req.param('id'));
+  if (!a || a.status !== 'live') return c.json({ error: 'Auction not live' }, 400);
+  if (new Date(a.endsAt) < new Date()) return c.json({ error: 'Auction ended' }, 400);
+  const { amount } = await c.req.json().catch(() => ({})) as { amount?: number };
+  if (!amount || amount <= a.currentBid) return c.json({ error: `Bid must be above $${a.currentBid}` }, 400);
+  const user = await pg.query('SELECT username FROM users WHERE id=$1', [authUid]);
+  a.currentBid = amount;
+  a.highBidder = (user.rows as {username:string}[])[0]?.username || 'Anonymous';
+  a.bidCount++;
+  return c.json({ success: true, auction: a });
 });
+
+// ── RELEASES CALENDAR ────────────────────────────────────────────────────────
+app.get('/api/v1/releases', (c) => c.json({
+  upcoming: [
+    { id:'r1', name:'2025 Panini Prizm Football', sport:'nfl', brand:'Panini', releaseDate:'2026-03-15', type:'Hobby', description:'The flagship football product returns. Look for Superfractors and RPA rookies.', msrp:220, hobbySRP:220, expectedHits:['Rookie Autos', 'Prizm SSP', 'Color Prizm'], hype:5, notifyCount:1240 },
+    { id:'r2', name:'2025 Topps Series 1 Baseball', sport:'mlb', brand:'Topps', releaseDate:'2026-03-08', type:'Retail/Hobby', description:'The annual Topps flagship. SP photo variations and Turkey Red inserts are collector favorites.', msrp:4, hobbySRP:95, expectedHits:['SP Photo Variations','Turkey Red','1952 Redux'], hype:4, notifyCount:890 },
+    { id:'r3', name:'2025 Panini Prizm Basketball', sport:'nba', brand:'Panini', releaseDate:'2026-04-01', type:'Hobby', description:'Wembanyama year 2, Caitlin Clark crossover buzz. This will be massive.', msrp:225, hobbySRP:225, expectedHits:['Rookie Autos','Color Prizm','Cracked Ice'], hype:5, notifyCount:2100 },
+    { id:'r4', name:'2025 Bowman Chrome Baseball', sport:'mlb', brand:'Topps', releaseDate:'2026-03-22', type:'Hobby', description:'Prospect autos that could be worth thousands. The key prospect release of the year.', msrp:180, hobbySRP:180, expectedHits:['Prospect Autos','Gold Refractors','1st Bowman Chrome'], hype:4, notifyCount:670 },
+    { id:'r5', name:'2025 Upper Deck Hockey', sport:'nhl', brand:'Upper Deck', releaseDate:'2026-04-10', type:'Hobby', description:'Connor Bedard sophomore year cards and Young Guns chasing.', msrp:115, hobbySRP:115, expectedHits:['Young Guns','Canvas','Spx Rookies'], hype:3, notifyCount:420 },
+  ],
+  recent: [
+    { id:'r6', name:'2024-25 Donruss Basketball', sport:'nba', brand:'Panini', releaseDate:'2026-02-28', type:'Retail', description:'Value product with strong rookie class. Rated Rookies chase.', msrp:5, hype:3 },
+    { id:'r7', name:'2025 Score Football', sport:'nfl', brand:'Panini', releaseDate:'2026-02-15', type:'Retail', description:'Budget-friendly entry point. Great for building rookie collections.', msrp:4, hype:2 },
+  ]
+}));
 
 // ── CARD SETS ────────────────────────────────────────────────────────────────
 app.get('/api/v1/card-sets', async (c) => {
@@ -1947,23 +1987,50 @@ app.get('/api/v1/news', async (c) => {
 app.get('/api/v1/me/streak', async (c) => {
   const u = uid(c.req.header('Authorization'));
   if (!u) return c.json({ error: 'Unauthorized' }, 401);
-  const r = await pg.query('SELECT current_streak, best_streak, daily_pick_wins, daily_pick_losses FROM user_stats WHERE user_id=$1', [u]);
-  const row = (r.rows as Record<string,number>[])[0] || {};
 
-  const rewards = [
-    { streak: 3, label: '3-Day Streak', reward: 'Bronze Badge', icon: '🥉', unlocked: (row.current_streak || 0) >= 3 },
-    { streak: 7, label: '7-Day Streak', reward: 'Silver Badge', icon: '🥈', unlocked: (row.current_streak || 0) >= 7 },
-    { streak: 14, label: '14-Day Streak', reward: 'Gold Badge', icon: '🥇', unlocked: (row.current_streak || 0) >= 14 },
-    { streak: 30, label: '30-Day Streak', reward: '1 Month Pro Free', icon: '💎', unlocked: (row.current_streak || 0) >= 30 },
+  // Get voting pattern from DB
+  const r = await pg.query(`
+    SELECT DATE(created_at) as vote_date
+    FROM votes WHERE user_id=$1
+    GROUP BY DATE(created_at) ORDER BY vote_date DESC LIMIT 30
+  `, [u]);
+
+  const voteDays = (r.rows as {vote_date:string}[]).map(row =>
+    typeof row.vote_date === 'string' ? row.vote_date.slice(0,10) : new Date(row.vote_date).toISOString().slice(0,10)
+  );
+  let streak = 0;
+  const today = new Date().toISOString().slice(0,10);
+  const yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10);
+
+  if (voteDays.includes(today) || voteDays.includes(yesterday)) {
+    let checkDate = voteDays.includes(today) ? today : yesterday;
+    for (const day of voteDays) {
+      if (day === checkDate) {
+        streak++;
+        const d = new Date(checkDate);
+        d.setDate(d.getDate()-1);
+        checkDate = d.toISOString().slice(0,10);
+      } else break;
+    }
+  }
+
+  // Also check user_stats for stored best streak
+  const statsR = await pg.query('SELECT current_streak, best_streak FROM user_stats WHERE user_id=$1', [u]);
+  const stats = (statsR.rows as Record<string,number>[])[0] || {};
+
+  const milestones = [
+    { days:3, reward:'Bronze Streak Badge', reached: streak >= 3 },
+    { days:7, reward:'Silver Streak Badge', reached: streak >= 7 },
+    { days:14, reward:'Gold Streak Badge', reached: streak >= 14 },
+    { days:30, reward:'Legendary Streak Badge', reached: streak >= 30 },
   ];
 
   return c.json({
-    currentStreak: row.current_streak || 0,
-    bestStreak: row.best_streak || 0,
-    totalWins: row.daily_pick_wins || 0,
-    totalLosses: row.daily_pick_losses || 0,
-    rewards,
-    nextReward: rewards.find(r => !r.unlocked),
+    currentStreak: streak || stats.current_streak || 0,
+    longestStreak: Math.max(streak, stats.best_streak || 0),
+    lastVoteDate: voteDays[0] || today,
+    totalVoteDays: voteDays.length,
+    milestones,
   });
 });
 

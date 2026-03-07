@@ -2,9 +2,15 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { BackButton } from '../../../components/ui/BackButton';
-import { Zap, Bell, WifiOff, Share2, Check } from 'lucide-react';
+import { Zap, Bell, WifiOff, Share2, Check, Download } from 'lucide-react';
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
+
+// Type for BeforeInstallPromptEvent (not in standard TS lib)
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
 
 function QRCodeSVG() {
   // Simple decorative QR-like graphic
@@ -54,7 +60,36 @@ export default function GetAppPage() {
   const [waitlistState, setWaitlistState] = useState<'idle' | 'loading' | 'done'>('idle');
   const [position, setPosition] = useState<number | null>(null);
   const [shareToast, setShareToast] = useState(false);
-  useEffect(() => { document.title = 'Get the App | Card Battles'; }, []);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [installed, setInstalled] = useState(false);
+
+  useEffect(() => {
+    document.title = 'Get the App | Card Battles';
+
+    // PWA install prompt
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e as BeforeInstallPromptEvent);
+    };
+    window.addEventListener('beforeinstallprompt', handler as EventListener);
+
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setInstalled(true);
+    }
+
+    return () => window.removeEventListener('beforeinstallprompt', handler as EventListener);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setInstalled(true);
+      setInstallPrompt(null);
+    }
+  };
 
   const handleWaitlist = async () => {
     if (!email.includes('@') || waitlistState !== 'idle') return;
@@ -159,6 +194,38 @@ export default function GetAppPage() {
           </div>
         ))}
       </div>
+
+      {/* One-click PWA install button (shows when browser supports it) */}
+      {(installPrompt || installed) && (
+        <div
+          className="rounded-xl p-4 border text-center space-y-3"
+          style={{
+            background: installed ? 'rgba(34,197,94,0.06)' : 'rgba(108,71,255,0.08)',
+            borderColor: installed ? 'rgba(34,197,94,0.3)' : 'rgba(108,71,255,0.4)',
+          }}
+        >
+          {installed ? (
+            <>
+              <div className="text-3xl">✅</div>
+              <p className="text-sm font-black text-white">Card Battles is installed!</p>
+              <p className="text-xs text-[#64748b]">Open it from your home screen anytime.</p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-black text-white">📲 Install Card Battles</p>
+              <p className="text-xs text-[#64748b]">Add to your home screen for the best experience.</p>
+              <button
+                onClick={handleInstall}
+                className="flex items-center gap-2 mx-auto px-6 py-3 rounded-xl font-black text-white transition-all hover:brightness-110"
+                style={{ background: 'linear-gradient(135deg, #6c47ff, #8b5cf6)' }}
+              >
+                <Download size={16} />
+                Install App
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Install PWA */}
       <div

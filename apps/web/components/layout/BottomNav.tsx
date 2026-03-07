@@ -19,6 +19,7 @@ const EXPLORE_CATEGORIES = [
       { href: '/events',       label: 'Events',      icon: '🎉',  desc: 'Limited-time battles' },
       { href: '/multi-battles',label: 'Best of 3',   icon: '⚔️',  desc: '3-round series'       },
       { href: '/series',       label: 'Battle Series', icon: '📺', desc: 'Recurring battles'     },
+      { href: '/auctions',     label: 'Auctions',    icon: '🔨',  desc: 'Live card auctions'   },
     ],
   },
   {
@@ -36,6 +37,7 @@ const EXPLORE_CATEGORIES = [
   {
     label: 'Research',
     tiles: [
+      { href: '/releases',     label: 'Release Calendar', icon: '📅', desc: 'Upcoming card drops'  },
       { href: '/market',       label: 'Market',      icon: '📈',  desc: 'Card prices'          },
       { href: '/grader',       label: 'Grader',      icon: '🏅',  desc: 'Simulate grading'     },
       { href: '/compare',      label: 'Compare',     icon: '⚖️',   desc: 'Compare cards'        },

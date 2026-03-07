@@ -94,6 +94,20 @@ function UserDropdown({ username, avatarUrl, onClose }: {
   );
 }
 
+function useUserStreak(loggedIn: boolean) {
+  const [streak, setStreak] = useState<number>(0);
+  useEffect(() => {
+    if (!loggedIn) return;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('cb_access_token') : null;
+    if (!token) return;
+    fetch(`${BASE_URL}/me/streak`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then((d: { currentStreak?: number }) => { if (d.currentStreak) setStreak(d.currentStreak); })
+      .catch(() => {});
+  }, [loggedIn]);
+  return streak;
+}
+
 export function AppHeader() {
   const { user } = useAuth();
   const router = useRouter();
@@ -101,6 +115,7 @@ export function AppHeader() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [apiOk, setApiOk] = useState(true);
   const rank = useUserRank(!!user);
+  const streak = useUserStreak(!!user);
 
   useEffect(() => {
     const check = () => fetch(`${BASE_URL.replace('/api/v1', '')}/health`)
@@ -187,6 +202,16 @@ export function AppHeader() {
                     >
                       <span>{rank.icon}</span>
                       <span className="hidden sm:inline">{rank.name}</span>
+                    </Link>
+                  )}
+                  {streak > 0 && (
+                    <Link href="/profile" onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-black shrink-0 hover:opacity-80 transition-opacity"
+                      style={{ borderColor: 'rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}
+                      title={`${streak}-day streak`}
+                    >
+                      <span>🔥</span>
+                      <span>{streak}</span>
                     </Link>
                   )}
                   <Avatar username={user.username} avatarUrl={user.avatarUrl} size="sm" />

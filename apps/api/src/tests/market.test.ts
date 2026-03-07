@@ -17,11 +17,11 @@ describe('Market API', () => {
     expect(Array.isArray(data.losers)).toBe(true);
   });
 
-  it('GET /api/v1/auctions returns auctions array', async () => {
+  it('GET /api/v1/auctions returns listings array', async () => {
     const res = await app.request('/api/v1/auctions');
-    const data = await res.json() as {auctions:unknown[]};
+    const data = await res.json() as {listings:unknown[]};
     expect(res.status).toBe(200);
-    expect(Array.isArray(data.auctions)).toBe(true);
+    expect(Array.isArray(data.listings)).toBe(true);
   });
 
   it('GET /api/v1/hall-of-fame returns inductees', async () => {

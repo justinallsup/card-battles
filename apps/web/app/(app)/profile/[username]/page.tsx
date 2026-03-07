@@ -321,6 +321,109 @@ function EditProfileModal({ user: profileUser, onClose }: { user: { bio?: string
   );
 }
 
+// ── Streak Widget ─────────────────────────────────────────────────────────────
+type StreakData = {
+  currentStreak: number;
+  longestStreak: number;
+  lastVoteDate: string;
+  totalVoteDays: number;
+  milestones: { days: number; reward: string; reached: boolean }[];
+};
+
+function StreakWidget() {
+  const [streak, setStreak] = useState<StreakData | null>(null);
+
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+    fetch(`${BASE_URL}/me/streak`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then((d: StreakData) => setStreak(d))
+      .catch(() => {});
+  }, []);
+
+  if (!streak) return null;
+
+  const nextMilestone = streak.milestones.find(m => !m.reached);
+  const progress = nextMilestone
+    ? Math.min(100, (streak.currentStreak / nextMilestone.days) * 100)
+    : 100;
+
+  return (
+    <div
+      className="rounded-2xl p-4 border"
+      style={{ background: 'rgba(239,68,68,0.04)', borderColor: 'rgba(239,68,68,0.2)' }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">🔥</span>
+          <div>
+            <p className="text-sm font-black text-white">
+              {streak.currentStreak} day streak
+            </p>
+            <p className="text-[10px] text-[#64748b]">Longest: {streak.longestStreak} days</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-bold" style={{ color: '#ef4444' }}>
+            {streak.currentStreak > 0 ? '🔥 On fire!' : '❄️ Cold streak'}
+          </p>
+          <p className="text-[10px] text-[#64748b]">{streak.totalVoteDays} active days</p>
+        </div>
+      </div>
+
+      {/* Progress to next milestone */}
+      {nextMilestone && (
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-[10px] text-[#64748b]">Next: {nextMilestone.reward}</p>
+            <p className="text-[10px] text-[#64748b]">{streak.currentStreak}/{nextMilestone.days} days</p>
+          </div>
+          <div className="h-1.5 rounded-full bg-[#1e1e2e] overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${progress}%`,
+                background: 'linear-gradient(90deg, #ef4444, #f59e0b)',
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Milestones row */}
+      <div className="flex gap-2 mb-3">
+        {streak.milestones.map((m) => (
+          <div
+            key={m.days}
+            className="flex-1 rounded-lg py-1 text-center"
+            style={{
+              background: m.reached ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${m.reached ? 'rgba(239,68,68,0.4)' : '#1e1e2e'}`,
+            }}
+          >
+            <p className="text-[9px] font-black" style={{ color: m.reached ? '#ef4444' : '#374151' }}>
+              {m.days}d
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {streak.currentStreak === 0 && (
+        <Link
+          href="/feed"
+          className="block w-full text-center py-2 rounded-xl text-xs font-bold transition-all"
+          style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444' }}
+        >
+          🗳️ Vote today to start your streak!
+        </Link>
+      )}
+    </div>
+  );
+}
+
 // ── Persona CTA ──────────────────────────────────────────────────────────────
 function PersonaCTA() {
   const [persona, setPersona] = useState<{name:string;emoji:string;color:string;description:string} | null>(null);
@@ -546,6 +649,11 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
       {/* Collector Persona CTA */}
       {isOwnProfile && (
         <PersonaCTA />
+      )}
+
+      {/* Streak widget — own profile only */}
+      {isOwnProfile && (
+        <StreakWidget />
       )}
 
             {/* Trophy Case — top 3 badges */}
