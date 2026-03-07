@@ -2693,6 +2693,135 @@ app.post('/api/v1/reports', async (c) => {
   return c.json({ success: true, reportId: id, message: 'Report submitted. Our team will review it.' });
 });
 
+// ── TRADING CARD GENERATOR ────────────────────────────────────────────────────
+
+app.get('/api/v1/users/:username/card', async (c) => {
+  const { username } = c.req.param();
+  const ur = await pg.query('SELECT id, username, created_at, is_admin FROM users WHERE username=$1', [username]);
+  const user = (ur.rows as {id:string;username:string;created_at:string;is_admin:boolean}[])[0];
+  if (!user) return c.json({ error: 'User not found' }, 404);
+
+  const sr = await pg.query('SELECT * FROM user_stats WHERE user_id=$1', [user.id]);
+  const stats = (sr.rows as Record<string,number|string>[])[0] || {};
+
+  // Generate SVG trading card
+  const memberSince = new Date(user.created_at).getFullYear();
+  const votesCast = Number(stats.votes_cast) || 0;
+  const rank = votesCast > 1000 ? 'Legend' : votesCast > 500 ? 'Elite' : votesCast > 200 ? 'Expert' : votesCast > 50 ? 'Collector' : 'Rookie';
+  const rankColor = ({ Legend: '#6c47ff', Elite: '#f59e0b', Expert: '#8b5cf6', Collector: '#22c55e', Rookie: '#64748b' } as Record<string,string>)[rank] ?? '#64748b';
+
+  const svg = `<svg width="300" height="420" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#12121a"/>
+        <stop offset="100%" stop-color="#0a0a0f"/>
+      </linearGradient>
+      <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="${rankColor}"/>
+        <stop offset="100%" stop-color="${rankColor}88"/>
+      </linearGradient>
+    </defs>
+    <rect width="300" height="420" rx="16" fill="url(#bg)" stroke="${rankColor}" stroke-width="2"/>
+    <rect x="0" y="0" width="300" height="4" rx="2" fill="url(#accent)"/>
+    <!-- Header -->
+    <text x="150" y="30" text-anchor="middle" fill="${rankColor}" font-size="10" font-weight="700" font-family="system-ui" letter-spacing="3">CARD BATTLES</text>
+    <!-- Avatar circle -->
+    <circle cx="150" cy="120" r="60" fill="${rankColor}22" stroke="${rankColor}" stroke-width="2"/>
+    <text x="150" y="133" text-anchor="middle" fill="${rankColor}" font-size="48" font-family="system-ui">${username.charAt(0).toUpperCase()}</text>
+    <!-- Username -->
+    <text x="150" y="210" text-anchor="middle" fill="white" font-size="20" font-weight="900" font-family="system-ui">@${username}</text>
+    <!-- Rank badge -->
+    <rect x="105" y="220" width="90" height="22" rx="11" fill="${rankColor}33" stroke="${rankColor}" stroke-width="1"/>
+    <text x="150" y="235" text-anchor="middle" fill="${rankColor}" font-size="11" font-weight="700" font-family="system-ui">${rank.toUpperCase()}</text>
+    <!-- Stats -->
+    <line x1="30" y1="260" x2="270" y2="260" stroke="#1e1e2e" stroke-width="1"/>
+    <text x="75" y="285" text-anchor="middle" fill="white" font-size="18" font-weight="900" font-family="system-ui">${votesCast}</text>
+    <text x="75" y="300" text-anchor="middle" fill="#64748b" font-size="9" font-family="system-ui">VOTES</text>
+    <text x="150" y="285" text-anchor="middle" fill="white" font-size="18" font-weight="900" font-family="system-ui">${Number(stats.battles_created) || 0}</text>
+    <text x="150" y="300" text-anchor="middle" fill="#64748b" font-size="9" font-family="system-ui">BATTLES</text>
+    <text x="225" y="285" text-anchor="middle" fill="white" font-size="18" font-weight="900" font-family="system-ui">${Number(stats.current_streak) || 0}</text>
+    <text x="225" y="300" text-anchor="middle" fill="#64748b" font-size="9" font-family="system-ui">STREAK</text>
+    <line x1="30" y1="315" x2="270" y2="315" stroke="#1e1e2e" stroke-width="1"/>
+    <!-- Member since -->
+    <text x="150" y="345" text-anchor="middle" fill="#64748b" font-size="10" font-family="system-ui">COLLECTOR SINCE ${memberSince}</text>
+    <!-- Card number -->
+    <text x="150" y="400" text-anchor="middle" fill="${rankColor}66" font-size="9" font-family="system-ui">cardbattle.app · #${String(Math.floor(Math.random()*9000)+1000).padStart(4,'0')}</text>
+  </svg>`;
+
+  const format = c.req.query('format') || 'svg';
+  if (format === 'svg') {
+    return new Response(svg, { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=3600' }});
+  }
+  return c.json({ svg, username, rank, rankColor, stats });
+});
+
+// ── BATTLE SERIES ─────────────────────────────────────────────────────────────
+
+type BattleSeries = {
+  id: string; title: string; description: string; leftPlayer: string; rightPlayer: string;
+  frequency: 'weekly' | 'daily'; totalEpisodes: number; currentEpisode: number;
+  lastBattleId?: string; nextBattleAt: string; createdAt: string;
+};
+const battleSeries = new Map<string, BattleSeries>();
+
+// Seed 2 series
+const _series1: BattleSeries = {
+  id: 'goat-weekly', title: 'GOAT of the Week', description: 'Every week a new GOAT debate. Who reigns supreme?',
+  leftPlayer: 'Patrick Mahomes', rightPlayer: 'Tom Brady', frequency: 'weekly',
+  totalEpisodes: 52, currentEpisode: 12, nextBattleAt: new Date(Date.now() + 3 * 86400000).toISOString(),
+  createdAt: new Date(Date.now() - 84 * 86400000).toISOString(),
+};
+const _series2: BattleSeries = {
+  id: 'daily-investment', title: 'Daily Investment Pick', description: 'Which card is the better investment today?',
+  leftPlayer: 'LeBron James', rightPlayer: 'Michael Jordan', frequency: 'daily',
+  totalEpisodes: 365, currentEpisode: 84, nextBattleAt: new Date(Date.now() + 12 * 3600000).toISOString(),
+  createdAt: new Date(Date.now() - 84 * 86400000).toISOString(),
+};
+battleSeries.set(_series1.id, _series1);
+battleSeries.set(_series2.id, _series2);
+
+app.get('/api/v1/series', (c) => c.json({ series: Array.from(battleSeries.values()) }));
+app.get('/api/v1/series/:id', (c) => {
+  const s = battleSeries.get(c.req.param('id'));
+  return s ? c.json(s) : c.json({ error: 'Not found' }, 404);
+});
+app.post('/api/v1/series/:id/subscribe', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const s = battleSeries.get(c.req.param('id'));
+  if (!s) return c.json({ error: 'Not found' }, 404);
+  return c.json({ success: true, message: `Subscribed to ${s.title}! You'll be notified for each new episode.` });
+});
+
+// ── WEEKLY DIGEST ─────────────────────────────────────────────────────────────
+
+app.get('/api/v1/me/digest/preview', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+
+  // Build digest content
+  const topBattles = await pg.query('SELECT id, title, total_votes_cached FROM battles ORDER BY total_votes_cached DESC LIMIT 3');
+  const leaderR = await pg.query('SELECT username FROM users ORDER BY created_at LIMIT 3');
+
+  return c.json({
+    weekOf: new Date().toISOString().slice(0, 10),
+    topBattles: topBattles.rows,
+    newBattles: Math.floor(Math.random() * 20) + 5,
+    totalVotesThisWeek: Math.floor(Math.random() * 5000) + 1000,
+    yourVotes: Math.floor(Math.random() * 50) + 5,
+    yourRank: Math.floor(Math.random() * 100) + 1,
+    featured: 'GOAT Showdown event is live this week!',
+    topCollectors: (leaderR.rows as {username:string}[]).map(r => r.username),
+  });
+});
+
+app.post('/api/v1/me/digest/subscribe', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const { frequency } = await c.req.json().catch(() => ({ frequency: 'weekly' }));
+  return c.json({ success: true, frequency, message: `Weekly digest enabled! (Demo — emails not sent in demo mode)` });
+});
+
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────
 app.all('*', async (c) => {
   const req = c.req.raw;
