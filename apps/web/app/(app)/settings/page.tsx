@@ -1,13 +1,15 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Settings, User, Bell, AlertTriangle, LogOut, Trash2, Check, X, Palette, Info, Star, Shield, Eye, Download, LayoutGrid, SortDesc } from 'lucide-react';
+import { Settings, User, Bell, AlertTriangle, LogOut, Trash2, Check, X, Palette, Info, Star, Shield, Eye, Download, LayoutGrid, SortDesc, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { getToken } from '../../../lib/api';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { PushNotificationSetup } from '../../../components/PushNotificationSetup';
 import Link from 'next/link';
+import { showToast } from '../../../components/ui/Toast';
+import { Modal } from '../../../components/ui/Modal';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
@@ -96,26 +98,17 @@ function DeleteModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
-      <div
-        className="bg-[#12121a] border border-[#ef4444]/30 rounded-2xl w-full max-w-sm p-5 space-y-4"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[#ef4444]">
-            <AlertTriangle size={16} />
-            <h3 className="font-black text-white">Delete Account</h3>
-          </div>
-          <button onClick={onClose} className="text-[#64748b] hover:text-white"><X size={16} /></button>
-        </div>
+    <Modal isOpen={true} onClose={onClose} title="Delete Account" size="sm">
+      <div className="space-y-4">
         <p className="text-sm text-[#94a3b8]">
           This action is permanent and cannot be undone. All your battles, votes, and data will be deleted.
         </p>
         <div>
-          <label className="text-xs text-[#64748b] block mb-1.5">
+          <label htmlFor="delete-confirm" className="text-xs text-[#64748b] block mb-1.5">
             Type <span className="text-white font-mono">DELETE</span> to confirm
           </label>
           <input
+            id="delete-confirm"
             type="text"
             value={confirmed}
             onChange={e => setConfirmed(e.target.value)}
@@ -130,14 +123,15 @@ function DeleteModal({ onClose }: { onClose: () => void }) {
           <button
             onClick={handleDelete}
             disabled={confirmed !== 'DELETE'}
+            aria-disabled={confirmed !== 'DELETE'}
             className="flex-1 py-2.5 rounded-xl bg-[#ef4444] text-white text-sm font-bold disabled:opacity-40 flex items-center justify-center gap-1.5"
           >
-            <Trash2 size={14} /> Delete
+            <Trash2 size={14} aria-hidden="true" /> Delete
           </button>
         </div>
         <p className="text-[10px] text-[#374151] text-center">Demo mode: clears local data and redirects to register</p>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -158,6 +152,8 @@ export default function SettingsPage() {
   const [bioInitialized, setBioInitialized] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Sports prefs from localStorage
   const [sportPrefs, setSportPrefs] = useState<string[]>(['nfl', 'nba', 'mlb']);
@@ -261,6 +257,29 @@ export default function SettingsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleApiExport = async (format: 'json' | 'csv') => {
+    const token = getToken();
+    if (!token) { showToast('Please log in to export', 'error'); return; }
+    setExporting(true);
+    setExportOpen(false);
+    try {
+      const url = `${BASE_URL}/me/export${format === 'csv' ? '?format=csv' : ''}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      const blob = format === 'csv' ? await res.blob() : new Blob([JSON.stringify(await res.json(), null, 2)], { type: 'application/json' });
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = `card-battles-export.${format}`;
+      a.click();
+      URL.revokeObjectURL(href);
+      showToast(`Exported as ${format.toUpperCase()}`, 'success');
+    } catch {
+      showToast('Export failed', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const { data: me, isLoading } = useQuery<MeData>({
     queryKey: ['auth-me'],
     queryFn: async () => {
@@ -347,6 +366,44 @@ export default function SettingsPage() {
             : undefined
           }
         />
+        {/* Data Export */}
+        <div className="pt-2 border-t border-[#1e1e2e]">
+          <p className="text-xs font-semibold text-[#64748b] mb-2">📥 Export My Battle Data</p>
+          <div className="relative">
+            <button
+              onClick={() => setExportOpen(v => !v)}
+              aria-expanded={exportOpen}
+              aria-haspopup="menu"
+              disabled={exporting}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#1e1e2e] bg-[#0a0a0f] text-sm font-semibold text-[#94a3b8] hover:text-white hover:border-[#374151] transition-colors disabled:opacity-50 w-full justify-center"
+            >
+              <Download size={14} aria-hidden="true" />
+              {exporting ? 'Exporting...' : 'Export Votes & Stats'}
+              <ChevronDown size={12} className={`transition-transform ${exportOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+            </button>
+            {exportOpen && (
+              <div
+                role="menu"
+                className="absolute top-full left-0 mt-1 z-20 bg-[#12121a] border border-[#1e1e2e] rounded-xl overflow-hidden shadow-xl min-w-full"
+              >
+                <button
+                  role="menuitem"
+                  onClick={() => handleApiExport('json')}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#94a3b8] hover:bg-[#1e1e2e] hover:text-white transition-colors text-left"
+                >
+                  <span aria-hidden="true">📋</span> JSON format
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => handleApiExport('csv')}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#94a3b8] hover:bg-[#1e1e2e] hover:text-white transition-colors text-left"
+                >
+                  <span aria-hidden="true">📊</span> CSV (spreadsheet)
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </Section>
 
       {/* Profile section */}

@@ -3483,6 +3483,128 @@ app.get('/api/v1/users/:username/profile', async (c) => {
   return c.json({ ...userRow, stats, recentBattles: battlesR.rows });
 });
 
+// ── STORAGE GUIDE ─────────────────────────────────────────────────────────────
+app.get('/api/v1/storage-guide', (c) => c.json({
+  tips: [
+    {
+      category: 'Sleeves', icon: '🛡️', priority: 'Essential',
+      title: 'Card Sleeves',
+      description: 'The first line of defense. Always sleeve immediately.',
+      products: ['Ultra Pro Perfect Fit Sleeves', 'KMC Perfect Fit', 'Dragon Shield Perfect Fit'],
+      tips: ['Use penny sleeves for bulk', 'Perfect fit inside toploaders', 'Double-sleeve high-value cards'],
+      cost: '$0.03-0.10 per card',
+    },
+    {
+      category: 'Toploaders', icon: '📦', priority: 'Essential',
+      title: 'Rigid Toploaders',
+      description: 'Rigid protection against bending. Standard for most cards.',
+      products: ['Ultra Pro 3x4 Toploaders', 'BCW Toploaders', 'Card Saver I (for grading)'],
+      tips: ['Card Saver I preferred for PSA/BGS submission', 'Use team bags to seal toploaders', '35pt for standard cards, 75pt+ for thick relics'],
+      cost: '$0.10-0.25 per toploader',
+    },
+    {
+      category: 'Storage', icon: '🗄️', priority: 'Important',
+      title: 'Long-term Storage',
+      description: 'Boxes, binders, and climate control for your collection.',
+      products: ['BCW Short Card Storage Box', 'Vault X Premium Binder', 'Card Saver boxes'],
+      tips: ['Store vertically, not flat', 'Keep at 65-70°F, 45-55% humidity', 'Away from direct sunlight', 'Acid-free materials only'],
+      cost: '$10-50 per storage solution',
+    },
+    {
+      category: 'Display', icon: '🖼️', priority: 'Optional',
+      title: 'Display Options',
+      description: 'Show off your best cards safely.',
+      products: ['One-touch magnetic holders', 'UV-protected frames', 'Graded card display cases'],
+      tips: ['UV protection is critical for displayed cards', 'One-touch holders for frequent display', 'Avoid direct sunlight even with UV protection'],
+      cost: '$1-20 per display unit',
+    },
+    {
+      category: 'Grading', icon: '🏅', priority: 'Advanced',
+      title: 'Pre-grading Prep',
+      description: 'How to prepare cards for submission to PSA/BGS/SGC.',
+      products: ['Card Saver I holders', 'Microfiber cloths (dry only)', 'Submission forms'],
+      tips: ['Never clean cards with liquid', 'Handle by edges only', 'Use Card Saver I not toploaders for submission', 'Take photos before sending'],
+      cost: '$25+ per card for grading fees',
+    },
+  ],
+  materials: {
+    safe: ['Polypropylene sleeves', 'Acid-free boxes', 'Mylar holders', 'Cotton gloves'],
+    avoid: ['PVC sleeves (yellows cards)', 'Rubber bands', 'Paper clips', 'Tape of any kind', 'Lamination'],
+  }
+}));
+
+// ── INVESTMENT WATCHLIST ───────────────────────────────────────────────────────
+const investmentWatchlist = new Map<string, Set<string>>(); // userId -> Set<playerName>
+
+app.get('/api/v1/me/investment-watch', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const watching = investmentWatchlist.get(userId) || new Set<string>();
+
+  const VALUATIONS: Record<string,{mid:number;trend:string;reason:string}> = {
+    'Patrick Mahomes': { mid:280, trend:'up', reason:'Chiefs dynasty continues' },
+    'Tom Brady': { mid:520, trend:'stable', reason:'GOAT status locked in retirement' },
+    'LeBron James': { mid:1400, trend:'up', reason:'All-time scoring record boost' },
+    'Michael Jordan': { mid:15000, trend:'stable', reason:'GOAT debate eternal' },
+    'Caitlin Clark': { mid:145, trend:'up', reason:'WNBA boom driving demand' },
+    'Victor Wembanyama': { mid:180, trend:'up', reason:'Generational talent premium' },
+    'Kobe Bryant': { mid:2800, trend:'up', reason:'Posthumous appreciation growing' },
+  };
+
+  const watchedPlayers = Array.from(watching).map(name => ({
+    playerName: name,
+    ...(VALUATIONS[name] || { mid: 45, trend: 'stable', reason: 'Monitor for changes' }),
+    addedAt: new Date(Date.now() - Math.random() * 7 * 86400000).toISOString(),
+  }));
+
+  return c.json({ players: watchedPlayers, total: watchedPlayers.length });
+});
+
+app.post('/api/v1/me/investment-watch/:playerName', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  if (!investmentWatchlist.has(userId)) investmentWatchlist.set(userId, new Set());
+  investmentWatchlist.get(userId)!.add(decodeURIComponent(c.req.param('playerName')));
+  return c.json({ watching: true });
+});
+
+app.delete('/api/v1/me/investment-watch/:playerName', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  investmentWatchlist.get(userId)?.delete(decodeURIComponent(c.req.param('playerName')));
+  return c.json({ watching: false });
+});
+
+// ── DATA EXPORT ────────────────────────────────────────────────────────────────
+app.get('/api/v1/me/export', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const format = c.req.query('format') || 'json';
+
+  const [votes, stats] = await Promise.all([
+    pg.query(`
+      SELECT v.category, v.choice, v.created_at, b.title as battle_title
+      FROM votes v JOIN battles b ON b.id=v.battle_id
+      WHERE v.user_id=$1 ORDER BY v.created_at DESC LIMIT 500
+    `, [userId]),
+    pg.query('SELECT * FROM user_stats WHERE user_id=$1', [userId]),
+  ]);
+
+  const data = {
+    exportedAt: new Date().toISOString(),
+    votes: votes.rows,
+    stats: (stats.rows as Record<string,unknown>[])[0] || {},
+  };
+
+  if (format === 'csv') {
+    const rows = (votes.rows as {category:string;choice:string;created_at:string;battle_title:string}[]);
+    const csv = ['Battle,Category,Choice,Date', ...rows.map(r => `"${r.battle_title}","${r.category}","${r.choice}","${r.created_at}"`)].join('\n');
+    return new Response(csv, { headers: { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename="card-battles-export.csv"' }});
+  }
+
+  return c.json(data);
+});
+
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────
 app.all('*', async (c) => {
   const req = c.req.raw;

@@ -3,8 +3,9 @@ import { useState, useEffect } from 'react';
 import { getToken } from '../../../lib/api';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
 import { BackButton } from '../../../components/ui/BackButton';
-import { History, Clock, Users, ArrowRight } from 'lucide-react';
+import { History, Clock, Users, ArrowRight, Download, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
+import { showToast } from '../../../components/ui/Toast';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
@@ -149,6 +150,33 @@ export default function VoteHistoryPage() {
   const [groups, setGroups] = useState<BattleGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const BASE_URL_LOCAL = BASE_URL;
+
+  const handleExport = async (format: 'json' | 'csv') => {
+    const token = getToken();
+    if (!token) { showToast('Please log in to export data', 'error'); return; }
+    setExporting(true);
+    setExportOpen(false);
+    try {
+      const url = `${BASE_URL_LOCAL}/me/export${format === 'csv' ? '?format=csv' : ''}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      const blob = format === 'csv' ? await res.blob() : new Blob([JSON.stringify(await res.json(), null, 2)], { type: 'application/json' });
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = `card-battles-export.${format}`;
+      a.click();
+      URL.revokeObjectURL(href);
+      showToast(`Exported as ${format.toUpperCase()}`, 'success');
+    } catch {
+      showToast('Export failed', 'error');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     const token = getToken();
@@ -207,6 +235,42 @@ export default function VoteHistoryPage() {
           <h1 className="text-xl font-black text-white">Vote History</h1>
           <p className="text-xs text-[#64748b]">Battles you&apos;ve participated in</p>
         </div>
+      </div>
+
+      {/* Export section */}
+      <div className="relative">
+        <button
+          onClick={() => setExportOpen(v => !v)}
+          aria-expanded={exportOpen}
+          aria-haspopup="menu"
+          disabled={exporting}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#1e1e2e] bg-[#12121a] text-sm font-semibold text-[#94a3b8] hover:text-white hover:border-[#374151] transition-colors disabled:opacity-50"
+        >
+          <Download size={14} aria-hidden="true" />
+          {exporting ? 'Exporting...' : '📥 Export My Data'}
+          <ChevronDown size={12} className={`transition-transform ${exportOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+        </button>
+        {exportOpen && (
+          <div
+            role="menu"
+            className="absolute top-full left-0 mt-1 z-20 bg-[#12121a] border border-[#1e1e2e] rounded-xl overflow-hidden shadow-xl min-w-[160px]"
+          >
+            <button
+              role="menuitem"
+              onClick={() => handleExport('json')}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#94a3b8] hover:bg-[#1e1e2e] hover:text-white transition-colors text-left"
+            >
+              <span className="text-base" aria-hidden="true">📋</span> JSON
+            </button>
+            <button
+              role="menuitem"
+              onClick={() => handleExport('csv')}
+              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#94a3b8] hover:bg-[#1e1e2e] hover:text-white transition-colors text-left"
+            >
+              <span className="text-base" aria-hidden="true">📊</span> CSV
+            </button>
+          </div>
+        )}
       </div>
 
       {loading ? (

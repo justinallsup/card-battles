@@ -18,6 +18,8 @@ interface VoteButtonsProps {
   voting: Record<string, boolean>;
   onVoteLeft: (category: string) => void;
   onVoteRight: (category: string) => void;
+  leftPlayerName?: string;
+  rightPlayerName?: string;
 }
 
 export function VoteButtons({
@@ -27,22 +29,31 @@ export function VoteButtons({
   voting,
   onVoteLeft,
   onVoteRight,
+  leftPlayerName = 'Left card',
+  rightPlayerName = 'Right card',
 }: VoteButtonsProps) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" role="group" aria-label="Vote categories">
       {categories.map((cat) => {
         const voted = localVotes[cat];
         const percents = localPercents[cat];
         const label = CATEGORY_LABELS[cat] ?? cat;
         const isVoting = voting[cat];
+        const catName = cat.replace(/_/g, ' ');
 
         return (
           <div key={cat}>
+            <p className="sr-only">{label} category</p>
             <div className="flex gap-2">
               {/* Left vote button */}
               <button
                 onClick={() => !voted && !isVoting && onVoteLeft(cat)}
                 disabled={!!voted || isVoting}
+                aria-label={voted === 'left'
+                  ? `Your vote: ${leftPlayerName} wins ${catName}`
+                  : `Vote ${leftPlayerName} for ${catName}`
+                }
+                aria-pressed={voted === 'left'}
                 className={cn(
                   'flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all border',
                   !voted && !isVoting && 'border-[#1e1e2e] text-[#64748b] hover:border-[#6c47ff] hover:text-[#6c47ff] hover:bg-[#6c47ff]/5 active:scale-95',
@@ -53,7 +64,7 @@ export function VoteButtons({
               >
                 {voted === 'left' ? (
                   <span className="flex items-center justify-center gap-1">
-                    <Check size={14} /> Left
+                    <Check size={14} aria-hidden="true" /> Left
                   </span>
                 ) : (
                   label
@@ -64,6 +75,11 @@ export function VoteButtons({
               <button
                 onClick={() => !voted && !isVoting && onVoteRight(cat)}
                 disabled={!!voted || isVoting}
+                aria-label={voted === 'right'
+                  ? `Your vote: ${rightPlayerName} wins ${catName}`
+                  : `Vote ${rightPlayerName} for ${catName}`
+                }
+                aria-pressed={voted === 'right'}
                 className={cn(
                   'flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all border',
                   !voted && !isVoting && 'border-[#1e1e2e] text-[#64748b] hover:border-[#6c47ff] hover:text-[#6c47ff] hover:bg-[#6c47ff]/5 active:scale-95',
@@ -74,7 +90,7 @@ export function VoteButtons({
               >
                 {voted === 'right' ? (
                   <span className="flex items-center justify-center gap-1">
-                    <Check size={14} /> Right
+                    <Check size={14} aria-hidden="true" /> Right
                   </span>
                 ) : (
                   label

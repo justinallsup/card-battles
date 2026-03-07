@@ -190,6 +190,8 @@ export function BattleCard({ battle, compact = false }: BattleCardProps) {
             voting={voting}
             onVoteLeft={(cat) => handleVote(cat, 'left')}
             onVoteRight={(cat) => handleVote(cat, 'right')}
+            leftPlayerName={battle.left.playerName ?? 'Left card'}
+            rightPlayerName={battle.right.playerName ?? 'Right card'}
           />
         ) : (
           <div className="text-center py-3">

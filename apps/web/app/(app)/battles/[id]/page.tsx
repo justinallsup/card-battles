@@ -17,6 +17,7 @@ import { BattleReplayPanel } from '../../../../components/battles/BattleReplayPa
 import { BattleChat } from '../../../../components/battles/BattleChat';
 import { SoldCompsPanel } from '../../../../components/battles/SoldCompsPanel';
 import { ReportModal, ReportButton } from '../../../../components/ui/ReportModal';
+import { Modal } from '../../../../components/ui/Modal';
 import { VintageInfoSection } from '../../../../components/battles/VintageInfo';
 import { VotingInsights } from '../../../../components/battles/VotingInsights';
 import { ChallengeFriendButton } from '../../../../components/battles/ChallengeFriendButton';
@@ -155,26 +156,8 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
     : { color: '#64748b' };
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-sm rounded-2xl border border-[#1e1e2e] overflow-hidden"
-        style={{ background: '#12121a', boxShadow: '0 -8px 40px rgba(0,0,0,0.6)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e1e2e]">
-          <div className="flex items-center gap-2">
-            <Share2 size={15} className="text-[#6c47ff]" />
-            <h3 className="text-sm font-bold text-white">Share Battle</h3>
-          </div>
-          <button onClick={onClose} aria-label="Close share dialog" className="text-[#64748b] hover:text-white transition-colors">
-            <X size={16} />
-          </button>
-        </div>
-
+    <Modal isOpen={true} onClose={onClose} title="Share Battle" size="sm">
+      <div className="-m-5">
         {/* Tabs */}
         <div className="flex border-b border-[#1e1e2e]">
           {(['share', 'ogcard', 'embed'] as const).map(tab => (
@@ -197,6 +180,7 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
               <span className="flex-1 text-xs text-[#64748b] truncate font-mono">{shareUrl}</span>
               <button
                 onClick={handleCopy}
+                aria-label={copied ? 'Link copied' : 'Copy link'}
                 className="shrink-0 text-xs font-bold px-2.5 py-1 rounded-lg transition-all"
                 style={{
                   background: copied ? 'rgba(34,197,94,0.15)' : 'rgba(108,71,255,0.15)',
@@ -204,8 +188,8 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
                   border: `1px solid ${copied ? 'rgba(34,197,94,0.3)' : 'rgba(108,71,255,0.3)'}`,
                 }}
               >
-                {copied ? <span className="flex items-center gap-1"><Check size={11} /> Copied!</span>
-                  : <span className="flex items-center gap-1"><Copy size={11} /> Copy</span>}
+                {copied ? <span className="flex items-center gap-1"><Check size={11} aria-hidden="true" /> Copied!</span>
+                  : <span className="flex items-center gap-1"><Copy size={11} aria-hidden="true" /> Copy</span>}
               </button>
             </div>
 
@@ -214,16 +198,17 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
               href={twitterUrl}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="Share on Twitter/X"
               className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-[#1e1e2e] hover:border-[#1da1f2]/40 hover:bg-[#1da1f2]/5 transition-all group"
             >
               <div className="w-8 h-8 rounded-lg bg-[#1da1f2]/10 flex items-center justify-center">
-                <Twitter size={15} className="text-[#1da1f2]" />
+                <Twitter size={15} className="text-[#1da1f2]" aria-hidden="true" />
               </div>
               <div className="flex-1 text-left">
                 <p className="text-sm font-semibold text-white">Share on Twitter / X</p>
                 <p className="text-xs text-[#64748b]">Post this battle to your followers</p>
               </div>
-              <ExternalLink size={12} className="text-[#374151] group-hover:text-[#1da1f2] transition-colors" />
+              <ExternalLink size={12} className="text-[#374151] group-hover:text-[#1da1f2] transition-colors" aria-hidden="true" />
             </a>
 
             {/* WhatsApp button */}
@@ -231,16 +216,17 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="Share on WhatsApp"
               className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-[#1e1e2e] hover:border-[#25d366]/40 hover:bg-[#25d366]/5 transition-all group"
             >
               <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base" style={{ background: 'rgba(37,211,102,0.1)' }}>
-                💬
+                <span aria-hidden="true">💬</span>
               </div>
               <div className="flex-1 text-left">
                 <p className="text-sm font-semibold text-white">Share on WhatsApp</p>
                 <p className="text-xs text-[#64748b]">Send to friends and groups</p>
               </div>
-              <ExternalLink size={12} className="text-[#374151] group-hover:text-[#25d366] transition-colors" />
+              <ExternalLink size={12} className="text-[#374151] group-hover:text-[#25d366] transition-colors" aria-hidden="true" />
             </a>
 
             {/* Native share */}
@@ -250,10 +236,11 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
                   try { await (navigator as Navigator).share({ title: battle.title, text: twitterText, url: shareUrl }); } catch {}
                   onClose();
                 }}
+                aria-label="Share via device"
                 className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-[#1e1e2e] hover:border-[#6c47ff]/40 hover:bg-[#6c47ff]/5 transition-all"
               >
                 <div className="w-8 h-8 rounded-lg bg-[#6c47ff]/10 flex items-center justify-center">
-                  <Share2 size={15} className="text-[#6c47ff]" />
+                  <Share2 size={15} className="text-[#6c47ff]" aria-hidden="true" />
                 </div>
                 <div className="flex-1 text-left">
                   <p className="text-sm font-semibold text-white">More options…</p>
@@ -272,7 +259,7 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
             <div className="rounded-xl overflow-hidden border border-[#1e1e2e] bg-[#0a0a0f]" style={{ aspectRatio: '1200/630' }}>
               <img
                 src={ogImageUrl}
-                alt="Battle card preview"
+                alt={`Share card for battle: ${battle.title}`}
                 className="w-full h-full object-cover"
                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
               />
@@ -281,19 +268,21 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
             <div className="flex gap-2">
               <button
                 onClick={handleDownload}
+                aria-label="Download battle share card as SVG"
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors"
                 style={{ background: 'rgba(108,71,255,0.1)', border: '1px solid rgba(108,71,255,0.3)', color: '#a78bfa' }}
               >
-                <Download size={12} /> Download SVG
+                <Download size={12} aria-hidden="true" /> Download SVG
               </button>
               <button
                 onClick={async () => {
                   try { await navigator.clipboard.writeText(ogImageUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {}
                 }}
+                aria-label={copied ? 'Image URL copied' : 'Copy image URL'}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors"
                 style={{ background: 'rgba(30,30,46,0.8)', border: '1px solid #1e1e2e', color: '#64748b' }}
               >
-                {copied ? <><Check size={12} /> Copied!</> : <><Copy size={12} /> Copy URL</>}
+                {copied ? <><Check size={12} aria-hidden="true" /> Copied!</> : <><Copy size={12} aria-hidden="true" /> Copy URL</>}
               </button>
             </div>
             {/* Share on Twitter with image */}
@@ -301,19 +290,21 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
               href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(twitterText)}&url=${encodeURIComponent(shareUrl)}`}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="Share on Twitter/X with battle card"
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90"
               style={{ background: 'rgba(29,161,242,0.1)', border: '1px solid rgba(29,161,242,0.3)', color: '#1da1f2' }}
             >
-              <Twitter size={14} /> Share on Twitter / X
+              <Twitter size={14} aria-hidden="true" /> Share on Twitter / X
             </a>
             {/* Static share page link */}
             <a
               href={`/share/${battle.id}`}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="Open share page in new tab"
               className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold text-[#64748b] border border-[#1e1e2e] hover:border-[#6c47ff]/30 hover:text-[#a78bfa] transition-all"
             >
-              <ExternalLink size={12} /> Open Share Page
+              <ExternalLink size={12} aria-hidden="true" /> Open Share Page
             </a>
           </div>
         )}
@@ -330,12 +321,13 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
             </div>
             <button
               onClick={handleCopyEmbed}
+              aria-label={copiedEmbed ? 'Embed code copied' : 'Copy embed code'}
               className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
               style={copiedEmbed
                 ? { background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e' }
                 : { background: 'rgba(108,71,255,0.1)', border: '1px solid rgba(108,71,255,0.3)', color: '#6c47ff' }}
             >
-              {copiedEmbed ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy Embed Code</>}
+              {copiedEmbed ? <><Check size={14} aria-hidden="true" /> Copied!</> : <><Copy size={14} aria-hidden="true" /> Copy Embed Code</>}
             </button>
             <div className="rounded-xl overflow-hidden border border-[#1e1e2e]" style={{ height: 220 }}>
               <iframe
@@ -349,7 +341,7 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
           </div>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }
 

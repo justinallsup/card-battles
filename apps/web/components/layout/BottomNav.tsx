@@ -41,6 +41,7 @@ const EXPLORE_CATEGORIES = [
       { href: '/compare',      label: 'Compare',     icon: '⚖️',   desc: 'Compare cards'        },
       { href: '/calculator',   label: 'Calculator',  icon: '💰',  desc: 'Card ROI estimator'   },
       { href: '/history',      label: 'Price Hist.', icon: '📉',  desc: 'Price history'        },
+      { href: '/investment-watch', label: 'Inv. Watch', icon: '📈', desc: 'Investment watchlist' },
     ],
   },
   {
@@ -75,6 +76,7 @@ const EXPLORE_CATEGORIES = [
       { href: '/analytics',    label: 'Analytics',   icon: '📊',  desc: 'Your stats'           },
       { href: '/portfolio',    label: 'Portfolio',   icon: '💼',  desc: 'Collection value'     },
       { href: '/learn',        label: 'Learn',       icon: '📚',  desc: 'Card grading guide'   },
+      { href: '/storage',      label: 'Storage',     icon: '🛡️',  desc: 'Protect your cards'   },
       { href: '/condition',        label: 'Condition',         icon: '🔍',  desc: 'Check card condition' },
       { href: '/how-it-works',     label: 'How It Works',       icon: '⚡', desc: 'Scoring explained'    },
       { href: '/grading-services', label: 'Grading Compare',    icon: '⚖️',  desc: 'PSA vs BGS vs SGC'   },
@@ -279,6 +281,7 @@ export function BottomNav() {
   return (
     <>
       <nav
+        aria-label="Main navigation"
         className="fixed bottom-0 left-0 right-0 z-50 bg-[#0a0a0f]/95 backdrop-blur border-t border-[#1e1e2e]"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         onTouchStart={handleNavTouchStart}
