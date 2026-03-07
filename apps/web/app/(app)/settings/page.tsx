@@ -214,6 +214,9 @@ export default function SettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     },
+    onError: () => {
+      // Error is displayed inline via updateProfile.isError
+    },
   });
 
   if (!authUser) {
@@ -301,6 +304,9 @@ export default function SettingsPage() {
             'Save Profile'
           )}
         </button>
+        {updateProfile.isError && (
+          <p className="text-xs text-[#ef4444] text-center">Failed to save profile. Please try again.</p>
+        )}
       </Section>
 
       {/* Notifications section */}

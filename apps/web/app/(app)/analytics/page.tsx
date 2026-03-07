@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../hooks/useAuth';
+import { BackButton } from '../../../components/ui/BackButton';
 import { getToken } from '../../../lib/api';
 
 type AnalyticsData = {
@@ -128,6 +129,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="pb-4">
+      <BackButton />
       {/* Header */}
       <div className="mb-5">
         <h1 className="text-2xl font-black text-white">📊 My Analytics</h1>

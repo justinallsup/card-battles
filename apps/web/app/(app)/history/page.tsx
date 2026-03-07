@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { getToken } from '../../../lib/api';
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner';
+import { BackButton } from '../../../components/ui/BackButton';
 import { History, Clock, Users, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
@@ -196,6 +197,7 @@ export default function VoteHistoryPage() {
 
   return (
     <div className="space-y-5 pb-2">
+      <BackButton />
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-[#6c47ff]/10 border border-[#6c47ff]/20 flex items-center justify-center">

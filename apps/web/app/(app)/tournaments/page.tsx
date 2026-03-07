@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Trophy, Plus, X, ChevronRight } from 'lucide-react';
+import { BackButton } from '../../../components/ui/BackButton';
 
 type Tournament = {
   id: string;
@@ -347,6 +348,7 @@ export default function TournamentsPage() {
 
   return (
     <div className="space-y-4">
+      <BackButton />
       {/* Header */}
       <div
         className="relative rounded-2xl overflow-hidden px-6 py-7 text-center"

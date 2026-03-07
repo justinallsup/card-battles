@@ -8,6 +8,8 @@ import { useAuth } from '../../hooks/useAuth';
 
 // Explore drawer feature tiles
 const EXPLORE_TILES = [
+  { href: '/marketplace',  label: 'Marketplace',  icon: '🏪', desc: 'Buy & sell cards'    },
+  { href: '/players',      label: 'Players',       icon: '🏅', desc: 'Player profiles'    },
   { href: '/community',    label: 'Community',    icon: '🌐', desc: 'Social hub'          },
   { href: '/learn',        label: 'Learn',        icon: '📚', desc: 'Card grading guide'  },
   { href: '/pull-arena',   label: 'Pull Arena',    icon: '🎴', desc: 'Open card packs'    },
@@ -131,7 +133,7 @@ export function BottomNav() {
           {navItems.map(({ href, label, icon: Icon, accent, key, action }) => {
             const active = href ? (pathname === href || pathname.startsWith(href + '/')) : false;
             const isProfileActive = key === 'profile' && user?.username && (pathname === `/profile/${user.username}` || pathname.startsWith('/profile/'));
-            const isExploreActive = key === 'explore' && ['/pull-arena','/tournaments','/fantasy','/market','/compare','/activity','/daily-picks','/collection','/watchlist','/search','/notifications','/pro','/history','/alerts','/grader','/auctions','/sets','/analytics','/community','/learn'].some(p => pathname.startsWith(p));
+            const isExploreActive = key === 'explore' && ['/pull-arena','/tournaments','/fantasy','/market','/compare','/activity','/daily-picks','/collection','/watchlist','/search','/notifications','/pro','/history','/alerts','/grader','/auctions','/sets','/analytics','/community','/learn','/marketplace','/players'].some(p => pathname.startsWith(p));
 
             if (accent) {
               return (

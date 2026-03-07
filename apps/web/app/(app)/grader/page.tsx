@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react';
 import { Search, Loader2, Award, RefreshCw } from 'lucide-react';
 import { getToken } from '../../../lib/api';
+import { BackButton } from '../../../components/ui/BackButton';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
@@ -132,6 +133,7 @@ export default function GraderPage() {
 
   return (
     <div className="space-y-6 pb-4">
+      <BackButton />
       {/* Header */}
       <div className="text-center space-y-2 pt-2">
         <div className="text-4xl mb-2">🏅</div>

@@ -4,6 +4,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { getToken } from '../../../lib/api';
 import Link from 'next/link';
 import { Trash2, BookMarked, ExternalLink } from 'lucide-react';
+import { BackButton } from '../../../components/ui/BackButton';
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
@@ -140,6 +141,7 @@ export default function CollectionPage() {
 
   return (
     <div className="space-y-5">
+      <BackButton />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

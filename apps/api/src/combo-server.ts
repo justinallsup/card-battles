@@ -224,6 +224,7 @@ async function seedDb() {
       comments.get(bid)!.push({id:randomUUID(),battleId:bid,userId:u2.id,username:u2.username,text:set[j],createdAt:new Date(Date.now()-(set.length-j)*600000).toISOString(),likes:Math.floor(Math.random()*20)});
     }
   }
+  await seedMarketplace();
   console.log('[Seed] ✅ Done — cardking@demo.com / password123');
 }
 
@@ -1496,6 +1497,136 @@ app.get('/api/v1/me/streak', async (c) => {
     rewards,
     nextReward: rewards.find(r => !r.unlocked),
   });
+});
+
+// ── MARKETPLACE ──────────────────────────────────────────────────────────────
+type Listing = {
+  id: string; sellerId: string; sellerName: string; cardId: string;
+  playerName: string; imageUrl: string; title: string; year: number;
+  askingPrice: number; condition: string; grade: number | null;
+  description: string; status: 'active' | 'sold' | 'removed';
+  createdAt: string;
+};
+const marketplace = new Map<string, Listing>();
+
+async function seedMarketplace() {
+  const r = await pg.query('SELECT id,player_name,image_url,title,year FROM card_assets LIMIT 6');
+  const cards = r.rows as {id:string;player_name:string;image_url:string;title:string;year:number}[];
+  const prices = [285, 16200, 1380, 190, 540, 320];
+  const conditions = ['PSA 10', 'PSA 9', 'PSA 10', 'Raw NM', 'PSA 8', 'PSA 10'];
+  cards.forEach((card, i) => {
+    const id = randomUUID();
+    marketplace.set(id, {
+      id, sellerId: 'demo', sellerName: ['cardking','slabmaster','gradegod'][i%3],
+      cardId: card.id, playerName: card.player_name, imageUrl: card.image_url,
+      title: card.title, year: card.year, askingPrice: prices[i] || 100,
+      condition: conditions[i] || 'PSA 10', grade: conditions[i]?.includes('PSA') ? parseInt(conditions[i].split(' ')[1]) : null,
+      description: `Beautiful ${conditions[i]} example. Ships in top loader + team bag.`,
+      status: 'active', createdAt: new Date(Date.now() - Math.random()*7*86400000).toISOString(),
+    });
+  });
+}
+
+app.get('/api/v1/marketplace', async (c) => {
+  const sort = c.req.query('sort') || 'newest';
+  let listings = Array.from(marketplace.values()).filter(l => l.status === 'active');
+  const orderFns: Record<string, (a: Listing, b: Listing) => number> = {
+    newest: (a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    price_asc: (a,b) => a.askingPrice - b.askingPrice,
+    price_desc: (a,b) => b.askingPrice - a.askingPrice,
+  };
+  listings.sort(orderFns[sort] || orderFns.newest);
+  return c.json({ listings, total: listings.length });
+});
+
+app.post('/api/v1/marketplace', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const { cardId, askingPrice, condition, description } = await c.req.json().catch(() => ({}));
+  if (!cardId || !askingPrice) return c.json({ error: 'cardId and askingPrice required' }, 400);
+  const cr = await pg.query('SELECT player_name,image_url,title,year FROM card_assets WHERE id=$1', [cardId]);
+  const card = (cr.rows as {player_name:string;image_url:string;title:string;year:number}[])[0];
+  if (!card) return c.json({ error: 'Card not found' }, 404);
+  const ur = await pg.query('SELECT username FROM users WHERE id=$1', [userId]);
+  const username = (ur.rows as {username:string}[])[0]?.username || 'user';
+  const id = randomUUID();
+  const listing: Listing = { id, sellerId: userId, sellerName: username, cardId, playerName: card.player_name, imageUrl: card.image_url, title: card.title, year: card.year, askingPrice: Number(askingPrice), condition: condition || 'Raw', grade: null, description: description || '', status: 'active', createdAt: new Date().toISOString() };
+  marketplace.set(id, listing);
+  return c.json(listing, 201);
+});
+
+app.post('/api/v1/marketplace/:id/contact', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  return c.json({ message: 'Message sent to seller! (Demo mode — messages are not real)', demo: true });
+});
+
+app.delete('/api/v1/marketplace/:id', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const listing = marketplace.get(c.req.param('id'));
+  if (!listing) return c.json({ error: 'Not found' }, 404);
+  if (listing.sellerId !== userId) return c.json({ error: 'Forbidden' }, 403);
+  listing.status = 'removed';
+  return c.json({ message: 'Listing removed' });
+});
+
+// ── PLAYER PROFILES ───────────────────────────────────────────────────────────
+app.get('/api/v1/players', async (c) => {
+  const r = await pg.query("SELECT DISTINCT player_name, sport, COUNT(*) as card_count FROM card_assets GROUP BY player_name, sport ORDER BY card_count DESC LIMIT 50");
+  return c.json({ players: r.rows });
+});
+
+app.get('/api/v1/players/:name', async (c) => {
+  const name = decodeURIComponent(c.req.param('name'));
+  const cards = await pg.query("SELECT * FROM card_assets WHERE LOWER(player_name) LIKE $1 ORDER BY year DESC", [`%${name.toLowerCase()}%`]);
+  const crows = cards.rows as Record<string,unknown>[];
+  if (!crows.length) return c.json({ error: 'Player not found' }, 404);
+  const playerName = (crows[0].player_name as string);
+  const battles = await pg.query(`
+    SELECT b.id, b.title, b.total_votes_cached, b.ends_at, b.status
+    FROM battles b
+    LEFT JOIN card_assets la ON la.id=b.left_asset_id
+    LEFT JOIN card_assets ra ON ra.id=b.right_asset_id
+    WHERE LOWER(la.player_name) LIKE $1 OR LOWER(ra.player_name) LIKE $1
+    ORDER BY b.created_at DESC LIMIT 10
+  `, [`%${name.toLowerCase()}%`]);
+  const VALUATIONS: Record<string,{mid:number;trend:string}> = {
+    'Patrick Mahomes':{mid:280,trend:'up'},'Tom Brady':{mid:520,trend:'stable'},'LeBron James':{mid:1400,trend:'up'},'Michael Jordan':{mid:15000,trend:'stable'},
+    'Josh Allen':{mid:180,trend:'up'},'Joe Burrow':{mid:120,trend:'up'},'Shohei Ohtani':{mid:340,trend:'up'},'Mike Trout':{mid:420,trend:'stable'},
+    'Victor Wembanyama':{mid:890,trend:'up'},'Luka Doncic':{mid:650,trend:'up'},'Stephen Curry':{mid:380,trend:'stable'},'Nikola Jokic':{mid:290,trend:'up'},
+  };
+  const val = VALUATIONS[playerName] || {mid:45,trend:'stable'};
+  return c.json({
+    playerName, sport: crows[0].sport, cards: crows, battles: battles.rows,
+    totalCards: crows.length, totalBattles: (battles.rows as unknown[]).length,
+    estimatedValue: val.mid, trend: val.trend,
+    popularityScore: Math.floor(Math.random() * 40) + 60,
+  });
+});
+
+// ── VOTE ALL ──────────────────────────────────────────────────────────────────
+app.post('/api/v1/battles/:id/vote-all', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const battleId = c.req.param('id');
+  const { choice } = await c.req.json().catch(() => ({}));
+  if (!['left','right'].includes(choice)) return c.json({ error: 'Invalid choice' }, 400);
+  const cats = ['investment', 'coolest', 'rarity'];
+  const results = [];
+  for (const category of cats) {
+    try {
+      await pg.query('INSERT INTO votes (id,battle_id,user_id,category,choice) VALUES ($1,$2,$3,$4,$5)', [randomUUID(), battleId, userId, category, choice]);
+      results.push({ category, success: true });
+    } catch {
+      results.push({ category, success: false, reason: 'already_voted' });
+    }
+  }
+  const successCount = results.filter(r=>r.success).length;
+  if (successCount > 0) {
+    await pg.query('UPDATE battles SET total_votes_cached=total_votes_cached+$1 WHERE id=$2', [successCount, battleId]);
+  }
+  return c.json({ results, choice });
 });
 
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────

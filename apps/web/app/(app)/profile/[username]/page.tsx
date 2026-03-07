@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { users as usersApi, getToken } from '../../../../lib/api';
 import { LoadingSpinner } from '../../../../components/ui/LoadingSpinner';
 import { Badge } from '../../../../components/ui/Badge';
+import { BackButton } from '../../../../components/ui/BackButton';
 import { Trophy, Sword, Target, Flame, Star, Zap, Edit2, X, Check, Swords, Settings, UserPlus, UserMinus, Share2, BookMarked, Eye, History } from 'lucide-react';
 import Link from 'next/link';
 import type { UserStats } from '@card-battles/types';
@@ -301,6 +302,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
   return (
     <div className="space-y-5 pb-2">
+      <BackButton />
       {/* Profile header */}
       <div className="bg-[#12121a] rounded-2xl border border-[#1e1e2e] p-5">
         <div className="flex items-start gap-4">

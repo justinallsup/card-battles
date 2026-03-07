@@ -5,11 +5,13 @@ import { useComments, usePostComment, useLikeComment } from '../../../../hooks/u
 import { useAuth } from '../../../../hooks/useAuth';
 import { BattleCard } from '../../../../components/battle/BattleCard';
 import { PageSpinner } from '../../../../components/ui/LoadingSpinner';
-import { Flag, Copy, Check, Heart, Send, Share2, Twitter, X, ExternalLink, Download, Bookmark, Eye, FlipHorizontal, Bell, BellOff, Trash2, BarChart2, TrendingUp } from 'lucide-react';
+import { Flag, Copy, Check, Heart, Send, Share2, Twitter, X, ExternalLink, Download, Bookmark, Eye, FlipHorizontal, Bell, BellOff, Trash2, BarChart2, TrendingUp, ChevronDown } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
+import { BackButton } from '../../../../components/ui/BackButton';
 import { battles as battlesApi, getToken } from '../../../../lib/api';
 import { DonutChart } from '../../../../components/ui/DonutChart';
 import { BarChart } from '../../../../components/ui/BarChart';
+import { showToast } from '../../../../components/ui/Toast';
 import Link from 'next/link';
 import type { Battle } from '@card-battles/types';
 
@@ -622,6 +624,208 @@ function BattleStatsPanel({ battleId, battle }: { battleId: string; battle: Batt
   );
 }
 
+// ── Category Insights ─────────────────────────────────────────────────────────
+const CATEGORY_INFO: Record<string, { emoji: string; label: string; description: string }> = {
+  investment: { emoji: '💰', label: 'Investment', description: 'Which card will be worth more in 5 years?' },
+  coolest:    { emoji: '😎', label: 'Coolest',    description: 'Which card has the best look, design, and feel?' },
+  rarity:     { emoji: '💎', label: 'Rarity',     description: 'Which card is harder to find in top grade?' },
+};
+
+function CategoryInsights({ battleId, battle }: { battleId: string; battle: Battle }) {
+  const [open, setOpen] = useState(false);
+  const [stats, setStats] = useState<Record<string, { leftPct: number; rightPct: number; total: number; winner: string }> | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    if (stats || loading) return;
+    setLoading(true);
+    try {
+      const r = await fetch(`${BASE_URL}/battles/${battleId}/stats`);
+      const data = await r.json();
+      const by: Record<string, { leftPct: number; rightPct: number; total: number; winner: string }> = {};
+      for (const [cat, val] of Object.entries(data.byCategory || {})) {
+        const v = val as { leftPct: number; rightPct: number; total: number; winner: string };
+        by[cat] = v;
+      }
+      setStats(by);
+    } catch {}
+    setLoading(false);
+  };
+
+  const toggle = () => {
+    setOpen(o => !o);
+    if (!open) load();
+  };
+
+  const cats = ['investment', 'coolest', 'rarity'];
+  const leftName = battle.left.playerName ?? 'Left';
+  const rightName = battle.right.playerName ?? 'Right';
+
+  // Overall winner
+  const overallWinner = (() => {
+    if (!stats) return null;
+    let leftWins = 0, rightWins = 0;
+    for (const cat of cats) {
+      const w = stats[cat]?.winner;
+      if (w === 'left') leftWins++;
+      else if (w === 'right') rightWins++;
+    }
+    if (leftWins > rightWins) return { side: 'left', name: leftName, wins: leftWins };
+    if (rightWins > leftWins) return { side: 'right', name: rightName, wins: rightWins };
+    return { side: 'draw', name: 'Tied', wins: 0 };
+  })();
+
+  return (
+    <div className="rounded-xl border border-[#1e1e2e] overflow-hidden" style={{ background: '#12121a' }}>
+      <button
+        onClick={toggle}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#1e1e2e]/30 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-base">🔍</span>
+          <h3 className="text-sm font-bold text-white">Category Insights</h3>
+        </div>
+        <ChevronDown
+          size={16}
+          className="text-[#64748b] transition-transform"
+          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        />
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-4 border-t border-[#1e1e2e] pt-3">
+          {loading && (
+            <div className="flex justify-center py-4">
+              <div className="w-5 h-5 border-2 border-[#6c47ff] border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+
+          {!loading && overallWinner && overallWinner.side !== 'draw' && (
+            <div
+              className="rounded-xl p-3 text-center"
+              style={{ background: 'rgba(108,71,255,0.08)', border: '1px solid rgba(108,71,255,0.25)' }}
+            >
+              <p className="text-xs text-[#64748b] mb-0.5">Overall Leader</p>
+              <p className="text-sm font-black text-[#a78bfa]">
+                {overallWinner.name} leads {overallWinner.wins}/3 categories
+              </p>
+            </div>
+          )}
+
+          {!loading && stats && cats.map(cat => {
+            const info = CATEGORY_INFO[cat];
+            const data = stats[cat];
+            if (!data) return null;
+            const leftWins = data.winner === 'left';
+            const rightWins = data.winner === 'right';
+
+            return (
+              <div key={cat} className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="text-base leading-none mt-0.5">{info.emoji}</span>
+                  <div>
+                    <p className="text-xs font-bold text-white">{info.label}</p>
+                    <p className="text-[10px] text-[#64748b]">{info.description}</p>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-[#94a3b8] w-24 truncate">{leftName}</span>
+                    <div className="flex-1 h-2 bg-[#1e1e2e] rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${data.leftPct}%`, background: leftWins ? '#6c47ff' : '#374151' }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-bold w-8 text-right" style={{ color: leftWins ? '#a78bfa' : '#64748b' }}>
+                      {data.leftPct}%
+                    </span>
+                    {leftWins && <span className="text-[10px] text-[#22c55e]">✓</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-[#94a3b8] w-24 truncate">{rightName}</span>
+                    <div className="flex-1 h-2 bg-[#1e1e2e] rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${data.rightPct}%`, background: rightWins ? '#6c47ff' : '#374151' }}
+                      />
+                    </div>
+                    <span className="text-[10px] font-bold w-8 text-right" style={{ color: rightWins ? '#a78bfa' : '#64748b' }}>
+                      {data.rightPct}%
+                    </span>
+                    {rightWins && <span className="text-[10px] text-[#22c55e]">✓</span>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Vote All Button ────────────────────────────────────────────────────────────
+function VoteAllButton({ battleId, battle, onVoted }: { battleId: string; battle: Battle; onVoted: () => void }) {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState<'left' | 'right' | null>(null);
+  if (!user) return null;
+
+  const handleVoteAll = async (choice: 'left' | 'right') => {
+    setLoading(choice);
+    try {
+      const res = await fetch(`${BASE_URL}/battles/${battleId}/vote-all`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ choice }),
+      });
+      const data = await res.json();
+      const succeeded = (data.results || []).filter((r: { success: boolean }) => r.success).length;
+      const skipped = (data.results || []).length - succeeded;
+      if (succeeded > 0) {
+        showToast(`Voted ${choice} in ${succeeded} categor${succeeded === 1 ? 'y' : 'ies'}!${skipped > 0 ? ` (${skipped} already voted)` : ''}`, 'success');
+        onVoted();
+      } else {
+        showToast('Already voted in all categories', 'info');
+      }
+    } catch {
+      showToast('Failed to vote', 'error');
+    }
+    setLoading(null);
+  };
+
+  const leftName = battle.left.playerName ?? 'Left';
+  const rightName = battle.right.playerName ?? 'Right';
+
+  return (
+    <div
+      className="rounded-xl p-3 border border-[#6c47ff]/25 space-y-2"
+      style={{ background: 'rgba(108,71,255,0.05)' }}
+    >
+      <p className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider text-center">⚡ Vote All Categories</p>
+      <p className="text-[10px] text-[#64748b] text-center">Cast your vote in all 3 categories at once</p>
+      <div className="flex gap-2">
+        <button
+          onClick={() => handleVoteAll('left')}
+          disabled={!!loading}
+          className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+          style={{ background: 'rgba(108,71,255,0.15)', color: '#a78bfa', border: '1px solid rgba(108,71,255,0.35)' }}
+        >
+          {loading === 'left' ? '…' : `← ${leftName}`}
+        </button>
+        <button
+          onClick={() => handleVoteAll('right')}
+          disabled={!!loading}
+          className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+          style={{ background: 'rgba(108,71,255,0.15)', color: '#a78bfa', border: '1px solid rgba(108,71,255,0.35)' }}
+        >
+          {loading === 'right' ? '…' : `${rightName} →`}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Mini battle card ───────────────────────────────────────────────────────────
 function MiniBattleCard({ battle }: { battle: Battle }) {  return (
     <Link
@@ -765,6 +969,7 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="space-y-4">
+      <BackButton href="/feed" />
       {/* Sponsor banner */}
       {battle.isSponsored && battle.sponsorCta && (
         <a
@@ -909,6 +1114,14 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
       {/* Vote distribution */}
       {battle.result?.byCategory && Object.keys(battle.result.byCategory).length > 0 && (
         <VoteDistribution battle={battle} myVote={myVote} />
+      )}
+
+      {/* Category Insights */}
+      <CategoryInsights battleId={id} battle={battle} />
+
+      {/* Vote All */}
+      {battle.status === 'live' && (
+        <VoteAllButton battleId={id} battle={battle} onVoted={() => {}} />
       )}
 
       {/* Action row */}
