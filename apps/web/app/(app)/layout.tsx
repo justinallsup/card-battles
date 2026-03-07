@@ -1,5 +1,6 @@
 import { AppHeader } from '../../components/layout/AppHeader';
 import { BottomNav } from '../../components/layout/BottomNav';
+import { ToastContainer } from '../../components/ui/Toast';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -14,6 +15,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <BottomNav />
+      <ToastContainer />
     </div>
   );
 }

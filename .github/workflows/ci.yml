@@ -8,7 +8,7 @@ on:
 
 jobs:
   typecheck:
-    name: Type Check
+    name: Type Check (API)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,6 +18,33 @@ jobs:
         with: { node-version: '22', cache: 'pnpm' }
       - run: pnpm install
       - run: pnpm typecheck
+
+  typecheck-web:
+    name: Type Check (Web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'pnpm' }
+      - run: pnpm install
+      - run: pnpm --filter @card-battles/web run typecheck
+
+  build-web:
+    name: Next.js Build
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_API_URL: http://localhost:3333
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'pnpm' }
+      - run: pnpm install
+      - name: Build Next.js app
+        run: pnpm --filter @card-battles/web build
 
   test-api:
     name: API Tests
@@ -73,3 +100,36 @@ jobs:
         with: { node-version: '22', cache: 'pnpm' }
       - run: pnpm install
       - run: pnpm --filter @card-battles/web run test
+
+  test-integration:
+    name: Integration Tests (combo-server)
+    runs-on: ubuntu-latest
+    env:
+      INTEGRATION: 'true'
+      JWT_SECRET: test_secret_at_least_32_characters_long
+      JWT_REFRESH_SECRET: test_refresh_secret_at_least_32chars
+      PORT: '3333'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'pnpm' }
+      - run: pnpm install
+      - name: Start combo server
+        working-directory: apps/api
+        run: npx tsx src/combo-server.ts &
+      - name: Wait for server to be ready
+        run: |
+          echo "Waiting for combo server..."
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:3333/health > /dev/null 2>&1; then
+              echo "✅ Server ready"
+              break
+            fi
+            echo "  attempt $i/20..."
+            sleep 2
+          done
+          curl -sf http://localhost:3333/health || (echo "❌ Server failed to start" && exit 1)
+      - name: Run integration tests
+        run: pnpm --filter @card-battles/api test -- src/tests/integration/battle-flow.test.ts

@@ -1,6 +1,9 @@
 import { Hono } from 'hono';
+import { eq, desc, and } from 'drizzle-orm';
 import type { AppVariables } from '../types';
 import { authRequired } from '../middleware/auth';
+import { db } from '../db';
+import { userCollections, userWatchlist, cardAssets, battles } from '../db/schema';
 
 const router = new Hono<{ Variables: AppVariables }>();
 
@@ -9,16 +12,29 @@ const router = new Hono<{ Variables: AppVariables }>();
 router.get('/', authRequired, async (c) => {
   const userId = c.get('userId') as string;
 
-  // TODO: implement with real DB
-  // const saved = await db
-  //   .select({ asset: cardAssets })
-  //   .from(savedCards)
-  //   .innerJoin(cardAssets, eq(cardAssets.id, savedCards.cardAssetId))
-  //   .where(eq(savedCards.userId, userId))
-  //   .orderBy(desc(savedCards.createdAt));
-  // return c.json({ items: saved, total: saved.length });
+  const saved = await db
+    .select({
+      savedAt: userCollections.savedAt,
+      asset: {
+        id: cardAssets.id,
+        title: cardAssets.title,
+        sport: cardAssets.sport,
+        playerName: cardAssets.playerName,
+        year: cardAssets.year,
+        setName: cardAssets.setName,
+        variant: cardAssets.variant,
+        imageUrl: cardAssets.imageUrl,
+        thumbUrl: cardAssets.thumbUrl,
+        source: cardAssets.source,
+        createdAt: cardAssets.createdAt,
+      },
+    })
+    .from(userCollections)
+    .innerJoin(cardAssets, eq(cardAssets.id, userCollections.assetId))
+    .where(eq(userCollections.userId, userId))
+    .orderBy(desc(userCollections.savedAt));
 
-  return c.json({ items: [], total: 0, userId });
+  return c.json({ items: saved, total: saved.length, userId });
 });
 
 // POST /api/v1/collections/save
@@ -32,17 +48,23 @@ router.post('/save', authRequired, async (c) => {
     return c.json({ error: 'cardAssetId required' }, 400);
   }
 
-  // TODO: implement with real DB
   // Verify card exists
-  // const [card] = await db.select({ id: cardAssets.id }).from(cardAssets).where(eq(cardAssets.id, cardAssetId)).limit(1);
-  // if (!card) return c.json({ error: 'Card not found' }, 404);
-  // try {
-  //   await db.insert(savedCards).values({ userId, cardAssetId });
-  // } catch (e: unknown) {
-  //   if ((e as { code?: string }).code === '23505') return c.json({ error: 'Already saved' }, 409);
-  //   throw e;
-  // }
-  // return c.json({ saved: true, cardAssetId }, 201);
+  const [card] = await db
+    .select({ id: cardAssets.id })
+    .from(cardAssets)
+    .where(eq(cardAssets.id, cardAssetId))
+    .limit(1);
+
+  if (!card) return c.json({ error: 'Card not found' }, 404);
+
+  try {
+    await db.insert(userCollections).values({ userId, assetId: cardAssetId });
+  } catch (e: unknown) {
+    if ((e as { code?: string }).code === '23505') {
+      return c.json({ error: 'Already saved' }, 409);
+    }
+    throw e;
+  }
 
   return c.json({ saved: true, cardAssetId }, 201);
 });
@@ -53,8 +75,9 @@ router.delete('/save/:cardAssetId', authRequired, async (c) => {
   const userId = c.get('userId') as string;
   const { cardAssetId } = c.req.param();
 
-  // TODO: implement with real DB
-  // await db.delete(savedCards).where(and(eq(savedCards.userId, userId), eq(savedCards.cardAssetId, cardAssetId)));
+  await db
+    .delete(userCollections)
+    .where(and(eq(userCollections.userId, userId), eq(userCollections.assetId, cardAssetId)));
 
   return c.json({ saved: false, cardAssetId });
 });
@@ -64,16 +87,28 @@ router.delete('/save/:cardAssetId', authRequired, async (c) => {
 router.get('/watchlist', authRequired, async (c) => {
   const userId = c.get('userId') as string;
 
-  // TODO: implement with real DB
-  // const watchlist = await db
-  //   .select({ battle: battles, leftAsset: cardAssets, rightAsset: cardAssets })
-  //   .from(watchedBattles)
-  //   .innerJoin(battles, eq(battles.id, watchedBattles.battleId))
-  //   .where(eq(watchedBattles.userId, userId))
-  //   .orderBy(desc(watchedBattles.createdAt));
-  // return c.json({ items: watchlist, total: watchlist.length });
+  const watchlist = await db
+    .select({
+      savedAt: userWatchlist.savedAt,
+      battle: {
+        id: battles.id,
+        title: battles.title,
+        status: battles.status,
+        startsAt: battles.startsAt,
+        endsAt: battles.endsAt,
+        totalVotesCached: battles.totalVotesCached,
+        categories: battles.categories,
+        leftAssetId: battles.leftAssetId,
+        rightAssetId: battles.rightAssetId,
+        createdAt: battles.createdAt,
+      },
+    })
+    .from(userWatchlist)
+    .innerJoin(battles, eq(battles.id, userWatchlist.battleId))
+    .where(eq(userWatchlist.userId, userId))
+    .orderBy(desc(userWatchlist.savedAt));
 
-  return c.json({ items: [], total: 0, userId });
+  return c.json({ items: watchlist, total: watchlist.length, userId });
 });
 
 // POST /api/v1/collections/watchlist
@@ -87,17 +122,23 @@ router.post('/watchlist', authRequired, async (c) => {
     return c.json({ error: 'battleId required' }, 400);
   }
 
-  // TODO: implement with real DB
   // Verify battle exists
-  // const [battle] = await db.select({ id: battles.id }).from(battles).where(eq(battles.id, battleId)).limit(1);
-  // if (!battle) return c.json({ error: 'Battle not found' }, 404);
-  // try {
-  //   await db.insert(watchedBattles).values({ userId, battleId });
-  // } catch (e: unknown) {
-  //   if ((e as { code?: string }).code === '23505') return c.json({ error: 'Already watching' }, 409);
-  //   throw e;
-  // }
-  // return c.json({ watching: true, battleId }, 201);
+  const [battle] = await db
+    .select({ id: battles.id })
+    .from(battles)
+    .where(eq(battles.id, battleId))
+    .limit(1);
+
+  if (!battle) return c.json({ error: 'Battle not found' }, 404);
+
+  try {
+    await db.insert(userWatchlist).values({ userId, battleId });
+  } catch (e: unknown) {
+    if ((e as { code?: string }).code === '23505') {
+      return c.json({ error: 'Already watching' }, 409);
+    }
+    throw e;
+  }
 
   return c.json({ watching: true, battleId }, 201);
 });
@@ -108,8 +149,9 @@ router.delete('/watchlist/:battleId', authRequired, async (c) => {
   const userId = c.get('userId') as string;
   const { battleId } = c.req.param();
 
-  // TODO: implement with real DB
-  // await db.delete(watchedBattles).where(and(eq(watchedBattles.userId, userId), eq(watchedBattles.battleId, battleId)));
+  await db
+    .delete(userWatchlist)
+    .where(and(eq(userWatchlist.userId, userId), eq(userWatchlist.battleId, battleId)));
 
   return c.json({ watching: false, battleId });
 });

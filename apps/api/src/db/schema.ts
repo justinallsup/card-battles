@@ -10,7 +10,7 @@ import {
   jsonb,
   uniqueIndex,
   index,
-  check,
+  primaryKey,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -241,6 +241,171 @@ export const dailyPickEntries = pgTable(
   })
 );
 
+// ─── Battle Comments ──────────────────────────────────────────────────────────
+
+export const battleComments = pgTable(
+  'battle_comments',
+  {
+    id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
+    battleId: uuid('battle_id')
+      .notNull()
+      .references(() => battles.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    text: text('text').notNull(),
+    likes: integer('likes').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    battleIdIdx: index('idx_comments_battle').on(table.battleId),
+  })
+);
+
+// ─── User Collections ─────────────────────────────────────────────────────────
+
+export const userCollections = pgTable(
+  'user_collections',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    assetId: uuid('asset_id')
+      .notNull()
+      .references(() => cardAssets.id, { onDelete: 'cascade' }),
+    savedAt: timestamp('saved_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.assetId] }),
+    userIdIdx: index('idx_user_collections_user_id').on(t.userId),
+  })
+);
+
+// ─── User Watchlist ───────────────────────────────────────────────────────────
+
+export const userWatchlist = pgTable(
+  'user_watchlist',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    battleId: uuid('battle_id')
+      .notNull()
+      .references(() => battles.id, { onDelete: 'cascade' }),
+    savedAt: timestamp('saved_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.battleId] }),
+    userIdIdx: index('idx_user_watchlist_user_id').on(t.userId),
+  })
+);
+
+// ─── User Follows ─────────────────────────────────────────────────────────────
+
+export const userFollows = pgTable(
+  'user_follows',
+  {
+    followerId: uuid('follower_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    followingId: uuid('following_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.followerId, t.followingId] }),
+    followerIdx: index('idx_user_follows_follower').on(t.followerId),
+    followingIdx: index('idx_user_follows_following').on(t.followingId),
+  })
+);
+
+// ─── Tournaments ──────────────────────────────────────────────────────────────
+
+export const tournaments = pgTable(
+  'tournaments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: varchar('name', { length: 150 }).notNull(),
+    sport: varchar('sport', { length: 50 }).notNull().default('mixed'),
+    createdByUserId: uuid('created_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    maxParticipants: integer('max_participants').notNull().default(8),
+    status: varchar('status', { length: 20 }).notNull().default('open'),
+    startDate: timestamp('start_date', { withTimezone: true }),
+    endDate: timestamp('end_date', { withTimezone: true }),
+    bracket: jsonb('bracket').notNull().default({}),
+    metadata: jsonb('metadata').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    statusIdx: index('idx_tournaments_status').on(table.status),
+  })
+);
+
+export const tournamentParticipants = pgTable(
+  'tournament_participants',
+  {
+    tournamentId: uuid('tournament_id')
+      .notNull()
+      .references(() => tournaments.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+    seed: integer('seed'),
+    eliminated: boolean('eliminated').notNull().default(false),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.tournamentId, t.userId] }),
+    tournamentIdx: index('idx_tournament_participants_tournament').on(t.tournamentId),
+  })
+);
+
+// ─── Fantasy Leagues ──────────────────────────────────────────────────────────
+
+export const fantasyLeagues = pgTable(
+  'fantasy_leagues',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: varchar('name', { length: 150 }).notNull(),
+    createdByUserId: uuid('created_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    maxTeams: integer('max_teams').notNull().default(8),
+    draftStatus: varchar('draft_status', { length: 20 }).notNull().default('open'),
+    pickDeadline: timestamp('pick_deadline', { withTimezone: true }),
+    settings: jsonb('settings').notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    statusIdx: index('idx_fantasy_leagues_status').on(table.draftStatus),
+  })
+);
+
+export const fantasyMembers = pgTable(
+  'fantasy_members',
+  {
+    leagueId: uuid('league_id')
+      .notNull()
+      .references(() => fantasyLeagues.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    picks: jsonb('picks').notNull().default([]),
+    score: integer('score').notNull().default(0),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.leagueId, t.userId] }),
+    leagueIdx: index('idx_fantasy_members_league').on(t.leagueId),
+    userIdx: index('idx_fantasy_members_user').on(t.userId),
+  })
+);
+
 // ─── Type exports ─────────────────────────────────────────────────────────────
 
 export type UserRow = typeof users.$inferSelect;
@@ -256,3 +421,12 @@ export type ReportRow = typeof reports.$inferSelect;
 export type SponsorRow = typeof sponsors.$inferSelect;
 export type DailyPickRow = typeof dailyPicks.$inferSelect;
 export type DailyPickEntryRow = typeof dailyPickEntries.$inferSelect;
+export type BattleCommentRow = typeof battleComments.$inferSelect;
+export type NewBattleComment = typeof battleComments.$inferInsert;
+export type UserCollectionRow = typeof userCollections.$inferSelect;
+export type UserWatchlistRow = typeof userWatchlist.$inferSelect;
+export type UserFollowRow = typeof userFollows.$inferSelect;
+export type TournamentRow = typeof tournaments.$inferSelect;
+export type NewTournament = typeof tournaments.$inferInsert;
+export type FantasyLeagueRow = typeof fantasyLeagues.$inferSelect;
+export type NewFantasyLeague = typeof fantasyLeagues.$inferInsert;
