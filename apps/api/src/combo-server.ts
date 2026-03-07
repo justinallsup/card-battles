@@ -526,6 +526,36 @@ app.get('/api/v1/leaderboards', async (c) => {
 });
 
 // ── USERS ─────────────────────────────────────────────────────────────────────
+// Static routes must be declared before parameterized :username routes
+app.get('/api/v1/users/discover', async (c) => {
+  const r = await pg.query(`
+    SELECT u.id, u.username, u.created_at,
+      us.battles_created, us.votes_cast, us.battles_won, us.current_streak
+    FROM users u
+    LEFT JOIN user_stats us ON us.user_id=u.id
+    ORDER BY us.votes_cast DESC NULLS LAST
+    LIMIT 20
+  `);
+  const bios = ['Card collector since 2018', 'Vintage card enthusiast', 'PSA 10 hunter', 'Breaking packs daily', 'Investment collector'];
+  const sports = ['NFL', 'NBA', 'MLB', 'All Sports'];
+  const users = (r.rows as Record<string,unknown>[]).map(u => ({
+    id: u.id, username: u.username, createdAt: u.created_at,
+    battlesCreated: u.battles_created || 0, votesCast: u.votes_cast || 0,
+    battlesWon: u.battles_won || 0, streak: u.current_streak || 0,
+    bio: bios[Math.floor(Math.random() * bios.length)],
+    sport: sports[Math.floor(Math.random() * sports.length)],
+    followerCount: Math.floor(Math.random() * 200) + 10,
+  }));
+  return c.json({ users, total: users.length });
+});
+
+app.get('/api/v1/users/search', async (c) => {
+  const q = c.req.query('q') || '';
+  if (q.length < 2) return c.json({ users: [] });
+  const r = await pg.query('SELECT id, username FROM users WHERE LOWER(username) LIKE $1 LIMIT 10', [`%${q.toLowerCase()}%`]);
+  return c.json({ users: r.rows });
+});
+
 app.get('/api/v1/users/:username', async (c) => {
   const r=await pg.query('SELECT id,username,email,avatar_url,bio,pro_status,created_at FROM users WHERE username=$1',[c.req.param('username')]);
   const rows=r.rows as unknown[];return rows.length?c.json(rows[0]):c.json({error:'Not found'},404);
@@ -1703,6 +1733,27 @@ app.get('/api/v1/community/rising-stars', async (c) => {
   return c.json({ users: r.rows });
 });
 
+// ── NEWS ──────────────────────────────────────────────────────────────────────
+const NEWS_ARTICLES = [
+  { id: '1', title: 'Patrick Mahomes Rookie Card Hits Record $4.3M at Auction', sport: 'nfl', category: 'market', summary: 'A PSA 10 2017 Patrick Mahomes rookie card shattered records at a major auction house this weekend.', publishedAt: new Date(Date.now() - 2*3600000).toISOString(), source: 'Card World', imageUrl: null },
+  { id: '2', title: 'LeBron James Prizm PSA 10 Surges 40% This Month', sport: 'nba', category: 'market', summary: 'LeBron James Prizm Silver rookie cards continue to climb as demand from overseas collectors intensifies.', publishedAt: new Date(Date.now() - 5*3600000).toISOString(), source: 'SlabReport', imageUrl: null },
+  { id: '3', title: 'PSA Announces New 10-Day Grading Tier', sport: 'all', category: 'grading', summary: 'PSA has unveiled a new turnaround option for collectors who want faster grading at a premium price point.', publishedAt: new Date(Date.now() - 8*3600000).toISOString(), source: 'Grading Daily', imageUrl: null },
+  { id: '4', title: 'Shohei Ohtani 2023 Topps Chrome Rookies Flying Off Shelves', sport: 'mlb', category: 'market', summary: 'First-year Ohtani cards in his Angels uniform are seeing unprecedented demand following his Dodgers signing.', publishedAt: new Date(Date.now() - 12*3600000).toISOString(), source: 'Card World', imageUrl: null },
+  { id: '5', title: 'Victor Wembanyama Rookie Cards: 1 Year Later', sport: 'nba', category: 'investment', summary: 'We look back at how Wemby\'s first-year cards have performed over 12 months — spoiler: it\'s complicated.', publishedAt: new Date(Date.now() - 24*3600000).toISOString(), source: 'SlabReport', imageUrl: null },
+  { id: '6', title: 'Top 10 NFL Cards to Watch Heading Into Playoffs', sport: 'nfl', category: 'investment', summary: 'Which quarterback cards spike during playoff runs? Our analysts break down the top 10 to watch.', publishedAt: new Date(Date.now() - 36*3600000).toISOString(), source: 'Card World', imageUrl: null },
+  { id: '7', title: 'Beckett vs PSA: Which Grader Is Right for Your Cards?', sport: 'all', category: 'grading', summary: 'A head-to-head comparison of the two biggest grading companies — fees, turnaround, and resale value.', publishedAt: new Date(Date.now() - 48*3600000).toISOString(), source: 'Grading Daily', imageUrl: null },
+  { id: '8', title: 'Mike Trout 2011 Update Series PSA 10: Still the King?', sport: 'mlb', category: 'market', summary: 'The ultimate baseball card investment has held its value for a decade. Is it finally time to sell?', publishedAt: new Date(Date.now() - 60*3600000).toISOString(), source: 'SlabReport', imageUrl: null },
+];
+
+app.get('/api/v1/news', async (c) => {
+  const sport = (c.req.query('sport') || '').toLowerCase();
+  const category = c.req.query('category') || '';
+  let articles = [...NEWS_ARTICLES];
+  if (sport) articles = articles.filter(a => a.sport === sport || a.sport === 'all');
+  if (category) articles = articles.filter(a => a.category === category);
+  return c.json({ articles, total: articles.length });
+});
+
 // ── STREAK ENDPOINT ───────────────────────────────────────────────────────────
 app.get('/api/v1/me/streak', async (c) => {
   const u = uid(c.req.header('Authorization'));
@@ -2076,57 +2127,6 @@ app.post('/api/v1/battles/:id/vote-all', async (c) => {
     await pg.query('UPDATE battles SET total_votes_cached=total_votes_cached+$1 WHERE id=$2', [successCount, battleId]);
   }
   return c.json({ results, choice });
-});
-
-// ── USER DISCOVERY ────────────────────────────────────────────────────────────
-app.get('/api/v1/users/discover', async (c) => {
-  const r = await pg.query(`
-    SELECT u.id, u.username, u.created_at,
-      us.battles_created, us.votes_cast, us.battles_won, us.current_streak
-    FROM users u
-    LEFT JOIN user_stats us ON us.user_id=u.id
-    ORDER BY us.votes_cast DESC NULLS LAST
-    LIMIT 20
-  `);
-  const bios = ['Card collector since 2018', 'Vintage card enthusiast', 'PSA 10 hunter', 'Breaking packs daily', 'Investment collector'];
-  const sports = ['NFL', 'NBA', 'MLB', 'All Sports'];
-  const users = (r.rows as Record<string,unknown>[]).map(u => ({
-    id: u.id, username: u.username, createdAt: u.created_at,
-    battlesCreated: u.battles_created || 0, votesCast: u.votes_cast || 0,
-    battlesWon: u.battles_won || 0, streak: u.current_streak || 0,
-    bio: bios[Math.floor(Math.random() * bios.length)],
-    sport: sports[Math.floor(Math.random() * sports.length)],
-    followerCount: Math.floor(Math.random() * 200) + 10,
-  }));
-  return c.json({ users, total: users.length });
-});
-
-app.get('/api/v1/users/search', async (c) => {
-  const q = c.req.query('q') || '';
-  if (q.length < 2) return c.json({ users: [] });
-  const r = await pg.query('SELECT id, username FROM users WHERE LOWER(username) LIKE $1 LIMIT 10', [`%${q.toLowerCase()}%`]);
-  return c.json({ users: r.rows });
-});
-
-// ── NEWS ──────────────────────────────────────────────────────────────────────
-const NEWS_ARTICLES = [
-  { id: '1', title: 'Patrick Mahomes Rookie Card Hits Record $4.3M at Auction', sport: 'nfl', category: 'market', summary: 'A PSA 10 2017 Patrick Mahomes rookie card shattered records at a major auction house this weekend.', publishedAt: new Date(Date.now() - 2*3600000).toISOString(), source: 'Card World', imageUrl: null },
-  { id: '2', title: 'LeBron James Prizm PSA 10 Surges 40% This Month', sport: 'nba', category: 'market', summary: 'LeBron James Prizm Silver rookie cards continue to climb as demand from overseas collectors intensifies.', publishedAt: new Date(Date.now() - 5*3600000).toISOString(), source: 'SlabReport', imageUrl: null },
-  { id: '3', title: 'PSA Announces New 10-Day Grading Tier', sport: 'all', category: 'grading', summary: 'PSA has unveiled a new turnaround option for collectors who want faster grading at a premium price point.', publishedAt: new Date(Date.now() - 8*3600000).toISOString(), source: 'Grading Daily', imageUrl: null },
-  { id: '4', title: 'Shohei Ohtani 2023 Topps Chrome Rookies Flying Off Shelves', sport: 'mlb', category: 'market', summary: 'First-year Ohtani cards in his Angels uniform are seeing unprecedented demand following his Dodgers signing.', publishedAt: new Date(Date.now() - 12*3600000).toISOString(), source: 'Card World', imageUrl: null },
-  { id: '5', title: 'Victor Wembanyama Rookie Cards: 1 Year Later', sport: 'nba', category: 'investment', summary: 'We look back at how Wemby\'s first-year cards have performed over 12 months — spoiler: it\'s complicated.', publishedAt: new Date(Date.now() - 24*3600000).toISOString(), source: 'SlabReport', imageUrl: null },
-  { id: '6', title: 'Top 10 NFL Cards to Watch Heading Into Playoffs', sport: 'nfl', category: 'investment', summary: 'Which quarterback cards spike during playoff runs? Our analysts break down the top 10 to watch.', publishedAt: new Date(Date.now() - 36*3600000).toISOString(), source: 'Card World', imageUrl: null },
-  { id: '7', title: 'Beckett vs PSA: Which Grader Is Right for Your Cards?', sport: 'all', category: 'grading', summary: 'A head-to-head comparison of the two biggest grading companies — fees, turnaround, and resale value.', publishedAt: new Date(Date.now() - 48*3600000).toISOString(), source: 'Grading Daily', imageUrl: null },
-  { id: '8', title: 'Mike Trout 2011 Update Series PSA 10: Still the King?', sport: 'mlb', category: 'market', summary: 'The ultimate baseball card investment has held its value for a decade. Is it finally time to sell?', publishedAt: new Date(Date.now() - 60*3600000).toISOString(), source: 'SlabReport', imageUrl: null },
-];
-
-app.get('/api/v1/news', async (c) => {
-  const sport = (c.req.query('sport') || '').toLowerCase();
-  const category = c.req.query('category') || '';
-  let articles = NEWS_ARTICLES;
-  if (sport) articles = articles.filter(a => a.sport === sport || a.sport === 'all');
-  if (category) articles = articles.filter(a => a.category === category);
-  return c.json({ articles, total: articles.length });
 });
 
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────
