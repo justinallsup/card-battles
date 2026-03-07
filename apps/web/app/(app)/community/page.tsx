@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Globe, Users, Swords, Zap, Star, MessageSquare, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { showToast } from '../../../components/ui/Toast';
+import { MilestonesFeed } from '../milestones/page';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
 
@@ -228,6 +229,22 @@ export default function CommunityPage() {
               </div>
             ))
           )}
+        </div>
+      </div>
+
+      {/* Milestones */}
+      <div className="rounded-2xl border border-[#1e1e2e] overflow-hidden" style={{ background: '#12121a' }}>
+        <div className="px-4 py-3 border-b border-[#1e1e2e] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">🏅</span>
+            <h2 className="text-xs font-bold text-[#94a3b8] uppercase tracking-wider">Community Milestones</h2>
+          </div>
+          <Link href="/milestones" className="text-xs text-[#6c47ff] hover:text-[#a78bfa] flex items-center gap-1 transition-colors">
+            View all <ChevronRight size={12} />
+          </Link>
+        </div>
+        <div className="p-4">
+          <MilestonesFeed limit={5} />
         </div>
       </div>
 

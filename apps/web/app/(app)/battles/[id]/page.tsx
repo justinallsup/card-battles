@@ -15,6 +15,7 @@ import { showToast } from '../../../../components/ui/Toast';
 import { PriceHistoryChart } from '../../../../components/ui/PriceHistoryChart';
 import { BattleReplayPanel } from '../../../../components/battles/BattleReplayPanel';
 import { BattleChat } from '../../../../components/battles/BattleChat';
+import { SoldCompsPanel } from '../../../../components/battles/SoldCompsPanel';
 import { ReportModal, ReportButton } from '../../../../components/ui/ReportModal';
 import Link from 'next/link';
 import type { Battle } from '@card-battles/types';
@@ -1114,7 +1115,7 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
   const [watching, setWatching] = useState(false);
   const [watchLoading, setWatchLoading] = useState(false);
   const [myVote, setMyVote] = useState<Record<string, string>>({});
-  const [activeTab, setActiveTab] = useState<'overview' | 'stats' | 'replay'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'stats' | 'replay' | 'comps'>('overview');
   const [chatToken, setChatToken] = useState<string | null>(null);
   const [flippedSide, setFlippedSide] = useState<'left' | 'right' | null>(null);
   const [voteStreak, setVoteStreak] = useState(0);
@@ -1283,6 +1284,16 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
         >
           ▶️ Replay
         </button>
+        <button
+          onClick={() => setActiveTab('comps')}
+          className="flex-1 py-2.5 text-sm font-bold transition-all flex items-center justify-center gap-1.5"
+          style={activeTab === 'comps'
+            ? { background: 'rgba(108,71,255,0.15)', color: '#a78bfa', borderBottom: '2px solid #6c47ff' }
+            : { color: '#64748b' }
+          }
+        >
+          🔨 Comps
+        </button>
       </div>
 
       {/* Stats tab content */}
@@ -1293,6 +1304,11 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
       {/* Replay tab content */}
       {activeTab === 'replay' && (
         <BattleReplayPanel battleId={id} />
+      )}
+
+      {/* Comps tab content */}
+      {activeTab === 'comps' && (
+        <SoldCompsPanel battle={battle} />
       )}
 
       {/* Overview tab content */}

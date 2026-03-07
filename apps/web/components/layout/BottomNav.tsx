@@ -54,6 +54,7 @@ const EXPLORE_CATEGORIES = [
       { href: '/predictions',  label: 'Predictions', icon: '🔮',  desc: 'Forecast battles'     },
       { href: '/multi-battles',label: 'Best of 3',   icon: '⚔️',  desc: '3-round battle series'},
       { href: '/digest',       label: 'Digest',      icon: '📧',  desc: 'Weekly email digest'   },
+      { href: '/milestones',   label: 'Milestones',  icon: '🏅',  desc: 'Community achievements'},
     ],
   },
   {
@@ -73,6 +74,7 @@ const EXPLORE_CATEGORIES = [
       { href: '/portfolio',    label: 'Portfolio',   icon: '💼',  desc: 'Collection value'     },
       { href: '/learn',        label: 'Learn',       icon: '📚',  desc: 'Card grading guide'   },
       { href: '/condition',    label: 'Condition',   icon: '🔍',  desc: 'Check card condition' },
+      { href: '/how-it-works', label: 'How It Works', icon: '⚡', desc: 'Scoring explained'    },
     ],
   },
 ];

@@ -2822,6 +2822,83 @@ app.post('/api/v1/me/digest/subscribe', async (c) => {
   return c.json({ success: true, frequency, message: `Weekly digest enabled! (Demo — emails not sent in demo mode)` });
 });
 
+// ── SOLD COMPS ────────────────────────────────────────────────────────────────
+
+app.get('/api/v1/cards/:id/sold-comps', async (c) => {
+  const { id } = c.req.param();
+  const r = await pg.query('SELECT player_name, year, sport FROM card_assets WHERE id=$1', [id]);
+  const card = (r.rows as {player_name:string;year:number;sport:string}[])[0];
+  if (!card) return c.json({ error: 'Not found' }, 404);
+
+  const VALUATIONS: Record<string,number> = {
+    'Patrick Mahomes': 280, 'Tom Brady': 520, 'LeBron James': 1400, 'Michael Jordan': 15000,
+    'Victor Wembanyama': 180, 'Caitlin Clark': 145, 'Kobe Bryant': 2800, 'Shohei Ohtani': 380,
+    'Mike Trout': 780, 'Stephen Curry': 340,
+  };
+  const base = VALUATIONS[card.player_name] || 45;
+
+  // Generate simulated sold comps (last 10 sales)
+  const grades = [10, 10, 9, 10, 9, 8, 10, 9, 7, 10];
+  const multipliers: Record<number,number> = { 10: 1, 9: 0.4, 8: 0.2, 7: 0.1 };
+  const platforms = ['eBay', 'PWCC', 'Heritage Auctions', 'Goldin', 'eBay', 'StockX', 'eBay', 'Goldin', 'eBay', 'PWCC'];
+
+  const comps = grades.map((grade, i) => {
+    const noise = 0.85 + Math.random() * 0.3;
+    const price = Math.round(base * (multipliers[grade] || 0.1) * noise * (grade === 10 ? 1 : 1));
+    const daysAgo = Math.floor(Math.random() * 90) + 1;
+    return {
+      grade,
+      price,
+      platform: platforms[i],
+      soldAt: new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10),
+      certNumber: String(Math.floor(Math.random() * 90000000) + 10000000),
+      url: '#',
+    };
+  }).sort((a, b) => new Date(b.soldAt).getTime() - new Date(a.soldAt).getTime());
+
+  const psa10s = comps.filter(c => c.grade === 10);
+  const avgPsa10 = psa10s.length > 0 ? Math.round(psa10s.reduce((s,c) => s+c.price, 0) / psa10s.length) : base;
+
+  return c.json({
+    cardId: id, playerName: card.player_name, year: card.year,
+    comps, avgPsa10, highSale: Math.max(...comps.map(c => c.price)),
+    lowSale: Math.min(...comps.map(c => c.price)),
+    totalSales: comps.length,
+    note: 'Simulated comparable sales for demo purposes',
+  });
+});
+
+// ── MILESTONES ────────────────────────────────────────────────────────────────
+
+app.get('/api/v1/milestones', async (c) => {
+  // Generate simulated milestone events
+  const ur = await pg.query('SELECT username FROM users LIMIT 5');
+  const users = (ur.rows as {username:string}[]).map(r => r.username);
+
+  const milestoneTypes = [
+    { type: 'first_battle', template: (u: string) => `🎉 @${u} created their first battle!` },
+    { type: 'streak_7', template: (u: string) => `🔥 @${u} hit a 7-day voting streak!` },
+    { type: 'votes_100', template: (u: string) => `💯 @${u} cast their 100th vote!` },
+    { type: 'rank_up', template: (u: string) => `⬆️ @${u} ranked up to Expert!` },
+    { type: 'battle_popular', template: (u: string) => `🚀 @${u}'s battle hit 1,000 votes!` },
+    { type: 'badge_earned', template: (u: string) => `🏅 @${u} earned the "Hot Streak" badge!` },
+  ];
+
+  const milestones = Array.from({ length: 20 }, (_, i) => {
+    const user = users[i % users.length] || 'collector';
+    const milestone = milestoneTypes[i % milestoneTypes.length];
+    return {
+      id: String(i + 1),
+      text: milestone.template(user),
+      type: milestone.type,
+      username: user,
+      createdAt: new Date(Date.now() - i * 3600000 * (0.5 + Math.random())).toISOString(),
+    };
+  });
+
+  return c.json({ milestones, total: milestones.length });
+});
+
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────
 app.all('*', async (c) => {
   const req = c.req.raw;

@@ -236,6 +236,15 @@ export default function Home() {
               </div>
             ))}
           </div>
+
+          <div className="mt-12 text-center">
+            <Link href="/how-it-works"
+              className="inline-flex items-center gap-2 text-sm text-[#a78bfa] hover:text-white transition-colors border border-[#6c47ff]/30 rounded-xl px-5 py-2.5 hover:border-[#6c47ff]/60"
+              style={{ background: 'rgba(108,71,255,0.06)' }}
+            >
+              ⚡ See the full scoring formula →
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -279,6 +288,7 @@ export default function Home() {
               { label: 'Feed', href: '/feed' },
               { label: 'Leaderboards', href: '/leaderboards' },
               { label: 'Daily Picks', href: '/daily-picks' },
+              { label: 'How It Works', href: '/how-it-works' },
             ].map((link) => (
               <Link key={link.href} href={link.href}
                 className="text-sm text-[#64748b] hover:text-[#6c47ff] transition-colors font-medium">

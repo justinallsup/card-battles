@@ -1,5 +1,57 @@
 # Changelog
 
+## [0.9.0] - 2026-03-07
+
+### Added (Waves 19-29)
+- Rich 3-tab share modal (Share/OG Card/Embed widget)
+- Battle embed widget endpoint for external sites
+- 50 seed battles with 64 card assets (Caitlin Clark, Bo Jackson, Kobe Bryant, Sandy Koufax + more)
+- Community Hub with live event feed
+- Daily picks streak reward milestones
+- Card Grading Guide with PSA scale and glossary
+- Toast notification system
+- Card Marketplace (list, browse, contact seller)
+- Player profile pages
+- Vote All button (3 categories in 1 click)
+- BackButton on 10+ pages
+- 30-day Price History sparkline charts
+- Card Scanner UI with animated recognition
+- Hall of Fame for most-voted cards
+- PWA App download page with waitlist
+- Trade Proposals system
+- Portfolio Tracker with SVG value chart
+- Battle Replay with scrubber and auto-play
+- User Discovery (find/follow collectors)
+- Investment Calculator with ROI projection
+- Battle Bracket Generator
+- Live Battle Chat (SSE-powered)
+- Push notification stub with service worker
+- Card News Feed (10 curated articles)
+- Card Flip animation on vote + vote streak counter
+- Collection sharing (public /collectors/[username] pages)
+- Battle Drafts (save/load/publish)
+- Improved mobile bottom nav (long-press, swipe, haptic)
+- 5-step onboarding with confetti
+- Card Spotlight (most voted card of the day)
+- Personalized battle recommendations
+- Reporting system (battles/comments/users)
+- Price Alerts API (real CRUD, trigger detection)
+- Achievement Unlock animation overlay
+- Seasonal Events (GOAT Showdown, Rookie Rumble, Vintage Vault)
+- Card Condition Checker (5-step PSA wizard)
+- Battle Templates (6 pre-built matchups)
+- Card Pack Opening experience
+- Multi-Round Battles (Best of 3)
+- Collector Rank Tiers (Rookie → Legend)
+- Card Wishlist
+- Battle Predictions with community split
+- Creator Earnings dashboard
+- Collector Trading Card SVG generator
+- Battle Series (recurring weekly/daily battles)
+- Weekly Digest email preview
+- Production build fixed (57 routes, 87kB shared JS)
+- 76 tests passing (11 test files)
+
 ## [0.8.0] - 2026-03-07
 
 ### Added
