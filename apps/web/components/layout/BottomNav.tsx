@@ -30,6 +30,8 @@ const EXPLORE_TILES = [
   { href: '/watchlist',    label: 'Watchlist',     icon: '🔖', desc: 'Watched battles'    },
   { href: '/history',      label: 'Vote History',  icon: '🗳️', desc: 'Your votes'         },
   { href: '/alerts',       label: 'Price Alerts',  icon: '🔔', desc: 'Card price alerts'  },
+  { href: '/trades',       label: 'Trades',         icon: '🔄', desc: 'Trade proposals'    },
+  { href: '/portfolio',    label: 'Portfolio',      icon: '💼', desc: 'Collection value'   },
   { href: '/search',       label: 'Search',        icon: '🔍', desc: 'Find anything'      },
   { href: '/pro',          label: 'Pro',           icon: '⭐', desc: 'Upgrade account'    },
 ];
@@ -136,7 +138,7 @@ export function BottomNav() {
           {navItems.map(({ href, label, icon: Icon, accent, key, action }) => {
             const active = href ? (pathname === href || pathname.startsWith(href + '/')) : false;
             const isProfileActive = key === 'profile' && user?.username && (pathname === `/profile/${user.username}` || pathname.startsWith('/profile/'));
-            const isExploreActive = key === 'explore' && ['/pull-arena','/tournaments','/fantasy','/market','/compare','/activity','/daily-picks','/collection','/watchlist','/search','/notifications','/pro','/history','/alerts','/grader','/auctions','/sets','/analytics','/community','/learn','/marketplace','/players','/scanner','/hall-of-fame','/get-app'].some(p => pathname.startsWith(p));
+            const isExploreActive = key === 'explore' && ['/pull-arena','/tournaments','/fantasy','/market','/compare','/activity','/daily-picks','/collection','/watchlist','/search','/notifications','/pro','/history','/alerts','/grader','/auctions','/sets','/analytics','/community','/learn','/marketplace','/players','/scanner','/hall-of-fame','/get-app','/trades','/portfolio'].some(p => pathname.startsWith(p));
 
             if (accent) {
               return (

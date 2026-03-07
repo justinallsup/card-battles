@@ -1698,6 +1698,134 @@ app.post('/api/v1/waitlist', async (c) => {
   return c.json({ success: true, message: 'Added to waitlist!', position: Math.floor(Math.random() * 200) + 847 });
 });
 
+// ── TRADE PROPOSALS ──────────────────────────────────────────────────────────
+type TradeProposal = {
+  id: string; fromUserId: string; fromUsername: string; toUserId: string; toUsername: string;
+  offeredCardIds: string[]; requestedCardIds: string[];
+  message: string; status: 'pending' | 'accepted' | 'declined' | 'cancelled';
+  createdAt: string;
+};
+const tradeProposals = new Map<string, TradeProposal>();
+
+app.get('/api/v1/trades', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const myTrades = Array.from(tradeProposals.values()).filter(t => t.fromUserId === userId || t.toUserId === userId);
+  return c.json({ trades: myTrades, total: myTrades.length });
+});
+
+app.post('/api/v1/trades', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const { toUserId, offeredCardIds, requestedCardIds, message } = await c.req.json().catch(() => ({}));
+  if (!toUserId || !offeredCardIds?.length || !requestedCardIds?.length) {
+    return c.json({ error: 'toUserId, offeredCardIds, and requestedCardIds are required' }, 400);
+  }
+  const ur = await pg.query('SELECT username FROM users WHERE id=$1', [userId]);
+  const tor = await pg.query('SELECT username FROM users WHERE id=$1', [toUserId]);
+  const fromUsername = (ur.rows as {username:string}[])[0]?.username || 'user';
+  const toUsername = (tor.rows as {username:string}[])[0]?.username || 'user';
+  const id = randomUUID();
+  const trade: TradeProposal = { id, fromUserId: userId, fromUsername, toUserId, toUsername, offeredCardIds, requestedCardIds, message: message || '', status: 'pending', createdAt: new Date().toISOString() };
+  tradeProposals.set(id, trade);
+  return c.json(trade, 201);
+});
+
+app.patch('/api/v1/trades/:id', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const trade = tradeProposals.get(c.req.param('id'));
+  if (!trade) return c.json({ error: 'Not found' }, 404);
+  if (trade.toUserId !== userId && trade.fromUserId !== userId) return c.json({ error: 'Forbidden' }, 403);
+  const { status } = await c.req.json().catch(() => ({}));
+  if (!['accepted','declined','cancelled'].includes(status)) return c.json({ error: 'Invalid status' }, 400);
+  trade.status = status;
+  return c.json(trade);
+});
+
+// ── PORTFOLIO ─────────────────────────────────────────────────────────────────
+app.get('/api/v1/me/portfolio', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+
+  const saved = collections.get(userId) || new Set<string>();
+  const watchlist = watchlistMap.get(userId) || new Set<string>();
+
+  const VALUATIONS: Record<string,number> = {
+    'Patrick Mahomes': 280, 'Tom Brady': 520, 'LeBron James': 1400, 'Michael Jordan': 15000,
+    'Victor Wembanyama': 180, 'Shohei Ohtani': 380, 'Mike Trout': 780, 'Luka Doncic': 460,
+    'Stephen Curry': 340, 'Josh Allen': 210, 'Lamar Jackson': 195,
+  };
+
+  let totalValue = 0;
+  const cardDetails: unknown[] = [];
+
+  if (saved.size > 0) {
+    const cr = await pg.query('SELECT id,player_name,image_url,title,year,sport FROM card_assets WHERE id=ANY($1)', [Array.from(saved)]);
+    for (const card of cr.rows as {id:string;player_name:string;image_url:string;title:string;year:number;sport:string}[]) {
+      const val = VALUATIONS[card.player_name] || 45;
+      totalValue += val;
+      cardDetails.push({ ...card, estimatedValue: val, change: (Math.random() - 0.45) * 0.15 });
+    }
+  }
+
+  const timeline = Array.from({ length: 30 }, (_, i) => {
+    const daysAgo = 29 - i;
+    const date = new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0,10);
+    const fluctuation = 1 + (Math.random() - 0.48) * 0.05;
+    const runningValue = totalValue > 0 ? Math.round(totalValue * (0.85 + i * 0.005) * fluctuation) : Math.round((Math.random() * 500) + 200);
+    return { date, value: runningValue };
+  });
+
+  return c.json({
+    totalValue,
+    cardCount: saved.size,
+    watchlistCount: watchlist.size,
+    timeline,
+    topCard: cardDetails.sort((a: unknown, b: unknown) => (b as {estimatedValue:number}).estimatedValue - (a as {estimatedValue:number}).estimatedValue)[0] || null,
+    cards: cardDetails,
+    change30d: timeline.length > 1 ? Math.round((timeline[timeline.length-1].value - timeline[0].value) / timeline[0].value * 1000) / 10 : 0,
+  });
+});
+
+// ── BATTLE REPLAY ─────────────────────────────────────────────────────────────
+app.get('/api/v1/battles/:id/replay', async (c) => {
+  const { id } = c.req.param();
+  const br = await pg.query(`SELECT b.*, la.player_name as lp, la.image_url as li, ra.player_name as rp, ra.image_url as ri FROM battles b LEFT JOIN card_assets la ON la.id=b.left_asset_id LEFT JOIN card_assets ra ON ra.id=b.right_asset_id WHERE b.id=$1`, [id]);
+  const battle = (br.rows as Record<string,unknown>[])[0];
+  if (!battle) return c.json({ error: 'Not found' }, 404);
+
+  const vr = await pg.query('SELECT choice, category, created_at FROM votes WHERE battle_id=$1 ORDER BY created_at ASC', [id]);
+  const votes = vr.rows as {choice:string;category:string;created_at:string}[];
+
+  const chunkSize = Math.max(1, Math.ceil(votes.length / 10));
+  const snapshots = [];
+  let leftTotal = 0, rightTotal = 0;
+
+  for (let i = 0; i < votes.length; i += chunkSize) {
+    const chunk = votes.slice(i, i + chunkSize);
+    for (const v of chunk) { if (v.choice === 'left') leftTotal++; else rightTotal++; }
+    const total = leftTotal + rightTotal;
+    snapshots.push({
+      index: Math.floor(i / chunkSize),
+      timestamp: chunk[chunk.length-1]?.created_at,
+      leftPct: total > 0 ? Math.round(leftTotal / total * 100) : 50,
+      rightPct: total > 0 ? Math.round(rightTotal / total * 100) : 50,
+      leftVotes: leftTotal, rightVotes: rightTotal,
+      totalVotes: total,
+    });
+  }
+
+  const moments = [
+    { time: '0:00', event: 'Battle started', icon: '⚔️' },
+    ...(votes.length > 10 ? [{ time: '~25%', event: `${battle.lp as string} takes early lead`, icon: '📈' }] : []),
+    ...(snapshots.length > 0 && snapshots[Math.floor(snapshots.length/2)]?.leftPct > 60 ? [{ time: '~50%', event: `${battle.lp as string} dominates midway`, icon: '🔥' }] : []),
+    ...(votes.length > 0 ? [{ time: 'Final', event: `${(leftTotal > rightTotal ? battle.lp : battle.rp) as string} wins!`, icon: '🏆' }] : []),
+  ];
+
+  return c.json({ battle, snapshots, moments, finalLeft: leftTotal, finalRight: rightTotal, totalVotes: votes.length });
+});
+
 // ── VOTE ALL ──────────────────────────────────────────────────────────────────
 app.post('/api/v1/battles/:id/vote-all', async (c) => {
   const userId = uid(c.req.header('Authorization'));

@@ -13,6 +13,7 @@ import { DonutChart } from '../../../../components/ui/DonutChart';
 import { BarChart } from '../../../../components/ui/BarChart';
 import { showToast } from '../../../../components/ui/Toast';
 import { PriceHistoryChart } from '../../../../components/ui/PriceHistoryChart';
+import { BattleReplayPanel } from '../../../../components/battles/BattleReplayPanel';
 import Link from 'next/link';
 import type { Battle } from '@card-battles/types';
 
@@ -875,7 +876,7 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
   const [watching, setWatching] = useState(false);
   const [watchLoading, setWatchLoading] = useState(false);
   const [myVote, setMyVote] = useState<Record<string, string>>({});
-  const [activeTab, setActiveTab] = useState<'overview' | 'stats'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'stats' | 'replay'>('overview');
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load "more battles"
@@ -1013,11 +1014,26 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
         >
           <BarChart2 size={14} /> Full Stats
         </button>
+        <button
+          onClick={() => setActiveTab('replay')}
+          className="flex-1 py-2.5 text-sm font-bold transition-all flex items-center justify-center gap-1.5"
+          style={activeTab === 'replay'
+            ? { background: 'rgba(108,71,255,0.15)', color: '#a78bfa', borderBottom: '2px solid #6c47ff' }
+            : { color: '#64748b' }
+          }
+        >
+          ▶️ Replay
+        </button>
       </div>
 
       {/* Stats tab content */}
       {activeTab === 'stats' && (
         <BattleStatsPanel battleId={id} battle={battle} />
+      )}
+
+      {/* Replay tab content */}
+      {activeTab === 'replay' && (
+        <BattleReplayPanel battleId={id} />
       )}
 
       {/* Overview tab content */}
