@@ -3,6 +3,7 @@ import { use, useState, useEffect, useRef, useCallback, KeyboardEvent } from 're
 import { useBattle } from '../../../../hooks/useBattles';
 import { useComments, usePostComment, useLikeComment } from '../../../../hooks/useComments';
 import { useAuth } from '../../../../hooks/useAuth';
+import { useBattleOfTheDay } from '../../../../hooks/useBattleOfTheDay';
 import { BattleCard } from '../../../../components/battle/BattleCard';
 import { PageSpinner } from '../../../../components/ui/LoadingSpinner';
 import { Flag, Copy, Check, Heart, Send, Share2, Twitter, X, ExternalLink, Download, Bookmark, Eye, FlipHorizontal, Bell, BellOff, Trash2, BarChart2, TrendingUp, ChevronDown, Clock } from 'lucide-react';
@@ -1187,6 +1188,8 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
   const { mutateAsync: postComment, isPending: isPosting } = usePostComment(id);
   const { mutate: likeComment } = useLikeComment(id);
   const { user } = useAuth();
+  const botd = useBattleOfTheDay();
+  const isBotd = botd?.battle?.id === id;
 
   const [reported, setReported] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -1319,6 +1322,32 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
   return (
     <div className="space-y-4">
       <BackButton href="/feed" />
+
+      {/* 🏆 Battle of the Day Banner */}
+      {isBotd && (
+        <div
+          className="flex items-center gap-3 rounded-2xl px-4 py-3"
+          style={{
+            background: 'linear-gradient(135deg, #2d1a00 0%, #1a1200 100%)',
+            border: '2px solid rgba(245,158,11,0.5)',
+            boxShadow: '0 0 20px rgba(245,158,11,0.15)',
+          }}
+        >
+          <span className="text-2xl leading-none">🏆</span>
+          <div>
+            <p
+              className="text-sm font-black"
+              style={{ color: '#f59e0b' }}
+            >
+              Battle of the Day
+            </p>
+            <p className="text-[10px] text-[#92400e]">
+              Today&apos;s featured battle · {botd?.date}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Sponsor banner */}
       {battle.isSponsored && battle.sponsorCta && (
         <a

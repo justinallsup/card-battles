@@ -57,7 +57,7 @@ const QUIZ_QUESTIONS = [
     ],
   },
   {
-    q: 'What is your card's estimated value?',
+    q: "What is your card's estimated value?",
     answers: [
       { label: 'Under $100', value: 'low' },
       { label: '$100–$500', value: 'mid' },

@@ -9,6 +9,7 @@ import { trending as trendingApi, getToken } from '../../../lib/api';
 import { formatNumber } from '../../../lib/utils';
 import { RefreshCw, X, TrendingUp, Star } from 'lucide-react';
 import type { Battle } from '@card-battles/types';
+import { useBattleOfTheDay } from '../../../hooks/useBattleOfTheDay';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
@@ -113,6 +114,54 @@ function ActivitySidebar() {
 }
 
 // Active Event Banner — shows when a live event exists
+function BattleOfTheDayBanner() {
+  const botd = useBattleOfTheDay();
+  if (!botd?.battle) return null;
+
+  return (
+    <Link
+      href={`/battles/${botd.battle.id}`}
+      className="block"
+    >
+      <div
+        className="relative rounded-2xl overflow-hidden px-4 py-4 flex items-center gap-4"
+        style={{
+          background: 'linear-gradient(135deg, #2d1a00 0%, #1a1200 50%, #0a0a0f 100%)',
+          border: '2px solid rgba(245,158,11,0.5)',
+          boxShadow: '0 0 20px rgba(245,158,11,0.15), inset 0 0 30px rgba(245,158,11,0.05)',
+        }}
+      >
+        {/* Gold shimmer */}
+        <div
+          className="absolute inset-0 opacity-10 pointer-events-none"
+          style={{
+            background: 'linear-gradient(45deg, transparent 30%, rgba(245,158,11,0.6) 50%, transparent 70%)',
+            backgroundSize: '200% 200%',
+          }}
+        />
+        <div className="text-3xl leading-none flex-shrink-0">🏆</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span
+              className="text-[10px] font-black px-2 py-0.5 rounded-full"
+              style={{ background: 'rgba(245,158,11,0.2)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.4)' }}
+            >
+              BATTLE OF THE DAY
+            </span>
+          </div>
+          <p className="text-sm font-bold text-white truncate">
+            {String((botd.battle as Record<string, unknown>).lp ?? 'Card 1')} vs {String((botd.battle as Record<string, unknown>).rp ?? 'Card 2')}
+          </p>
+          <p className="text-[10px] text-[#f59e0b]/80 mt-0.5">
+            🗳️ {formatNumber(Number((botd.battle as Record<string, unknown>).total_votes_cached ?? 0))} votes · Tap to vote!
+          </p>
+        </div>
+        <span className="text-[#f59e0b] text-lg flex-shrink-0">→</span>
+      </div>
+    </Link>
+  );
+}
+
 function ActiveEventBanner() {
   const [liveEvent, setLiveEvent] = useState<{
     id: string; title: string; participantCount: number; endDate: string; emoji: string; bannerColor: string;
@@ -551,6 +600,7 @@ export default function FeedPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError, refetch } = useFeed();
+  const botd = useBattleOfTheDay();
 
   const { data: trendingData } = useQuery({
     queryKey: ['trending'],
@@ -595,6 +645,9 @@ export default function FeedPage() {
 
       {/* 🎉 Active Event Banner */}
       <ActiveEventBanner />
+
+      {/* 🏆 Battle of the Day */}
+      <BattleOfTheDayBanner />
 
       {/* ⭐ Card Spotlight */}
       <CardSpotlight />
@@ -764,9 +817,24 @@ export default function FeedPage() {
               </div>
             )
           ) : (
-            battles.map((battle) => (
-              <BattleCard key={battle.id} battle={battle} />
-            ))
+            battles.map((battle) => {
+              const isBotd = botd?.battle?.id === battle.id;
+              return (
+                <div key={battle.id} className="relative">
+                  {isBotd && (
+                    <div
+                      className="absolute -top-1.5 left-3 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black"
+                      style={{ background: 'rgba(245,158,11,0.9)', color: '#0a0a0f', boxShadow: '0 0 8px rgba(245,158,11,0.5)' }}
+                    >
+                      🏆 BATTLE OF THE DAY
+                    </div>
+                  )}
+                  <div style={isBotd ? { border: '2px solid rgba(245,158,11,0.5)', borderRadius: '1rem', boxShadow: '0 0 16px rgba(245,158,11,0.1)' } : {}}>
+                    <BattleCard battle={battle} />
+                  </div>
+                </div>
+              );
+            })
           )}
 
           {hasNextPage && (

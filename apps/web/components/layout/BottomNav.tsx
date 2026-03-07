@@ -80,6 +80,7 @@ const EXPLORE_CATEGORIES = [
       { href: '/condition',        label: 'Condition',         icon: '🔍',  desc: 'Check card condition' },
       { href: '/how-it-works',     label: 'How It Works',       icon: '⚡', desc: 'Scoring explained'    },
       { href: '/grading-services', label: 'Grading Compare',    icon: '⚖️',  desc: 'PSA vs BGS vs SGC'   },
+      { href: '/authentication',   label: 'Spot Fakes',         icon: '🔍',  desc: 'Fake card detection'  },
     ],
   },
 ];

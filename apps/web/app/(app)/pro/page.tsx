@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Crown, Check, Sparkles, Zap, BarChart2, BadgeCheck, Lock, Copy, Twitter, Users, Gift, CreditCard, ClipboardCheck } from 'lucide-react';
+import { Crown, Check, Sparkles, Zap, BarChart2, BadgeCheck, Lock, Copy, Twitter, Users, Gift, CreditCard, ClipboardCheck, Trophy } from 'lucide-react';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
@@ -282,6 +282,91 @@ function GiftCardSection() {
   );
 }
 
+// ── Referral Leaderboard Section ──────────────────────────────────────────────
+
+interface LeaderboardEntry {
+  rank: number;
+  username: string;
+  referrals: number;
+  reward: string;
+  earned: string;
+}
+
+function ReferralLeaderboard() {
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${BASE_URL}/referral/leaderboard`)
+      .then(r => r.json())
+      .then((d: { leaderboard: LeaderboardEntry[] }) => { setLeaderboard(d.leaderboard || []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const RANK_BADGES = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+
+  return (
+    <div className="space-y-3 mt-5 pt-5 border-t border-[#1e1e2e]">
+      <div className="flex items-center gap-2">
+        <Trophy size={16} className="text-[#f59e0b]" />
+        <h3 className="text-sm font-black text-white">🏆 Top Referrers This Month</h3>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-4">
+          <div className="w-4 h-4 border-2 border-[#6c47ff] border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {leaderboard.map((entry) => (
+            <div
+              key={entry.rank}
+              className="flex items-center gap-3 rounded-xl border border-[#1e1e2e] px-3 py-2.5"
+              style={{ background: '#0a0a0f' }}
+            >
+              <span className="text-lg leading-none w-7 text-center flex-shrink-0">
+                {RANK_BADGES[entry.rank - 1] ?? `${entry.rank}.`}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-white truncate">@{entry.username}</p>
+                <p className="text-[10px] text-[#64748b]">{entry.referrals} referrals · {entry.reward}</p>
+              </div>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  entry.earned === 'earned'
+                    ? 'bg-green-500/15 text-green-400'
+                    : 'bg-[#374151] text-[#64748b]'
+                }`}
+              >
+                {entry.earned === 'earned' ? '✓ Earned' : 'Pending'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Your position */}
+      <div
+        className="flex items-center gap-3 rounded-xl border p-3"
+        style={{ background: 'rgba(108,71,255,0.06)', borderColor: 'rgba(108,71,255,0.2)' }}
+      >
+        <span className="text-lg leading-none">📍</span>
+        <div className="flex-1">
+          <p className="text-xs font-bold text-[#a78bfa]">Your position: <strong className="text-white">#47</strong></p>
+          <p className="text-[10px] text-[#64748b] mt-0.5">Invite friends to climb the leaderboard!</p>
+        </div>
+        <a
+          href="/pro"
+          className="text-[10px] font-bold px-3 py-1.5 rounded-xl transition-all"
+          style={{ background: 'rgba(108,71,255,0.15)', color: '#6c47ff', border: '1px solid rgba(108,71,255,0.3)' }}
+        >
+          Share ↗
+        </a>
+      </div>
+    </div>
+  );
+}
+
 // ── Referral Section ──────────────────────────────────────────────────────────
 function ReferralSection() {
   const [referral, setReferral] = useState<ReferralData | null>(null);
@@ -462,6 +547,9 @@ function ReferralSection() {
           <p className="text-xs text-[#ef4444]">❌ {redeemStatus.error}</p>
         )}
       </div>
+
+      {/* Referral Leaderboard */}
+      <ReferralLeaderboard />
     </div>
   );
 }

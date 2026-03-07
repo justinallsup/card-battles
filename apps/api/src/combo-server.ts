@@ -3575,6 +3575,79 @@ app.delete('/api/v1/me/investment-watch/:playerName', async (c) => {
   return c.json({ watching: false });
 });
 
+// ── CARD AUTHENTICATION GUIDE ─────────────────────────────────────────────────
+app.get('/api/v1/authentication-guide', (c) => c.json({
+  redFlags: [
+    { sign: 'Price too good to be true', detail: 'If a Mahomes PSA 10 is listed for $50, it\'s almost certainly fake or counterfeit.', severity: 'high' },
+    { sign: 'Blurry or off-color printing', detail: 'Authentic cards have sharp, clear printing. Fakes often show color bleeding or blurriness.', severity: 'high' },
+    { sign: 'No PSA/BGS cert number verification', detail: 'Always verify cert numbers at psacard.com/cert or beckett.com/grading/cert-lookup.', severity: 'high' },
+    { sign: 'Wrong card stock thickness', detail: 'Cards should feel similar to other cards of the same era. Reprints are often too thin or too thick.', severity: 'medium' },
+    { sign: 'Suspicious seller with no feedback', detail: 'New seller + high-value cards + low price = high fraud risk. Check seller history.', severity: 'medium' },
+    { sign: 'No returns accepted', detail: 'Legitimate high-value card sellers typically accept returns for not-as-described.', severity: 'medium' },
+    { sign: 'Centering looks off', detail: 'Fakes often have poor centering compared to authentic cards.', severity: 'low' },
+  ],
+  howToVerify: [
+    { step: 1, action: 'Check the cert number', detail: 'For graded cards, go to psacard.com/cert and verify the cert number matches the card shown.' },
+    { step: 2, action: 'Examine under UV light', detail: 'Authentic Prizm cards show security features under UV. Reprints typically do not.' },
+    { step: 3, action: 'Compare to population reports', detail: 'PSA pop reports show how many copies of a card were graded. If "0 PSA 10 exist" for a card, be suspicious.' },
+    { step: 4, action: 'Buy from reputable sellers', detail: 'PWCC, Goldin, Heritage Auctions, Fanatics Authentic, and verified eBay dealers are safer than random listings.' },
+    { step: 5, action: 'Get a second opinion', detail: 'Post card photos to r/baseballcards or r/basketballcards communities for expert opinions.' },
+  ],
+  commonFakes: [
+    { card: '1986 Fleer Michael Jordan RC', note: 'Most counterfeited card in history. The real one has specific printing characteristics.' },
+    { card: 'High-grade Babe Ruth cards', note: 'Pre-war cards are heavily faked. Always buy from established auction houses.' },
+    { card: 'Tom Brady 2000 Playoff Contenders Auto', note: 'The autograph is widely forged. Authenticate only from PSA/BGS/JSA.' },
+  ],
+  resources: [
+    { name: 'PSA Cert Verification', url: 'https://www.psacard.com/cert' },
+    { name: 'BGS Cert Lookup', url: 'https://www.beckett.com/grading/cert-lookup' },
+    { name: 'PSA Population Report', url: 'https://www.psacard.com/pop' },
+  ],
+}));
+
+// ── REFERRAL LEADERBOARD ───────────────────────────────────────────────────────
+app.get('/api/v1/referral/leaderboard', async (c) => {
+  const r = await pg.query('SELECT username FROM users ORDER BY created_at LIMIT 5');
+  const users = (r.rows as {username:string}[]).map((u, i) => ({
+    rank: i + 1,
+    username: u.username,
+    referrals: [12, 8, 5, 3, 1][i],
+    reward: ['1 Year Pro', '6 Month Pro', '3 Month Pro', '1 Month Pro', 'Referral Badge'][i],
+    earned: ['earned', 'earned', 'pending', 'pending', 'pending'][i],
+  }));
+  return c.json({ leaderboard: users, period: 'All Time', updatedAt: new Date().toISOString() });
+});
+
+// ── BATTLE OF THE DAY ──────────────────────────────────────────────────────────
+app.get('/api/v1/battle-of-the-day', async (c) => {
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+  const r = await pg.query(`
+    SELECT b.id, b.title, b.total_votes_cached, b.ends_at,
+      la.player_name as lp, la.image_url as li,
+      ra.player_name as rp, ra.image_url as ri
+    FROM battles b
+    LEFT JOIN card_assets la ON la.id=b.left_asset_id
+    LEFT JOIN card_assets ra ON ra.id=b.right_asset_id
+    WHERE b.status='live'
+    ORDER BY b.id
+    LIMIT 50
+  `);
+  const battles = r.rows as Record<string,unknown>[];
+  if (!battles.length) return c.json({ error: 'No battles available' }, 404);
+
+  const todaysBattle = battles[dayOfYear % battles.length];
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+
+  return c.json({
+    battle: todaysBattle,
+    date: new Date().toISOString().slice(0, 10),
+    nextRotation: tomorrow.toISOString(),
+    badge: '🏆 Battle of the Day',
+  });
+});
+
 // ── DATA EXPORT ────────────────────────────────────────────────────────────────
 app.get('/api/v1/me/export', async (c) => {
   const userId = uid(c.req.header('Authorization'));

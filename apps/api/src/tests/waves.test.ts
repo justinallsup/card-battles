@@ -84,3 +84,90 @@ describe('Wave 31-32 Features', () => {
     expect(d.cards.length).toBeGreaterThan(0);
   });
 });
+
+describe('Wave 33-38 Features', () => {
+  let token: string;
+
+  beforeAll(async () => {
+    await new Promise((r) => setTimeout(r, 200));
+
+    const res = await app.request('/api/v1/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'cardking@demo.com', password: 'password123' }),
+    });
+    const d = await res.json() as { accessToken: string };
+    token = d.accessToken;
+  }, 15000);
+
+  it('GET /api/v1/authentication-guide returns guide data', async () => {
+    const res = await app.request('/api/v1/authentication-guide');
+    expect(res.status).toBe(200);
+    const d = await res.json() as { redFlags: unknown[]; howToVerify: unknown[] };
+    expect(d.redFlags.length).toBeGreaterThan(0);
+    expect(d.howToVerify.length).toBeGreaterThan(0);
+  });
+
+  it('GET /api/v1/storage-guide returns tips', async () => {
+    const res = await app.request('/api/v1/storage-guide');
+    expect(res.status).toBe(200);
+    const d = await res.json() as { tips: unknown[] };
+    expect(d.tips.length).toBeGreaterThan(0);
+  });
+
+  it('GET /api/v1/grading-services returns 3 services', async () => {
+    const res = await app.request('/api/v1/grading-services');
+    expect(res.status).toBe(200);
+    const d = await res.json() as { services: unknown[] };
+    expect(d.services.length).toBe(3);
+  });
+
+  it('GET /api/v1/battle-of-the-day returns a battle', async () => {
+    const res = await app.request('/api/v1/battle-of-the-day');
+    expect(res.status).toBe(200);
+    const d = await res.json() as { battle: unknown; date: string };
+    expect(d.battle).toBeTruthy();
+    expect(typeof d.date).toBe('string');
+  });
+
+  it('GET /api/v1/me/investment-watch requires auth', async () => {
+    const res = await app.request('/api/v1/me/investment-watch');
+    expect(res.status).toBe(401);
+  });
+
+  it('GET /api/v1/me/export requires auth', async () => {
+    const res = await app.request('/api/v1/me/export');
+    expect(res.status).toBe(401);
+  });
+
+  it('GET /api/v1/me/export returns data for authed user', async () => {
+    const res = await app.request('/api/v1/me/export', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(200);
+    const d = await res.json() as { exportedAt: string; votes: unknown[] };
+    expect(typeof d.exportedAt).toBe('string');
+    expect(Array.isArray(d.votes)).toBe(true);
+  });
+
+  it('GET /api/v1/analytics/overview returns stats', async () => {
+    const res = await app.request('/api/v1/analytics/overview');
+    expect(res.status).toBe(200);
+    const d = await res.json() as { totalBattles: number; totalVotes: number };
+    expect(typeof d.totalBattles).toBe('number');
+    expect(typeof d.totalVotes).toBe('number');
+  });
+
+  it('GET /api/v1/featured returns featured content', async () => {
+    const res = await app.request('/api/v1/featured');
+    expect(res.status).toBe(200);
+    const d = await res.json() as { weekOf: string };
+    expect(typeof d.weekOf).toBe('string');
+  });
+
+  it('GET /api/v1/trending/players returns players', async () => {
+    const res = await app.request('/api/v1/trending/players');
+    expect(res.status).toBe(200);
+    const d = await res.json() as { players: unknown[] };
+    expect(Array.isArray(d.players)).toBe(true);
+  });
+});
