@@ -1736,13 +1736,16 @@ app.get('/api/v1/community/stats', async (c) => {
   const ur = await pg.query('SELECT COUNT(*) as n FROM users');
   const br = await pg.query('SELECT COUNT(*) as n FROM battles');
   const vr = await pg.query('SELECT COUNT(*) as n FROM votes');
+  const lr = await pg.query("SELECT COUNT(*) as n FROM battles WHERE status='live'");
   const uCount = parseInt((ur.rows as {n:string}[])[0].n);
   const bCount = parseInt((br.rows as {n:string}[])[0].n);
   const vCount = parseInt((vr.rows as {n:string}[])[0].n);
+  const lCount = parseInt((lr.rows as {n:string}[])[0].n);
   return c.json({
     totalMembers: uCount + 4847,
     totalBattles: bCount + 1293,
     totalVotes: vCount + 9847,
+    liveBattles: lCount,
     onlineNow: Math.floor(Math.random() * 80) + 20,
     newTodayMembers: Math.floor(Math.random() * 30) + 5,
   });
@@ -2993,6 +2996,138 @@ const AVAILABLE_CATEGORIES = [
 ];
 
 app.get('/api/v1/categories', (c) => c.json({ categories: AVAILABLE_CATEGORIES }));
+
+// ── TASK 1: Card Vintage / Age Calculator ────────────────────────────────────
+app.get('/api/v1/cards/:id/vintage', async (c) => {
+  const { id } = c.req.param();
+  const r = await pg.query('SELECT player_name, year, sport FROM card_assets WHERE id=$1', [id]);
+  const card = (r.rows as {player_name:string;year:number;sport:string}[])[0];
+  if (!card) return c.json({ error: 'Not found' }, 404);
+
+  const currentYear = new Date().getFullYear();
+  const age = currentYear - card.year;
+
+  const eras = [
+    { name: 'Pre-War', range: 'Pre-1945', minAge: 80, premium: 5.0, description: 'Extremely rare, museum quality' },
+    { name: 'Vintage', range: '1945-1979', minAge: 46, premium: 3.5, description: 'Classic era, strong collector demand' },
+    { name: 'Junk Wax', range: '1980-1993', minAge: 32, premium: 0.3, description: 'Overproduced era, lower values' },
+    { name: 'Modern', range: '1994-2009', minAge: 16, premium: 1.5, description: 'Rookie card era begins' },
+    { name: 'Current', range: '2010-present', minAge: 0, premium: 1.0, description: 'High demand, easy to authenticate' },
+  ];
+
+  const era = [...eras].sort((a, b) => b.minAge - a.minAge).find(e => age >= e.minAge) || eras[eras.length - 1];
+
+  const VALUATIONS: Record<string,number> = { 'Patrick Mahomes': 280, 'Michael Jordan': 15000, 'LeBron James': 1400, 'Tom Brady': 520 };
+  const base = VALUATIONS[card.player_name] || 45;
+
+  return c.json({
+    cardId: id, playerName: card.player_name, year: card.year, age,
+    era: era.name, eraRange: era.range, eraDescription: era.description,
+    agePremium: era.premium, estimatedValueWithAge: Math.round(base * era.premium),
+    milestones: [
+      { age: 25, label: 'Silver Anniversary', reached: age >= 25 },
+      { age: 50, label: 'Golden Anniversary', reached: age >= 50 },
+      { age: 75, label: 'Diamond Anniversary', reached: age >= 75 },
+      { age: 100, label: 'Centenarian', reached: age >= 100 },
+    ],
+    nextMilestone: [25, 50, 75, 100].find(m => age < m),
+    yearsToNextMilestone: [25, 50, 75, 100].find(m => age < m) ? ([25, 50, 75, 100].find(m => age < m) as number) - age : null,
+  });
+});
+
+// ── TASK 2: Battle Voting Insights ───────────────────────────────────────────
+app.get('/api/v1/battles/:id/my-insights', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ insights: null });
+  const { id: battleId } = c.req.param();
+
+  // Get user's votes on this battle
+  const vr = await pg.query('SELECT category, choice FROM votes WHERE battle_id=$1 AND user_id=$2', [battleId, userId]);
+  const myVotes = vr.rows as {category:string;choice:string}[];
+
+  // Get total votes to calculate alignment
+  const tr = await pg.query('SELECT choice, COUNT(*) as n FROM votes WHERE battle_id=$1 GROUP BY choice', [battleId]);
+  const totals = tr.rows as {choice:string;n:string}[];
+  const leftTotal = parseInt(totals.find(t => t.choice === 'left')?.n || '0');
+  const rightTotal = parseInt(totals.find(t => t.choice === 'right')?.n || '0');
+
+  // Alignment: how many of user's votes matched majority
+  let aligned = 0;
+  for (const vote of myVotes) {
+    const majority = leftTotal > rightTotal ? 'left' : 'right';
+    if (vote.choice === majority) aligned++;
+  }
+  const alignmentPct = myVotes.length > 0 ? Math.round(aligned / myVotes.length * 100) : 0;
+
+  // Votes today
+  const todayR = await pg.query("SELECT COUNT(*) as n FROM votes WHERE user_id=$1 AND created_at > NOW() - INTERVAL '24 hours'", [userId]);
+  const votesToday = parseInt((todayR.rows as {n:string}[])[0]?.n || '0');
+
+  return c.json({
+    myVotes,
+    alignmentPct,
+    votesToday,
+    hasVoted: myVotes.length > 0,
+  });
+});
+
+// ── TASK 3: Friend Challenges ────────────────────────────────────────────────
+type Challenge = {
+  id: string; fromUserId: string; fromUsername: string;
+  toUserId: string; toUsername: string; battleId: string;
+  battleTitle: string; message: string; status: 'pending' | 'accepted' | 'declined'; createdAt: string
+};
+const challenges = new Map<string, Challenge>();
+
+app.post('/api/v1/challenges', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const { toUsername, battleId, message } = await c.req.json().catch(() => ({}));
+  if (!toUsername || !battleId) return c.json({ error: 'toUsername and battleId required' }, 400);
+
+  const ur = await pg.query('SELECT username FROM users WHERE id=$1', [userId]);
+  const tor = await pg.query('SELECT id, username FROM users WHERE username=$1', [toUsername]);
+  const br = await pg.query('SELECT title FROM battles WHERE id=$1', [battleId]);
+
+  const fromUsername = (ur.rows as {username:string}[])[0]?.username;
+  const toUser = (tor.rows as {id:string;username:string}[])[0];
+  const battle = (br.rows as {title:string}[])[0];
+
+  if (!toUser) return c.json({ error: 'User not found' }, 404);
+  if (!battle) return c.json({ error: 'Battle not found' }, 404);
+
+  const id = randomUUID();
+  const challenge: Challenge = {
+    id, fromUserId: userId, fromUsername: fromUsername || 'user',
+    toUserId: toUser.id, toUsername: toUser.username, battleId,
+    battleTitle: battle.title, message: (message || '').slice(0, 200),
+    status: 'pending', createdAt: new Date().toISOString()
+  };
+  challenges.set(id, challenge);
+  return c.json(challenge, 201);
+});
+
+app.get('/api/v1/me/challenges', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const mine = Array.from(challenges.values()).filter(ch => ch.fromUserId === userId || ch.toUserId === userId);
+  return c.json({
+    challenges: mine,
+    incoming: mine.filter(ch => ch.toUserId === userId && ch.status === 'pending'),
+    outgoing: mine.filter(ch => ch.fromUserId === userId)
+  });
+});
+
+app.patch('/api/v1/challenges/:id', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const challenge = challenges.get(c.req.param('id'));
+  if (!challenge || challenge.toUserId !== userId) return c.json({ error: 'Not found' }, 403);
+  const { status } = await c.req.json().catch(() => ({}));
+  if (!['accepted','declined'].includes(status)) return c.json({ error: 'Invalid status' }, 400);
+  challenge.status = status;
+  return c.json(challenge);
+});
 
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────
 app.all('*', async (c) => {

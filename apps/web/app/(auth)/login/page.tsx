@@ -174,6 +174,13 @@ export default function LoginPage() {
       <div className="bg-[#12121a] rounded-xl border border-[#1e1e2e] p-3 text-xs text-[#64748b] text-center">
         Demo: <span className="text-[#94a3b8]">cardking@demo.com</span> / <span className="text-[#94a3b8]">password123</span>
       </div>
+
+      {/* Social proof strip */}
+      <div className="text-center text-[11px] text-[#374151] py-2">
+        Join <span className="text-[#64748b] font-semibold">5,200+</span> collectors ·{' '}
+        <span className="text-[#64748b] font-semibold">50,847</span> votes cast ·{' '}
+        Built this weekend 🚀
+      </div>
     </div>
   );
 }

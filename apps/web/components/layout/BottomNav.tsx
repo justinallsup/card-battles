@@ -49,6 +49,7 @@ const EXPLORE_CATEGORIES = [
       { href: '/leaderboards', label: 'Leaderboard', icon: '🥇',  desc: 'Top voters'           },
       { href: '/community',    label: 'Community',   icon: '🌐',  desc: 'Social hub'           },
       { href: '/discover',     label: 'Discover',    icon: '🔍',  desc: 'Find collectors'      },
+      { href: '/challenges',   label: 'Challenges',  icon: '⚔️',  desc: 'Friend challenges'    },
       { href: '/hall-of-fame', label: 'Hall of Fame', icon: '🏛️', desc: 'Greatest cards ever'  },
       { href: '/rank',         label: 'Rank',        icon: '🏆',  desc: 'Your collector rank'  },
       { href: '/predictions',  label: 'Predictions', icon: '🔮',  desc: 'Forecast battles'     },

@@ -17,6 +17,9 @@ import { BattleReplayPanel } from '../../../../components/battles/BattleReplayPa
 import { BattleChat } from '../../../../components/battles/BattleChat';
 import { SoldCompsPanel } from '../../../../components/battles/SoldCompsPanel';
 import { ReportModal, ReportButton } from '../../../../components/ui/ReportModal';
+import { VintageInfoSection } from '../../../../components/battles/VintageInfo';
+import { VotingInsights } from '../../../../components/battles/VotingInsights';
+import { ChallengeFriendButton } from '../../../../components/battles/ChallengeFriendButton';
 import Link from 'next/link';
 import type { Battle } from '@card-battles/types';
 
@@ -1429,6 +1432,21 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
       {/* Category Insights */}
       <CategoryInsights battleId={id} battle={battle} />
 
+      {/* Vintage Info */}
+      <VintageInfoSection
+        leftCardId={battle.left.assetId}
+        rightCardId={battle.right.assetId}
+        leftLabel={battle.left.playerName ?? battle.left.title}
+        rightLabel={battle.right.playerName ?? battle.right.title}
+      />
+
+      {/* Voting Insights (shown after voting) */}
+      <VotingInsights
+        battleId={id}
+        leftName={battle.left.playerName ?? 'Left'}
+        rightName={battle.right.playerName ?? 'Right'}
+      />
+
       {/* Battle Predictions */}
       {battle.status === 'live' && <PredictionSection battleId={id} />}
 
@@ -1455,6 +1473,8 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
           <Share2 size={14} />
           Share
         </button>
+
+        <ChallengeFriendButton battleId={id} battleTitle={battle.title} />
 
         {user && (
           <button
