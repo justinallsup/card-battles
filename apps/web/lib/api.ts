@@ -133,6 +133,9 @@ export const users = {
   battles: (username: string) => request<{ items: unknown[]; total: number }>(`/users/${username}/battles`),
   updateMe: (data: { bio?: string }) =>
     request<User>('/auth/me', { method: 'PATCH', body: JSON.stringify(data), auth: true }),
+  updateProfile: (data: { bio?: string; favoritePlayer?: string; favoriteSet?: string; location?: string; twitter?: string; instagram?: string }) =>
+    request<User>('/auth/me/profile', { method: 'PATCH', body: JSON.stringify(data), auth: true }),
+  publicProfile: (username: string) => request<Record<string, unknown>>(`/users/${username}/profile`),
   followStatus: (username: string) =>
     request<{ isFollowing: boolean; followerCount: number; followingCount: number }>(`/users/${username}/follow-status`, { auth: true }),
   follow: (username: string) =>

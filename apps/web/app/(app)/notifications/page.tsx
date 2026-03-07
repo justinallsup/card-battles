@@ -1,8 +1,10 @@
 'use client';
 import { useEffect, useState, useMemo } from 'react';
-import { X, Bell, CheckCheck, Settings, Filter } from 'lucide-react';
+import { X, Bell, CheckCheck, Settings, Filter, Clock } from 'lucide-react';
 import { useNotificationStore, type AppNotification } from '../../../lib/notificationStore';
 import Link from 'next/link';
+import { getToken } from '../../../lib/api';
+import { useAuth } from '../../../hooks/useAuth';
 
 type Category = 'all' | 'battles' | 'social' | 'system';
 
@@ -139,13 +141,25 @@ function NotificationItem({ n, onDismiss, category }: {
 
 export default function NotificationsPage() {
   const { notifications, unreadCount, dismiss, markAllRead } = useNotificationStore();
+  const { user } = useAuth();
   const [activeCategory, setActiveCategory] = useState<Category>('all');
   const [contextual, setContextual] = useState<AppNotification[]>([]);
+  const [reminders, setReminders] = useState<{battleId:string;battleTitle:string;endsAt:string;notifyBefore:number;createdAt:string}[]>([]);
 
   // Load contextual notifications on mount
   useEffect(() => {
     setContextual(buildContextualNotifications());
   }, []);
+
+  // Load battle reminders
+  useEffect(() => {
+    if (!user) return;
+    const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
+    fetch(`${BASE}/me/reminders`, { headers: { Authorization: `Bearer ${getToken()}` } })
+      .then(r => r.json())
+      .then((d: { reminders: typeof reminders }) => setReminders(d.reminders || []))
+      .catch(() => {});
+  }, [user]);
 
   // Mark all as read when page is visited
   useEffect(() => {
@@ -239,6 +253,39 @@ export default function NotificationsPage() {
           Preferences →
         </Link>
       </div>
+
+      {/* Battle Reminders Section */}
+      {reminders.length > 0 && (
+        <div>
+          <h2 className="text-xs font-semibold text-[#64748b] uppercase tracking-widest mb-3 flex items-center gap-2">
+            <Clock size={12} /> Battle Reminders
+          </h2>
+          <div className="space-y-2">
+            {reminders.map((r, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[#1e1e2e]"
+                style={{ background: '#12121a' }}
+              >
+                <Bell size={14} className="text-[#f59e0b] flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white font-semibold truncate">{r.battleTitle}</p>
+                  <p className="text-[10px] text-[#64748b]">
+                    Notify {r.notifyBefore < 60 ? `${r.notifyBefore}min` : `${r.notifyBefore / 60}h`} before end
+                    {r.endsAt && ` · Ends ${new Date(r.endsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                  </p>
+                </div>
+                <Link
+                  href={`/battles/${r.battleId}`}
+                  className="text-[10px] font-bold text-[#6c47ff] hover:underline flex-shrink-0"
+                >
+                  View →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Notifications list */}
       {filtered.length === 0 ? (

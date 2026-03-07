@@ -1,11 +1,11 @@
 'use client';
 import { use, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { users as usersApi, getToken } from '../../../../lib/api';
+import { users as usersApi, users, getToken } from '../../../../lib/api';
 import { LoadingSpinner } from '../../../../components/ui/LoadingSpinner';
 import { Badge } from '../../../../components/ui/Badge';
 import { BackButton } from '../../../../components/ui/BackButton';
-import { Trophy, Sword, Target, Flame, Star, Zap, Edit2, X, Check, Swords, Settings, UserPlus, UserMinus, Share2, BookMarked, Eye, History } from 'lucide-react';
+import { Trophy, Sword, Target, Flame, Star, Zap, Edit2, X, Check, Swords, Settings, UserPlus, UserMinus, Share2, BookMarked, Eye, History, MapPin, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import type { UserStats } from '@card-battles/types';
 import { useAuth } from '../../../../hooks/useAuth';
@@ -210,28 +210,36 @@ function UserBattleCard({ battle }: { battle: BattleRow }) {
   );
 }
 
-// ── Edit bio modal ─────────────────────────────────────────────────────────────
-function EditBioModal({ currentBio, onClose }: { currentBio: string; onClose: () => void }) {
-  const [bio, setBio] = useState(currentBio);
+// ── Edit profile modal (enhanced) ─────────────────────────────────────────────
+function EditProfileModal({ user: profileUser, onClose }: { user: { bio?: string; display_name?: string; location?: string }; onClose: () => void }) {
+  const [bio, setBio] = useState(profileUser.bio ?? '');
+  const [favoritePlayer, setFavoritePlayer] = useState(profileUser.display_name ?? '');
+  const [location, setLocation] = useState(profileUser.location ?? '');
+  const [favoriteSet, setFavoriteSet] = useState('');
+  const [twitter, setTwitter] = useState('');
+  const [instagram, setInstagram] = useState('');
   const qc = useQueryClient();
 
   const { mutate, isPending } = useMutation({
-    mutationFn: () => usersApi.updateMe({ bio }),
+    mutationFn: () => users.updateProfile({ bio, favoritePlayer, location, favoriteSet, twitter, instagram }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['auth-me'] });
+      qc.invalidateQueries({ queryKey: ['user', profileUser as unknown as string] });
       onClose();
     },
   });
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-end justify-center p-4" onClick={onClose}>
-      <div className="bg-[#12121a] border border-[#1e1e2e] rounded-2xl w-full max-w-md p-5 space-y-4" onClick={e => e.stopPropagation()}>
+      <div className="bg-[#12121a] border border-[#1e1e2e] rounded-2xl w-full max-w-md p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="font-black text-white">Edit Profile</h3>
           <button onClick={onClose} className="text-[#64748b] hover:text-white transition-colors"><X size={18}/></button>
         </div>
+
+        {/* Bio */}
         <div>
-          <label className="text-xs text-[#64748b] mb-1.5 block">Bio</label>
+          <label className="text-xs text-[#64748b] mb-1.5 block font-semibold">Bio</label>
           <textarea
             value={bio}
             onChange={e => setBio(e.target.value)}
@@ -242,7 +250,63 @@ function EditBioModal({ currentBio, onClose }: { currentBio: string; onClose: ()
           />
           <p className="text-[10px] text-[#374151] mt-1 text-right">{bio.length}/200</p>
         </div>
-        <div className="flex gap-2">
+
+        {/* Favorite Player */}
+        <div>
+          <label className="text-xs text-[#64748b] mb-1.5 block font-semibold">⭐ Favorite Player</label>
+          <input
+            value={favoritePlayer}
+            onChange={e => setFavoritePlayer(e.target.value.slice(0, 100))}
+            placeholder="e.g. Patrick Mahomes"
+            className="w-full bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff]"
+          />
+        </div>
+
+        {/* Location */}
+        <div>
+          <label className="text-xs text-[#64748b] mb-1.5 block font-semibold">📍 Location</label>
+          <input
+            value={location}
+            onChange={e => setLocation(e.target.value.slice(0, 100))}
+            placeholder="e.g. Chicago, IL"
+            className="w-full bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff]"
+          />
+        </div>
+
+        {/* Favorite Set */}
+        <div>
+          <label className="text-xs text-[#64748b] mb-1.5 block font-semibold">🃏 Favorite Card Set</label>
+          <input
+            value={favoriteSet}
+            onChange={e => setFavoriteSet(e.target.value.slice(0, 100))}
+            placeholder="e.g. Panini Prizm"
+            className="w-full bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff]"
+          />
+        </div>
+
+        {/* Social */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-[#64748b] mb-1.5 block font-semibold">🐦 Twitter</label>
+            <input
+              value={twitter}
+              onChange={e => setTwitter(e.target.value.slice(0, 50))}
+              placeholder="@handle"
+              className="w-full bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff]"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-[#64748b] mb-1.5 block font-semibold">📸 Instagram</label>
+            <input
+              value={instagram}
+              onChange={e => setInstagram(e.target.value.slice(0, 50))}
+              placeholder="@handle"
+              className="w-full bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff]"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2 pt-2">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#1e1e2e] text-[#64748b] text-sm font-semibold">Cancel</button>
           <button
             onClick={() => mutate()}
@@ -329,17 +393,36 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
               )}
               {(user as { isAdmin?: boolean }).isAdmin && <Badge variant="danger">Admin</Badge>}
             </div>
-            <p className="text-xs text-[#374151] mt-1">
-              Member since {(() => {
-                const d = new Date((user as { createdAt?: string }).createdAt ?? '');
-                return `Member since ${d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
-              })()}
-            </p>
+            {/* Location */}
+            {(user as { location?: string }).location && (
+              <div className="flex items-center gap-1 mt-1">
+                <MapPin size={11} className="text-[#64748b]" />
+                <p className="text-xs text-[#64748b]">{(user as { location?: string }).location}</p>
+              </div>
+            )}
+            {/* Member since */}
+            <div className="flex items-center gap-1 mt-1">
+              <Calendar size={11} className="text-[#374151]" />
+              <p className="text-xs text-[#374151]">
+                Joined {(() => {
+                  const d = new Date((user as { createdAt?: string }).createdAt ?? '');
+                  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                })()}
+              </p>
+            </div>
             {user.bio ? (
               <p className="text-sm text-[#94a3b8] mt-2 leading-relaxed">{user.bio}</p>
             ) : isOwnProfile ? (
               <p className="text-sm text-[#374151] italic mt-2">No bio yet — tell the world about your cards!</p>
             ) : null}
+            {/* Favorite player */}
+            {(user as { display_name?: string }).display_name && (
+              <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+                style={{ background: 'rgba(108,71,255,0.12)', border: '1px solid rgba(108,71,255,0.25)' }}>
+                <span className="text-[10px]">⭐</span>
+                <span className="text-[11px] font-semibold text-[#a78bfa]">{(user as { display_name?: string }).display_name}</span>
+              </div>
+            )}
           </div>
         </div>
         {isOwnProfile && (
@@ -417,6 +500,28 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
             <StatCard label="Current Streak"  value={`${s.currentStreak} 🔥`} icon={Flame} color="text-[#ef4444]" />
             <StatCard label="Best Streak"     value={s.bestStreak}      icon={Zap}    color="text-[#22c55e]" />
             <StatCard label="Daily Wins"      value={s.dailyPickWins ?? 0} icon={Star} color="text-[#a855f7]" />
+          </div>
+        </div>
+      )}
+
+      {/* Trophy Case — top 3 badges */}
+      {earnedBadges.length > 0 && (
+        <div>
+          <h2 className="text-xs font-semibold text-[#64748b] uppercase tracking-widest mb-3">🏆 Trophy Case</h2>
+          <div className="grid grid-cols-3 gap-2">
+            {earnedBadges.slice(0, 3).map((badge, idx) => (
+              <div
+                key={badge.id}
+                className={`border rounded-xl p-3 flex flex-col items-center gap-1.5 relative overflow-hidden ${badge.color}`}
+                style={{ boxShadow: idx === 0 ? '0 0 16px rgba(245,158,11,0.2)' : '0 0 8px rgba(108,71,255,0.1)' }}
+              >
+                {idx === 0 && (
+                  <div className="absolute top-1 right-1 text-[9px] font-black text-[#f59e0b]">★</div>
+                )}
+                <span className="text-3xl leading-none">{badge.icon}</span>
+                <p className="text-[10px] font-bold text-white text-center leading-tight">{badge.label}</p>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -507,15 +612,17 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         )}
       </div>
 
-      {/* Recent battles */}
+      {/* Battle History */}
       {userBattles.length > 0 && (
         <div>
           <h2 className="text-xs font-semibold text-[#64748b] uppercase tracking-widest mb-3">
-            Recent Battles <span className="text-[#6c47ff]">· {userBattles.length}</span>
+            ⚔️ Battle History <span className="text-[#6c47ff]">· {userBattles.length}</span>
           </h2>
           <div className="space-y-2">
             {userBattles.map(b => (
-              <UserBattleCard key={b.id} battle={b} />
+              <Link key={b.id} href={`/battles/${b.id}`}>
+                <UserBattleCard battle={b} />
+              </Link>
             ))}
           </div>
         </div>
@@ -605,8 +712,8 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
       {/* Edit modal */}
       {showEdit && (
-        <EditBioModal
-          currentBio={user.bio ?? ''}
+        <EditProfileModal
+          user={user as { bio?: string; display_name?: string; location?: string }}
           onClose={() => setShowEdit(false)}
         />
       )}

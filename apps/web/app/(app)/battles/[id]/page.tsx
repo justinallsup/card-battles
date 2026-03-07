@@ -5,7 +5,7 @@ import { useComments, usePostComment, useLikeComment } from '../../../../hooks/u
 import { useAuth } from '../../../../hooks/useAuth';
 import { BattleCard } from '../../../../components/battle/BattleCard';
 import { PageSpinner } from '../../../../components/ui/LoadingSpinner';
-import { Flag, Copy, Check, Heart, Send, Share2, Twitter, X, ExternalLink, Download, Bookmark, Eye, FlipHorizontal, Bell, BellOff, Trash2, BarChart2, TrendingUp, ChevronDown } from 'lucide-react';
+import { Flag, Copy, Check, Heart, Send, Share2, Twitter, X, ExternalLink, Download, Bookmark, Eye, FlipHorizontal, Bell, BellOff, Trash2, BarChart2, TrendingUp, ChevronDown, Clock } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import { BackButton } from '../../../../components/ui/BackButton';
 import { battles as battlesApi, getToken } from '../../../../lib/api';
@@ -35,6 +35,76 @@ function formatTimeAgo(iso: string): string {
   if (h > 0) return `${h}h ago`;
   if (m > 0) return `${m}m ago`;
   return 'just now';
+}
+
+// ── Remind Me Button ──────────────────────────────────────────────────────────
+const REMIND_OPTIONS = [
+  { label: '15 min', value: 15 },
+  { label: '30 min', value: 30 },
+  { label: '1 hour', value: 60 },
+  { label: '2 hours', value: 120 },
+];
+
+function RemindMeButton({ battleId }: { battleId: string }) {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [reminded, setReminded] = useState(false);
+  const [loading, setLoading] = useState<number | null>(null);
+
+  if (!user) return null;
+
+  const handleRemind = async (minutes: number) => {
+    setLoading(minutes);
+    try {
+      await fetch(`${BASE_URL}/battles/${battleId}/remind`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ notifyBefore: minutes }),
+      });
+      setReminded(true);
+      setOpen(false);
+      showToast(`🔔 Reminder set! ${minutes < 60 ? `${minutes} min` : `${minutes / 60}h`} before end`, 'success');
+    } catch {
+      showToast('Failed to set reminder', 'error');
+    }
+    setLoading(null);
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-sm font-semibold transition-all"
+        style={reminded
+          ? { background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b' }
+          : { background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.3)', color: '#818cf8' }
+        }
+        title={reminded ? 'Reminder set' : 'Set a reminder'}
+      >
+        <Bell size={14} fill={reminded ? 'currentColor' : 'none'} />
+        {reminded ? 'Reminded ✓' : '🔔 Remind Me'}
+      </button>
+      {open && (
+        <div
+          className="absolute bottom-full mb-2 left-0 z-20 rounded-xl border border-[#1e1e2e] overflow-hidden w-40"
+          style={{ background: '#12121a', boxShadow: '0 -4px 20px rgba(0,0,0,0.5)' }}
+        >
+          <p className="text-[10px] text-[#64748b] font-bold uppercase tracking-widest px-3 pt-3 pb-1">Notify me before end</p>
+          {REMIND_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => handleRemind(opt.value)}
+              disabled={loading !== null}
+              className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#1e1e2e] transition-colors flex items-center gap-2 disabled:opacity-50"
+            >
+              <Clock size={12} className="text-[#6c47ff]" />
+              {loading === opt.value ? '…' : opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── Share Modal ────────────────────────────────────────────────────────────────
@@ -1491,6 +1561,8 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
             {watching ? 'Watching' : 'Watch'}
           </button>
         )}
+
+        {battle.status === 'live' && <RemindMeButton battleId={id} />}
 
         <a
           href={twitterShareUrl}

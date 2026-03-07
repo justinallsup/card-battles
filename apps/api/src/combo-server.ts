@@ -3129,6 +3129,107 @@ app.patch('/api/v1/challenges/:id', async (c) => {
   return c.json(challenge);
 });
 
+// ── CARD SET CARDS & SET COMPLETION ─────────────────────────────────────────
+app.get('/api/v1/card-sets/:setId/cards', async (c) => {
+  const { setId } = c.req.param();
+  const sportMap: Record<string,string> = {
+    'prizm': 'all', 'topps-chrome': 'mlb', 'bowman-chrome': 'mlb',
+    'fleer': 'nba', 'sp-authentic': 'nfl', 'national-treasures': 'all',
+  };
+  const sport = sportMap[setId];
+  if (!sport) return c.json({ error: 'Set not found' }, 404);
+  const query = sport === 'all'
+    ? 'SELECT id, player_name, year, sport, image_url FROM card_assets LIMIT 12'
+    : 'SELECT id, player_name, year, sport, image_url FROM card_assets WHERE sport=$1 LIMIT 12';
+  const params = sport === 'all' ? [] : [sport];
+  const r = await pg.query(query, params);
+  const cards = (r.rows as Record<string,unknown>[]).map((card, i) => ({
+    ...card, cardNumber: String(i + 1).padStart(3, '0'),
+    parallel: ['Base', 'Silver', 'Gold', 'Red'][Math.floor(Math.random() * 4)],
+    printRun: [null, null, null, 50, 25, 10, 1][Math.floor(Math.random() * 7)],
+  }));
+  return c.json({ setId, cards, total: cards.length });
+});
+
+// Set completion tracker (in-memory)
+const setCompletions = new Map<string, Set<string>>(); // `${userId}-${setId}` -> Set<cardId>
+
+app.get('/api/v1/me/set-completion/:setId', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const key = `${userId}-${c.req.param('setId')}`;
+  const owned = setCompletions.get(key) || new Set<string>();
+  return c.json({ ownedCardIds: Array.from(owned), count: owned.size });
+});
+
+app.post('/api/v1/me/set-completion/:setId/:cardId', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const key = `${userId}-${c.req.param('setId')}`;
+  if (!setCompletions.has(key)) setCompletions.set(key, new Set());
+  setCompletions.get(key)!.add(c.req.param('cardId'));
+  return c.json({ owned: true });
+});
+
+// ── BATTLE REMINDERS ─────────────────────────────────────────────────────────
+const battleReminders = new Map<string, {userId:string;battleId:string;battleTitle:string;endsAt:string;notifyBefore:number;createdAt:string}[]>();
+
+app.post('/api/v1/battles/:id/remind', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const { id: battleId } = c.req.param();
+  const { notifyBefore } = await c.req.json().catch(() => ({ notifyBefore: 60 }));
+  const br = await pg.query('SELECT title, ends_at FROM battles WHERE id=$1', [battleId]);
+  const battle = (br.rows as {title:string;ends_at:string}[])[0];
+  if (!battle) return c.json({ error: 'Battle not found' }, 404);
+  if (!battleReminders.has(userId)) battleReminders.set(userId, []);
+  battleReminders.get(userId)!.push({
+    userId, battleId, battleTitle: battle.title, endsAt: battle.ends_at,
+    notifyBefore: Number(notifyBefore) || 60, createdAt: new Date().toISOString()
+  });
+  return c.json({ success: true, message: `Reminder set! We'll notify you ${notifyBefore} minutes before this battle ends. (Demo — notifications not sent in demo mode)` });
+});
+
+app.get('/api/v1/me/reminders', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const reminders = battleReminders.get(userId) || [];
+  return c.json({ reminders, total: reminders.length });
+});
+
+// ── EXTENDED USER PROFILES ───────────────────────────────────────────────────
+app.patch('/api/v1/auth/me/profile', async (c) => {
+  const userId = uid(c.req.header('Authorization'));
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401);
+  const { bio, favoritePlayer, favoriteSet, location, twitter, instagram } = await c.req.json().catch(() => ({}));
+  const fields: string[] = [];
+  const values: unknown[] = [];
+  let idx = 1;
+  if (bio !== undefined) { fields.push(`bio=$${idx++}`); values.push(bio.slice(0, 200)); }
+  if (favoritePlayer !== undefined) { fields.push(`display_name=$${idx++}`); values.push(favoritePlayer.slice(0, 100)); }
+  if (fields.length > 0) {
+    values.push(userId);
+    await pg.query(`UPDATE users SET ${fields.join(',')} WHERE id=$${idx}`, values);
+  }
+  const r = await pg.query('SELECT id,username,email,bio,display_name,is_admin FROM users WHERE id=$1', [userId]);
+  const userRow = (r.rows as Record<string,unknown>[])[0];
+  return c.json({ ...userRow, location: location || null, favoriteSet: favoriteSet || null, twitter: twitter || null, instagram: instagram || null });
+});
+
+app.get('/api/v1/users/:username/profile', async (c) => {
+  const { username } = c.req.param();
+  const r = await pg.query('SELECT id, username, bio, display_name, created_at, is_admin FROM users WHERE username=$1', [username]);
+  const userRow = (r.rows as Record<string,unknown>[])[0];
+  if (!userRow) return c.json({ error: 'Not found' }, 404);
+  const sr = await pg.query('SELECT * FROM user_stats WHERE user_id=$1', [userRow.id as string]);
+  const stats = (sr.rows as Record<string,number>[])[0] || {};
+  const battlesR = await pg.query(
+    'SELECT b.id, b.title, b.total_votes_cached, b.status FROM battles b WHERE b.created_by_user_id=$1 ORDER BY b.created_at DESC LIMIT 5',
+    [userRow.id as string]
+  );
+  return c.json({ ...userRow, stats, recentBattles: battlesR.rows });
+});
+
 // ── PROXY TO NEXT.JS ──────────────────────────────────────────────────────────
 app.all('*', async (c) => {
   const req = c.req.raw;
