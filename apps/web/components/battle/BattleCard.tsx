@@ -10,6 +10,8 @@ import { useVote } from '../../hooks/useVote';
 import type { Battle, VoteChoice } from '@card-battles/types';
 import { Badge } from '../ui/Badge';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
+
 interface BattleCardProps {
   battle: Battle;
   compact?: boolean;
@@ -17,6 +19,9 @@ interface BattleCardProps {
 
 function CardImage({ imageUrl, title, playerName, onVoted, midValue }: { imageUrl: string; title: string; playerName?: string | null; onVoted?: boolean; midValue?: number | null }) {
   const [loaded, setLoaded] = useState(false);
+  
+  // Convert relative image URLs to absolute
+  const fullImageUrl = imageUrl.startsWith('http') ? imageUrl : `${API_BASE.replace('/api/v1', '')}${imageUrl}`;
 
   return (
     <div className="flex-1 min-w-0">
@@ -29,7 +34,7 @@ function CardImage({ imageUrl, title, playerName, onVoted, midValue }: { imageUr
           <div className="absolute inset-0 shimmer rounded-xl" />
         )}
         <Image
-          src={imageUrl}
+          src={fullImageUrl}
           alt={title}
           fill
           className={`object-cover transition-all duration-500 group-hover:scale-105 ${loaded ? 'opacity-100' : 'opacity-0'}`}
