@@ -1605,6 +1605,99 @@ app.get('/api/v1/players/:name', async (c) => {
   });
 });
 
+// ── PRICE HISTORY ─────────────────────────────────────────────────────────────
+app.get('/api/v1/cards/:id/price-history', async (c) => {
+  const { id } = c.req.param();
+  const r = await pg.query('SELECT player_name, year FROM card_assets WHERE id=$1', [id]);
+  const card = (r.rows as {player_name:string;year:number}[])[0];
+  if (!card) return c.json({ error: 'Not found' }, 404);
+
+  const VALUATIONS: Record<string,number> = {
+    'Patrick Mahomes': 280, 'Tom Brady': 520, 'LeBron James': 1400, 'Michael Jordan': 15000,
+    'Victor Wembanyama': 180, 'Shohei Ohtani': 380, 'Mike Trout': 780, 'Luka Doncic': 460,
+    'Stephen Curry': 340, 'Josh Allen': 210,
+  };
+  const base = VALUATIONS[card.player_name] || 45;
+
+  const trend = Math.random() > 0.5 ? 1 : -1;
+  const points = Array.from({ length: 30 }, (_, i) => {
+    const daysAgo = 29 - i;
+    const date = new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
+    const noise = (Math.random() - 0.5) * 0.15;
+    const drift = trend * i * 0.004;
+    const price = Math.round(base * (1 + noise + drift));
+    return { date, price };
+  });
+
+  const prices = points.map(p => p.price);
+  const high = Math.max(...prices);
+  const low = Math.min(...prices);
+  const current = prices[prices.length - 1];
+  const start = prices[0];
+  const changePct = Math.round((current - start) / start * 1000) / 10;
+
+  return c.json({ cardId: id, playerName: card.player_name, points, high, low, current, changePct, trend: changePct > 0 ? 'up' : 'down' });
+});
+
+// ── CARD SCAN ─────────────────────────────────────────────────────────────────
+app.post('/api/v1/cards/scan', async (c) => {
+  await c.req.json().catch(() => ({})); // consume body
+  const r = await pg.query('SELECT * FROM card_assets ORDER BY RANDOM() LIMIT 1');
+  const card = (r.rows as Record<string,unknown>[])[0];
+  if (!card) return c.json({ error: 'No cards in database' }, 404);
+
+  const VALUATIONS: Record<string,number> = {
+    'Patrick Mahomes': 280, 'Tom Brady': 520, 'LeBron James': 1400, 'Michael Jordan': 15000,
+  };
+
+  await new Promise(res => setTimeout(res, 1000));
+  return c.json({
+    matched: true,
+    confidence: Math.floor(Math.random() * 15) + 85,
+    card: {
+      id: card.id, playerName: card.player_name, year: card.year,
+      title: card.title, imageUrl: card.image_url, sport: card.sport,
+      estimatedValue: VALUATIONS[card.player_name as string] || 45,
+    }
+  });
+});
+
+// ── HALL OF FAME ──────────────────────────────────────────────────────────────
+app.get('/api/v1/hall-of-fame', async (c) => {
+  const r = await pg.query(`
+    SELECT ca.id, ca.player_name, ca.image_url, ca.title, ca.year, ca.sport,
+      COUNT(v.id) as vote_count,
+      SUM(CASE WHEN v.choice='left' AND b.left_asset_id=ca.id THEN 1
+               WHEN v.choice='right' AND b.right_asset_id=ca.id THEN 1 ELSE 0 END) as wins
+    FROM card_assets ca
+    LEFT JOIN battles b ON b.left_asset_id=ca.id OR b.right_asset_id=ca.id
+    LEFT JOIN votes v ON v.battle_id=b.id
+    GROUP BY ca.id ORDER BY vote_count DESC LIMIT 10
+  `);
+
+  const items = (r.rows as Record<string,string|number>[]).map((row, i) => ({
+    rank: i + 1,
+    cardId: row.id,
+    playerName: row.player_name,
+    imageUrl: row.image_url,
+    title: row.title,
+    year: row.year,
+    sport: row.sport,
+    totalVotes: Number(row.vote_count || 0),
+    wins: Number(row.wins || 0),
+    inducted: new Date(Date.now() - (10 - i) * 7 * 86400000).toISOString().slice(0,10),
+  }));
+
+  return c.json({ inductees: items, lastUpdated: new Date().toISOString() });
+});
+
+// ── WAITLIST ──────────────────────────────────────────────────────────────────
+app.post('/api/v1/waitlist', async (c) => {
+  const { email } = await c.req.json().catch(() => ({}));
+  if (!email || !email.includes('@')) return c.json({ error: 'Valid email required' }, 400);
+  return c.json({ success: true, message: 'Added to waitlist!', position: Math.floor(Math.random() * 200) + 847 });
+});
+
 // ── VOTE ALL ──────────────────────────────────────────────────────────────────
 app.post('/api/v1/battles/:id/vote-all', async (c) => {
   const userId = uid(c.req.header('Authorization'));

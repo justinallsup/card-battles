@@ -12,6 +12,7 @@ import { battles as battlesApi, getToken } from '../../../../lib/api';
 import { DonutChart } from '../../../../components/ui/DonutChart';
 import { BarChart } from '../../../../components/ui/BarChart';
 import { showToast } from '../../../../components/ui/Toast';
+import { PriceHistoryChart } from '../../../../components/ui/PriceHistoryChart';
 import Link from 'next/link';
 import type { Battle } from '@card-battles/types';
 
@@ -1077,6 +1078,17 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
             )}
           </div>
           <p className="text-[10px] text-[#374151]">* Estimated values only. Not financial advice.</p>
+          {/* Price History Charts */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <p className="text-[10px] text-[#64748b] font-semibold truncate">{battle.left.playerName ?? battle.left.title}</p>
+              <PriceHistoryChart cardId={battle.left.assetId} />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] text-[#64748b] font-semibold truncate">{battle.right.playerName ?? battle.right.title}</p>
+              <PriceHistoryChart cardId={battle.right.assetId} />
+            </div>
+          </div>
           {/* Price Alert stubs */}
           <div>
             <p className="text-[10px] text-[#64748b] uppercase tracking-widest font-semibold mb-2">🔔 Price Alerts (PSA 10)</p>

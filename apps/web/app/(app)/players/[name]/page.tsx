@@ -3,6 +3,7 @@ import { use, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { BackButton } from '../../../../components/ui/BackButton';
+import { PriceHistoryChart } from '../../../../components/ui/PriceHistoryChart';
 import { TrendingUp, TrendingDown, Minus, ExternalLink } from 'lucide-react';
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
@@ -200,6 +201,16 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ name: 
         </div>
         <p className="text-[9px] text-[#374151]">* Estimated values only. Not financial advice.</p>
       </div>
+
+      {/* Price History Chart for featured card */}
+      {profile.cards.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-bold text-[#94a3b8] uppercase tracking-wider">
+            📈 30-Day Price History
+          </h2>
+          <PriceHistoryChart cardId={profile.cards[0].id} />
+        </div>
+      )}
 
       {/* Cards grid */}
       <div>
