@@ -840,7 +840,7 @@ function CategoryInsights({ battleId, battle }: { battleId: string; battle: Batt
 }
 
 // ── Vote All Button ────────────────────────────────────────────────────────────
-function VoteAllButton({ battleId, battle, onVoted }: { battleId: string; battle: Battle; onVoted: () => void }) {
+function VoteAllButton({ battleId, battle, onVoted }: { battleId: string; battle: Battle; onVoted: (side?: 'left' | 'right') => void }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState<'left' | 'right' | null>(null);
   if (!user) return null;
@@ -858,9 +858,10 @@ function VoteAllButton({ battleId, battle, onVoted }: { battleId: string; battle
       const skipped = (data.results || []).length - succeeded;
       if (succeeded > 0) {
         showToast(`Voted ${choice} in ${succeeded} categor${succeeded === 1 ? 'y' : 'ies'}!${skipped > 0 ? ` (${skipped} already voted)` : ''}`, 'success');
-        onVoted();
+        onVoted(choice);
       } else {
         showToast('Already voted in all categories', 'info');
+        onVoted();
       }
     } catch {
       showToast('Failed to vote', 'error');
@@ -950,6 +951,8 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
   const [myVote, setMyVote] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<'overview' | 'stats' | 'replay'>('overview');
   const [chatToken, setChatToken] = useState<string | null>(null);
+  const [flippedSide, setFlippedSide] = useState<'left' | 'right' | null>(null);
+  const [voteStreak, setVoteStreak] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load token for chat
@@ -1138,7 +1141,7 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
         ].map(({ asset, side }) => (
           <div key={side} className="space-y-2">
             <button
-              className="w-full rounded-xl overflow-hidden border border-[#1e1e2e] hover:border-[#6c47ff]/40 transition-all cursor-zoom-in"
+              className={`w-full rounded-xl overflow-hidden border border-[#1e1e2e] hover:border-[#6c47ff]/40 transition-all cursor-zoom-in relative ${flippedSide === side ? 'card-flip' : ''}`}
               onClick={() => setLightboxSrc({ src: asset.imageUrl, alt: asset.playerName ?? asset.title })}
               aria-label={`View ${asset.playerName ?? asset.title} full screen`}
               title="Tap to view full screen"
@@ -1152,6 +1155,12 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
                     `https://placehold.co/300x400/12121a/6c47ff?text=${encodeURIComponent(asset.playerName ?? '?')}`;
                 }}
               />
+              {flippedSide === side && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 rounded-xl vote-success pointer-events-none">
+                  <span className="text-5xl leading-none">✓</span>
+                  <span className="text-white font-bold text-sm mt-2 px-2 text-center">{asset.playerName ?? asset.title}</span>
+                </div>
+              )}
             </button>
             <div className="flex justify-center">
               <SaveCardButton assetId={asset.assetId} cardName={asset.playerName ?? asset.title} />
@@ -1242,7 +1251,15 @@ export default function BattleDetailPage({ params }: { params: Promise<{ id: str
 
       {/* Vote All */}
       {battle.status === 'live' && (
-        <VoteAllButton battleId={id} battle={battle} onVoted={() => {}} />
+        <VoteAllButton battleId={id} battle={battle} onVoted={(side?: 'left' | 'right') => {
+          if (side) {
+            setFlippedSide(side);
+            const streak = voteStreak + 1;
+            setVoteStreak(streak);
+            showToast(`🔥 +${streak} vote streak!`, 'success');
+            setTimeout(() => setFlippedSide(null), 700);
+          }
+        }} />
       )}
 
       {/* Action row */}
