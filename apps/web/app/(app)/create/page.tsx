@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '../../../components/ui/Button';
-import { X, Image as ImageIcon, Swords, Upload, Link, Search, FileText, BookOpen } from 'lucide-react';
+import { X, Image as ImageIcon, Swords, Upload, Link, Search, FileText, BookOpen, LayoutTemplate } from 'lucide-react';
 import { getToken } from '../../../lib/api';
 import { showToast } from '../../../components/ui/Toast';
 
@@ -280,6 +280,146 @@ function CardSlot({
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
+// ── Battle Templates ──────────────────────────────────────────────────────────
+
+interface BattleTemplate {
+  id: string;
+  name: string;
+  leftPlayer: string;
+  rightPlayer: string;
+  category: string;
+  description: string;
+  leftCardId?: string;
+  leftImageUrl?: string;
+  rightCardId?: string;
+  rightImageUrl?: string;
+}
+
+function TemplateCard({
+  template,
+  onUse,
+}: {
+  template: BattleTemplate;
+  onUse: (t: BattleTemplate) => void;
+}) {
+  const placeholderLeft = `https://placehold.co/200x280/6c47ff/ffffff?text=${encodeURIComponent(template.leftPlayer.split(' ').slice(-1)[0])}`;
+  const placeholderRight = `https://placehold.co/200x280/8b5cf6/ffffff?text=${encodeURIComponent(template.rightPlayer.split(' ').slice(-1)[0])}`;
+
+  return (
+    <div
+      className="rounded-2xl border border-[#1e1e2e] overflow-hidden"
+      style={{ background: '#12121a' }}
+    >
+      {/* Side-by-side images */}
+      <div className="relative flex h-28">
+        <div className="w-1/2 overflow-hidden">
+          <img
+            src={template.leftImageUrl || placeholderLeft}
+            alt={template.leftPlayer}
+            className="w-full h-full object-cover object-top"
+          />
+        </div>
+        <div className="w-1/2 overflow-hidden">
+          <img
+            src={template.rightImageUrl || placeholderRight}
+            alt={template.rightPlayer}
+            className="w-full h-full object-cover object-top"
+          />
+        </div>
+        {/* VS badge */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black text-white border-2 border-[#0a0a0f]"
+            style={{ background: 'linear-gradient(135deg, #6c47ff, #8b5cf6)' }}
+          >
+            VS
+          </div>
+        </div>
+      </div>
+
+      {/* Info */}
+      <div className="p-3 space-y-2">
+        <div>
+          <p className="text-sm font-black text-white">{template.name}</p>
+          <p className="text-xs text-[#64748b] mt-0.5">{template.description}</p>
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="text-[10px] text-[#64748b]">
+            <span className="text-white font-semibold">{template.leftPlayer}</span>
+            {' vs '}
+            <span className="text-white font-semibold">{template.rightPlayer}</span>
+          </div>
+          <span
+            className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+            style={{
+              background: template.category === 'investment' ? 'rgba(34,197,94,0.15)' : template.category === 'coolest' ? 'rgba(251,191,36,0.15)' : 'rgba(139,92,246,0.15)',
+              color: template.category === 'investment' ? '#22c55e' : template.category === 'coolest' ? '#fbbf24' : '#a78bfa',
+            }}
+          >
+            {template.category === 'investment' ? '💰' : template.category === 'coolest' ? '🔥' : '💎'} {template.category}
+          </span>
+        </div>
+        <button
+          onClick={() => onUse(template)}
+          className="w-full py-2.5 rounded-xl text-xs font-black transition-all"
+          style={{
+            background: 'linear-gradient(135deg, #6c47ff, #8b5cf6)',
+            color: 'white',
+          }}
+        >
+          <LayoutTemplate size={12} className="inline mr-1.5" />
+          Use Template
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TemplatesTab({ onSelectTemplate }: { onSelectTemplate: (t: BattleTemplate) => void }) {
+  const [templates, setTemplates] = useState<BattleTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`${BASE_URL}/battle-templates`)
+      .then(r => r.json())
+      .then(data => {
+        setTemplates(data.templates ?? []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-2 gap-3">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="rounded-2xl border border-[#1e1e2e] bg-[#12121a] overflow-hidden animate-pulse">
+            <div className="h-28 bg-[#1e1e2e]" />
+            <div className="p-3 space-y-2">
+              <div className="h-3 bg-[#1e1e2e] rounded w-3/4" />
+              <div className="h-3 bg-[#1e1e2e] rounded w-full" />
+              <div className="h-8 bg-[#1e1e2e] rounded-xl" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-[#64748b]">
+        Pick a template to pre-fill both cards and battle settings instantly.
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        {templates.map(t => (
+          <TemplateCard key={t.id} template={t} onUse={onSelectTemplate} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 async function uploadAsset(card: CardInput): Promise<{ id: string }> {
   // If card was selected from search (has an existing asset ID), skip upload
   if (card.existingAssetId) {
@@ -340,6 +480,7 @@ async function createBattle(data: {
 
 export default function CreatePage() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<'manual' | 'templates'>('manual');
   const [left, setLeft] = useState<CardInput>(emptyCard());
   const [right, setRight] = useState<CardInput>(emptyCard());
   const [battleTitle, setBattleTitle] = useState('');
@@ -481,12 +622,70 @@ export default function CreatePage() {
     );
   }
 
+  // Handle selecting a template
+  const handleSelectTemplate = (t: BattleTemplate) => {
+    setLeft({
+      imageUrl: t.leftImageUrl || '',
+      previewSrc: t.leftImageUrl || '',
+      imageBase64: '',
+      mimeType: '',
+      title: t.leftPlayer,
+      playerName: t.leftPlayer,
+      sport: 'nfl',
+      mode: 'url',
+      existingAssetId: t.leftCardId,
+    });
+    setRight({
+      imageUrl: t.rightImageUrl || '',
+      previewSrc: t.rightImageUrl || '',
+      imageBase64: '',
+      mimeType: '',
+      title: t.rightPlayer,
+      playerName: t.rightPlayer,
+      sport: 'nfl',
+      mode: 'url',
+      existingAssetId: t.rightCardId,
+    });
+    setBattleTitle(t.name);
+    setSelectedCats([t.category]);
+    setActiveTab('manual');
+    showToast(`✅ Template loaded: ${t.name}`, 'success');
+  };
+
   return (
     <div className="space-y-6 pb-6">
       <div>
         <h1 className="text-xl font-black text-white">Create Battle ⚔️</h1>
         <p className="text-sm text-[#64748b] mt-1">Set up two cards and let the community decide</p>
       </div>
+
+      {/* Tab switcher: Manual vs Templates */}
+      <div className="flex gap-1 bg-[#0a0a0f] rounded-xl p-1 border border-[#1e1e2e]">
+        <button
+          onClick={() => setActiveTab('manual')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${
+            activeTab === 'manual' ? 'bg-[#6c47ff]/20 text-[#6c47ff] border border-[#6c47ff]/30' : 'text-[#64748b]'
+          }`}
+        >
+          <Swords size={14} /> Manual
+        </button>
+        <button
+          onClick={() => setActiveTab('templates')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${
+            activeTab === 'templates' ? 'bg-[#6c47ff]/20 text-[#6c47ff] border border-[#6c47ff]/30' : 'text-[#64748b]'
+          }`}
+        >
+          <LayoutTemplate size={14} /> Templates
+        </button>
+      </div>
+
+      {/* Templates tab */}
+      {activeTab === 'templates' && (
+        <TemplatesTab onSelectTemplate={handleSelectTemplate} />
+      )}
+
+      {/* Manual tab */}
+      {activeTab === 'manual' && (<>
 
       {/* Step indicator */}
       <div className="flex items-center gap-0">
@@ -725,6 +924,8 @@ export default function CreatePage() {
           </div>
         </div>
       )}
+
+      </>)}
     </div>
   );
 }

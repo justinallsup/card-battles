@@ -2333,6 +2333,86 @@ app.delete('/api/v1/me/price-alerts/:id', async (c) => {
   return c.json({ message: 'Alert deleted' });
 });
 
+// ── SEASONAL EVENTS ──────────────────────────────────────────────────────────
+
+type SeasonalEvent = {
+  id: string; title: string; description: string; theme: string;
+  startDate: string; endDate: string; status: 'upcoming' | 'live' | 'ended';
+  prize: string; participantCount: number; battles: string[];
+  bannerColor: string; emoji: string;
+};
+
+const seasonalEvents: SeasonalEvent[] = [
+  {
+    id: 'goat-showdown', title: 'GOAT Showdown', description: 'The greatest players of all time face off. Who truly is the GOAT?',
+    theme: 'All-time greats only', startDate: new Date(Date.now() - 86400000).toISOString(),
+    endDate: new Date(Date.now() + 6 * 86400000).toISOString(), status: 'live',
+    prize: '1 Month Pro + GOAT Badge', participantCount: 1247, battles: [],
+    bannerColor: '#fbbf24', emoji: '🐐',
+  },
+  {
+    id: 'rookie-rumble', title: 'Rookie Rumble', description: 'Only 2023-24 rookie cards. Who has the best future?',
+    theme: '2023-24 rookies only', startDate: new Date(Date.now() + 2 * 86400000).toISOString(),
+    endDate: new Date(Date.now() + 9 * 86400000).toISOString(), status: 'upcoming',
+    prize: 'Rookie Hunter Badge', participantCount: 423, battles: [],
+    bannerColor: '#22c55e', emoji: '⭐',
+  },
+  {
+    id: 'vintage-vault', title: 'Vintage Vault', description: 'Cards from before 2000 only. Classic collector territory.',
+    theme: 'Pre-2000 cards', startDate: new Date(Date.now() - 7 * 86400000).toISOString(),
+    endDate: new Date(Date.now() - 86400000).toISOString(), status: 'ended',
+    prize: 'Vintage Collector Badge', participantCount: 892, battles: [],
+    bannerColor: '#8b5cf6', emoji: '🏺',
+  },
+];
+
+app.get('/api/v1/events', (c) => {
+  return c.json({ events: seasonalEvents, total: seasonalEvents.length });
+});
+
+app.get('/api/v1/events/:id', (c) => {
+  const event = seasonalEvents.find(e => e.id === c.req.param('id'));
+  if (!event) return c.json({ error: 'Not found' }, 404);
+  return c.json(event);
+});
+
+app.post('/api/v1/events/:id/join', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const event = seasonalEvents.find(e => e.id === c.req.param('id'));
+  if (!event) return c.json({ error: 'Not found' }, 404);
+  if (event.status === 'ended') return c.json({ error: 'Event has ended' }, 400);
+  event.participantCount++;
+  return c.json({ success: true, message: `Joined ${event.title}!`, event });
+});
+
+// ── BATTLE TEMPLATES ──────────────────────────────────────────────────────────
+
+app.get('/api/v1/battle-templates', async (c) => {
+  const templates = [
+    { id: 't1', name: 'NFL GOAT Debate', leftPlayer: 'Tom Brady', rightPlayer: 'Patrick Mahomes', category: 'investment', description: 'The ultimate QB showdown' },
+    { id: 't2', name: 'NBA GOAT Debate', leftPlayer: 'Michael Jordan', rightPlayer: 'LeBron James', category: 'coolest', description: 'Who is the greatest of all time?' },
+    { id: 't3', name: 'Baseball Legends', leftPlayer: 'Hank Aaron', rightPlayer: 'Babe Ruth', category: 'rarity', description: 'Vintage vs. vintage' },
+    { id: 't4', name: 'Modern NBA Stars', leftPlayer: 'Stephen Curry', rightPlayer: 'Luka Doncic', category: 'investment', description: 'Best shooter vs. best playmaker' },
+    { id: 't5', name: 'Rookie Investments', leftPlayer: 'Victor Wembanyama', rightPlayer: 'Caitlin Clark', category: 'investment', description: 'Top 2023-24 rookies' },
+    { id: 't6', name: 'GOAT Pitchers', leftPlayer: 'Sandy Koufax', rightPlayer: 'Bob Gibson', category: 'rarity', description: 'Vintage pitching legends' },
+  ];
+
+  const enriched = await Promise.all(templates.map(async t => {
+    const lr = await pg.query("SELECT id,image_url FROM card_assets WHERE LOWER(player_name) LIKE $1 LIMIT 1", [`%${t.leftPlayer.toLowerCase()}%`]);
+    const rr = await pg.query("SELECT id,image_url FROM card_assets WHERE LOWER(player_name) LIKE $1 LIMIT 1", [`%${t.rightPlayer.toLowerCase()}%`]);
+    return {
+      ...t,
+      leftCardId: (lr.rows as {id:string}[])[0]?.id,
+      leftImageUrl: (lr.rows as {id:string;image_url:string}[])[0]?.image_url,
+      rightCardId: (rr.rows as {id:string}[])[0]?.id,
+      rightImageUrl: (rr.rows as {id:string;image_url:string}[])[0]?.image_url,
+    };
+  }));
+
+  return c.json({ templates: enriched });
+});
+
 // ── REPORTS ───────────────────────────────────────────────────────────────────
 
 app.post('/api/v1/reports', async (c) => {

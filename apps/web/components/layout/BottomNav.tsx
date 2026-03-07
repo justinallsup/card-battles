@@ -15,6 +15,7 @@ const EXPLORE_CATEGORIES = [
       { href: '/tournaments',  label: 'Tournaments', icon: '🏆',  desc: 'Bracket battles'      },
       { href: '/bracket',      label: 'Bracket',     icon: '📊',  desc: 'Build a bracket'      },
       { href: '/daily-picks',  label: 'Daily Picks', icon: '📅',  desc: "Today's picks"        },
+      { href: '/events',       label: 'Events',      icon: '🎉',  desc: 'Limited-time battles' },
     ],
   },
   {
@@ -55,6 +56,7 @@ const EXPLORE_CATEGORIES = [
       { href: '/analytics',    label: 'Analytics',   icon: '📊',  desc: 'Your stats'           },
       { href: '/portfolio',    label: 'Portfolio',   icon: '💼',  desc: 'Collection value'     },
       { href: '/learn',        label: 'Learn',       icon: '📚',  desc: 'Card grading guide'   },
+      { href: '/condition',    label: 'Condition',   icon: '🔍',  desc: 'Check card condition' },
     ],
   },
 ];

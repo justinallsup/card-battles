@@ -112,6 +112,62 @@ function ActivitySidebar() {
   );
 }
 
+// Active Event Banner — shows when a live event exists
+function ActiveEventBanner() {
+  const [liveEvent, setLiveEvent] = useState<{
+    id: string; title: string; participantCount: number; endDate: string; emoji: string; bannerColor: string;
+  } | null>(null);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    fetch(`${BASE_URL}/events`)
+      .then(r => r.json())
+      .then(data => {
+        const live = (data.events ?? []).find((e: { status: string }) => e.status === 'live');
+        if (live) setLiveEvent(live);
+      })
+      .catch(() => {});
+  }, []);
+
+  if (!liveEvent || dismissed) return null;
+
+  const daysLeft = Math.ceil((new Date(liveEvent.endDate).getTime() - Date.now()) / 86400000);
+
+  return (
+    <div
+      className="flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all"
+      style={{ background: `${liveEvent.bannerColor}12`, borderColor: `${liveEvent.bannerColor}40` }}
+    >
+      <span className="text-lg flex-shrink-0">{liveEvent.emoji}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-bold text-white truncate">
+          <span className="inline-flex items-center gap-1 mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-black bg-[#22c55e]/15 text-[#22c55e]">
+            <span className="w-1 h-1 rounded-full bg-[#22c55e] animate-pulse inline-block" />
+            LIVE
+          </span>
+          {liveEvent.title}
+        </p>
+        <p className="text-[10px] text-[#64748b] truncate">
+          {liveEvent.participantCount.toLocaleString()} participants · {daysLeft > 0 ? `${daysLeft}d left` : 'Ending soon'}
+        </p>
+      </div>
+      <Link
+        href="/events"
+        className="flex-shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all"
+        style={{ background: `${liveEvent.bannerColor}20`, color: liveEvent.bannerColor }}
+      >
+        Join
+      </Link>
+      <button
+        onClick={() => setDismissed(true)}
+        className="flex-shrink-0 w-5 h-5 flex items-center justify-center text-[#374151] hover:text-[#64748b] transition-colors"
+      >
+        <X size={12} />
+      </button>
+    </div>
+  );
+}
+
 // Onboarding banner for new users
 function OnboardingBanner() {
   const [visible, setVisible] = useState(false);
@@ -423,6 +479,9 @@ export default function FeedPage() {
     <div className="space-y-4">
       {/* Onboarding banner */}
       <OnboardingBanner />
+
+      {/* 🎉 Active Event Banner */}
+      <ActiveEventBanner />
 
       {/* ⭐ Card Spotlight */}
       <CardSpotlight />
