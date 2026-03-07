@@ -16,11 +16,13 @@ const EXPLORE_CATEGORIES = [
       { href: '/bracket',      label: 'Bracket',     icon: '📊',  desc: 'Build a bracket'      },
       { href: '/daily-picks',  label: 'Daily Picks', icon: '📅',  desc: "Today's picks"        },
       { href: '/events',       label: 'Events',      icon: '🎉',  desc: 'Limited-time battles' },
+      { href: '/multi-battles',label: 'Best of 3',   icon: '⚔️',  desc: '3-round series'       },
     ],
   },
   {
     label: 'Collect',
     tiles: [
+      { href: '/pull-arena',   label: 'Pull Arena',  icon: '📦',  desc: 'Open card packs'      },
       { href: '/collection',   label: 'Collection',  icon: '🎴',  desc: 'Your saved cards'     },
       { href: '/marketplace',  label: 'Marketplace', icon: '🏪',  desc: 'Buy & sell cards'     },
       { href: '/trades',       label: 'Trades',      icon: '🔄',  desc: 'Trade proposals'      },
@@ -46,6 +48,8 @@ const EXPLORE_CATEGORIES = [
       { href: '/community',    label: 'Community',   icon: '🌐',  desc: 'Social hub'           },
       { href: '/discover',     label: 'Discover',    icon: '🔍',  desc: 'Find collectors'      },
       { href: '/hall-of-fame', label: 'Hall of Fame', icon: '🏛️', desc: 'Greatest cards ever'  },
+      { href: '/rank',         label: 'Rank',        icon: '🏆',  desc: 'Your collector rank'  },
+      { href: '/multi-battles',label: 'Best of 3',   icon: '⚔️',  desc: '3-round battle series'},
     ],
   },
   {

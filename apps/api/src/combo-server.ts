@@ -2386,6 +2386,162 @@ app.post('/api/v1/events/:id/join', async (c) => {
   return c.json({ success: true, message: `Joined ${event.title}!`, event });
 });
 
+// ── CARD PACKS ────────────────────────────────────────────────────────────────
+
+type Pack = { id: string; name: string; price: number; cardsPerPack: number; rarityWeights: Record<string,number>; sport: string };
+const PACKS: Pack[] = [
+  { id: 'prizm-blaster', name: 'Prizm Blaster Box', price: 89, cardsPerPack: 20, rarityWeights: { common: 0.7, rare: 0.2, legendary: 0.1 }, sport: 'all' },
+  { id: 'chrome-hobby', name: 'Chrome Hobby Box', price: 120, cardsPerPack: 18, rarityWeights: { common: 0.6, rare: 0.25, legendary: 0.15 }, sport: 'mlb' },
+  { id: 'national-treasures', name: 'National Treasures', price: 999, cardsPerPack: 4, rarityWeights: { common: 0.1, rare: 0.4, legendary: 0.5 }, sport: 'all' },
+];
+
+app.get('/api/v1/packs', (c) => c.json({ packs: PACKS }));
+
+app.post('/api/v1/packs/:id/open', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const pack = PACKS.find(p => p.id === c.req.param('id'));
+  if (!pack) return c.json({ error: 'Pack not found' }, 404);
+
+  const r = await pg.query('SELECT * FROM card_assets ORDER BY RANDOM() LIMIT $1', [pack.cardsPerPack]);
+  const cards = r.rows as Record<string,unknown>[];
+
+  const VALUATIONS: Record<string,number> = {
+    'Patrick Mahomes': 280, 'Tom Brady': 520, 'LeBron James': 1400, 'Michael Jordan': 15000,
+    'Victor Wembanyama': 180, 'Caitlin Clark': 145, 'Kobe Bryant': 2800, 'Shohei Ohtani': 380,
+  };
+
+  const pulledCards = cards.map(card => {
+    const rand = Math.random();
+    let rarity = 'common';
+    if (rand > (1 - pack.rarityWeights.legendary)) rarity = 'legendary';
+    else if (rand > (1 - pack.rarityWeights.legendary - pack.rarityWeights.rare)) rarity = 'rare';
+    const baseVal = VALUATIONS[card.player_name as string] || 25;
+    const multiplier = rarity === 'legendary' ? 3 : rarity === 'rare' ? 1.5 : 0.4;
+    return {
+      ...card,
+      rarity,
+      estimatedValue: Math.round(baseVal * multiplier * (0.8 + Math.random() * 0.4)),
+      isHit: rarity === 'legendary',
+    };
+  });
+
+  const totalValue = pulledCards.reduce((sum, c) => sum + (c.estimatedValue as number), 0);
+  const hits = pulledCards.filter(c => c.isHit);
+
+  return c.json({ pack, cards: pulledCards, totalValue, hits, packValue: pack.price, profit: totalValue - pack.price });
+});
+
+// ── MULTI-ROUND BATTLES ───────────────────────────────────────────────────────
+
+type MultiRoundBattle = {
+  id: string; leftAssetId: string; rightAssetId: string; title: string;
+  rounds: { round: number; category: string; leftVotes: number; rightVotes: number; winner?: 'left' | 'right' }[];
+  currentRound: number; leftWins: number; rightWins: number;
+  status: 'live' | 'complete'; winner?: 'left' | 'right'; createdAt: string;
+  leftCard?: Record<string,unknown>; rightCard?: Record<string,unknown>;
+};
+const multiRoundBattles = new Map<string, MultiRoundBattle>();
+
+app.get('/api/v1/multi-battles', async (c) => {
+  const battles = Array.from(multiRoundBattles.values());
+  // Enrich with card data
+  const enriched = await Promise.all(battles.map(async b => {
+    const lr = await pg.query('SELECT * FROM card_assets WHERE id=$1', [b.leftAssetId]);
+    const rr = await pg.query('SELECT * FROM card_assets WHERE id=$1', [b.rightAssetId]);
+    return {
+      ...b,
+      leftCard: (lr.rows as Record<string,unknown>[])[0],
+      rightCard: (rr.rows as Record<string,unknown>[])[0],
+    };
+  }));
+  return c.json({ battles: enriched, total: enriched.length });
+});
+
+app.post('/api/v1/multi-battles', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const { leftAssetId, rightAssetId, title } = await c.req.json().catch(() => ({}));
+  if (!leftAssetId || !rightAssetId) return c.json({ error: 'leftAssetId and rightAssetId required' }, 400);
+  const id = randomUUID();
+  const battle: MultiRoundBattle = {
+    id, leftAssetId, rightAssetId, title: title || 'Best of 3 Battle',
+    rounds: [
+      { round: 1, category: 'investment', leftVotes: 0, rightVotes: 0 },
+      { round: 2, category: 'coolest', leftVotes: 0, rightVotes: 0 },
+      { round: 3, category: 'rarity', leftVotes: 0, rightVotes: 0 },
+    ],
+    currentRound: 1, leftWins: 0, rightWins: 0, status: 'live',
+    createdAt: new Date().toISOString(),
+  };
+  multiRoundBattles.set(id, battle);
+  return c.json(battle, 201);
+});
+
+app.post('/api/v1/multi-battles/:id/vote', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const battle = multiRoundBattles.get(c.req.param('id'));
+  if (!battle || battle.status === 'complete') return c.json({ error: 'Battle not found or complete' }, 404);
+  const { choice } = await c.req.json().catch(() => ({}));
+  if (!['left','right'].includes(choice)) return c.json({ error: 'Invalid choice' }, 400);
+  const currentRound = battle.rounds[battle.currentRound - 1];
+  if (choice === 'left') currentRound.leftVotes++;
+  else currentRound.rightVotes++;
+  return c.json(battle);
+});
+
+app.post('/api/v1/multi-battles/:id/advance', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const battle = multiRoundBattles.get(c.req.param('id'));
+  if (!battle || battle.status === 'complete') return c.json({ error: 'Battle not found or complete' }, 404);
+  const round = battle.rounds[battle.currentRound - 1];
+  const roundWinner = round.leftVotes >= round.rightVotes ? 'left' : 'right';
+  round.winner = roundWinner;
+  if (roundWinner === 'left') battle.leftWins++;
+  else battle.rightWins++;
+  if (battle.currentRound < 3) {
+    battle.currentRound++;
+  } else {
+    battle.status = 'complete';
+    battle.winner = battle.leftWins > battle.rightWins ? 'left' : 'right';
+  }
+  multiRoundBattles.set(battle.id, battle);
+  return c.json(battle);
+});
+
+// ── COLLECTOR RANK TIERS ─────────────────────────────────────────────────────
+
+const RANKS = [
+  { name: 'Rookie',      minPoints: 0,    icon: '🌱', color: '#64748b', perks: 'Basic features' },
+  { name: 'Collector',   minPoints: 50,   icon: '📦', color: '#22c55e', perks: 'Priority search' },
+  { name: 'Enthusiast',  minPoints: 200,  icon: '🏅', color: '#3b82f6', perks: 'Extended daily picks' },
+  { name: 'Expert',      minPoints: 500,  icon: '💎', color: '#8b5cf6', perks: 'Early access to events' },
+  { name: 'Elite',       minPoints: 1000, icon: '🔥', color: '#f59e0b', perks: 'Exclusive elite badge' },
+  { name: 'Legend',      minPoints: 5000, icon: '👑', color: '#6c47ff', perks: 'Legend status + custom badge' },
+];
+
+app.get('/api/v1/me/rank', async (c) => {
+  const authUid = uid(c.req.header('Authorization'));
+  if (!authUid) return c.json({ error: 'Unauthorized' }, 401);
+  const r = await pg.query('SELECT votes_cast, battles_created, battles_won FROM user_stats WHERE user_id=$1', [authUid]);
+  const stats = (r.rows as {votes_cast:number;battles_created:number;battles_won:number}[])[0] || {};
+  const points = (stats.votes_cast || 0) + (stats.battles_created || 0) * 5 + (stats.battles_won || 0) * 3;
+  const currentRank = [...RANKS].reverse().find(rk => points >= rk.minPoints) || RANKS[0];
+  const currentIdx = RANKS.indexOf(currentRank);
+  const nextRank = RANKS[currentIdx + 1];
+  return c.json({
+    points, currentRank, nextRank,
+    progress: nextRank ? Math.round((points - currentRank.minPoints) / (nextRank.minPoints - currentRank.minPoints) * 100) : 100,
+    pointsToNext: nextRank ? nextRank.minPoints - points : 0,
+    ranks: RANKS,
+    breakdown: { votes: stats.votes_cast || 0, battlesCreated: stats.battles_created || 0, battlesWon: stats.battles_won || 0 },
+  });
+});
+
+app.get('/api/v1/ranks', (c) => c.json({ ranks: RANKS }));
+
 // ── BATTLE TEMPLATES ──────────────────────────────────────────────────────────
 
 app.get('/api/v1/battle-templates', async (c) => {

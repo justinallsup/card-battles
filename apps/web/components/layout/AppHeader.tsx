@@ -7,6 +7,24 @@ import { Avatar } from '../ui/Avatar';
 import { useNotificationStore } from '../../lib/notificationStore';
 import { useState, useRef, useEffect } from 'react';
 
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
+
+interface RankInfo { name: string; icon: string; color: string; }
+
+function useUserRank(loggedIn: boolean) {
+  const [rank, setRank] = useState<RankInfo | null>(null);
+  useEffect(() => {
+    if (!loggedIn) return;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('cb_access_token') : null;
+    if (!token) return;
+    fetch(`${BASE_URL}/me/rank`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then((d: { currentRank?: RankInfo }) => { if (d.currentRank) setRank(d.currentRank); })
+      .catch(() => {});
+  }, [loggedIn]);
+  return rank;
+}
+
 function UserDropdown({ username, avatarUrl, onClose }: {
   username: string;
   avatarUrl?: string | null;
@@ -80,6 +98,7 @@ export function AppHeader() {
   const router = useRouter();
   const { unreadCount } = useNotificationStore();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const rank = useUserRank(!!user);
 
   return (
     <header className="sticky top-0 z-40 bg-[#0a0a0f]/95 backdrop-blur border-b border-[#1e1e2e]"
@@ -148,9 +167,18 @@ export function AppHeader() {
               <div className="relative">
                 <button
                   onClick={() => setDropdownOpen((v) => !v)}
-                  className="flex items-center gap-1 group"
+                  className="flex items-center gap-1.5 group"
                   aria-label="User menu"
                 >
+                  {rank && (
+                    <Link href="/rank" onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-black shrink-0 hover:opacity-80 transition-opacity"
+                      style={{ borderColor: rank.color + '50', background: rank.color + '15', color: rank.color }}
+                    >
+                      <span>{rank.icon}</span>
+                      <span className="hidden sm:inline">{rank.name}</span>
+                    </Link>
+                  )}
                   <Avatar username={user.username} avatarUrl={user.avatarUrl} size="sm" />
                   <ChevronDown
                     size={12}
