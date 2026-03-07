@@ -1,11 +1,12 @@
 'use client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bell, Search, Settings, User, LogOut, ChevronDown } from 'lucide-react';
+import { Bell, Settings, User, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { Avatar } from '../ui/Avatar';
 import { useNotificationStore } from '../../lib/notificationStore';
 import { useState, useRef, useEffect } from 'react';
+import { SearchOverlay } from '../SearchOverlay';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
 
@@ -133,14 +134,8 @@ export function AppHeader() {
         </Link>
 
         <div className="flex items-center gap-3">
-          {/* Search button — always visible */}
-          <button
-            onClick={() => router.push('/search')}
-            className="text-[#64748b] hover:text-white transition-colors"
-            aria-label="Search"
-          >
-            <Search size={20} />
-          </button>
+          {/* Search overlay button — Cmd+K */}
+          <SearchOverlay />
 
           {user ? (
             <>

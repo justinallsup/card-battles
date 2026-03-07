@@ -18,7 +18,7 @@
 | Auth | JWT (access + refresh tokens) |
 | Payments | Stripe (scaffolded) |
 | Package manager | pnpm |
-| Testing | Vitest (53 tests, combo-server in-memory) |
+| Testing | Vitest (86 tests, combo-server in-memory) |
 
 ---
 
@@ -122,7 +122,7 @@ pnpm db:generate     # Generate new migration from schema changes
 pnpm db:studio       # Open Drizzle Studio (DB browser)
 
 # Testing
-pnpm test            # Run all tests (53 tests, combo-server)
+pnpm test            # Run all tests (86 tests, combo-server)
 
 # Type checking
 pnpm typecheck       # Check types across all packages
@@ -368,8 +368,23 @@ Live event feed, rising stars, community stats, and discussion boards.
 - [x] Player profiles + directory
 - [x] Referral system
 - [x] Market Feed (simulated price movements)
-- [x] 53 automated tests passing
+- [x] 86 automated tests passing
 - [x] 50 seed battles (NFL, NBA, MLB, WNBA, legends)
+
+---
+
+## 🏗️ Built This Weekend
+
+| Metric | Count |
+|--------|-------|
+| Git commits | 60 |
+| App pages / routes | 60+ |
+| API endpoints | 80+ |
+| Tests passing | 86 |
+| Seed battles | 50 |
+| Card assets | 64 |
+| Features shipped | 80+ |
+| Build time | ~36 hours |
 
 ---
 
@@ -393,5 +408,5 @@ Live event feed, rising stars, community stats, and discussion boards.
 
 See [`docs/`](./docs/) for product spec, epics, and architecture decisions.
 
-Tests: `pnpm test` — all 53 tests must pass.
+Tests: `pnpm test` — all 86 tests must pass.
 Types: `pnpm typecheck` — must be error-free.

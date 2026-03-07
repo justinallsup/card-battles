@@ -267,7 +267,8 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
         {/* OG Card Tab */}
         {activeTab === 'ogcard' && (
           <div className="p-4 space-y-3">
-            <p className="text-[10px] text-[#64748b] uppercase tracking-widest font-semibold">Battle Card Preview</p>
+            <p className="text-[10px] text-[#64748b] uppercase tracking-widest font-semibold">Battle Share Card</p>
+            {/* SVG preview */}
             <div className="rounded-xl overflow-hidden border border-[#1e1e2e] bg-[#0a0a0f]" style={{ aspectRatio: '1200/630' }}>
               <img
                 src={ogImageUrl}
@@ -276,6 +277,7 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
               />
             </div>
+            {/* Action buttons */}
             <div className="flex gap-2">
               <button
                 onClick={handleDownload}
@@ -284,16 +286,35 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
               >
                 <Download size={12} /> Download SVG
               </button>
-              <a
-                href={ogImageUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={async () => {
+                  try { await navigator.clipboard.writeText(ogImageUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {}
+                }}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors"
                 style={{ background: 'rgba(30,30,46,0.8)', border: '1px solid #1e1e2e', color: '#64748b' }}
               >
-                <ExternalLink size={12} /> Open Full Size
-              </a>
+                {copied ? <><Check size={12} /> Copied!</> : <><Copy size={12} /> Copy URL</>}
+              </button>
             </div>
+            {/* Share on Twitter with image */}
+            <a
+              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(twitterText)}&url=${encodeURIComponent(shareUrl)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90"
+              style={{ background: 'rgba(29,161,242,0.1)', border: '1px solid rgba(29,161,242,0.3)', color: '#1da1f2' }}
+            >
+              <Twitter size={14} /> Share on Twitter / X
+            </a>
+            {/* Static share page link */}
+            <a
+              href={`/share/${battle.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold text-[#64748b] border border-[#1e1e2e] hover:border-[#6c47ff]/30 hover:text-[#a78bfa] transition-all"
+            >
+              <ExternalLink size={12} /> Open Share Page
+            </a>
           </div>
         )}
 

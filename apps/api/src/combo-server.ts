@@ -459,6 +459,76 @@ app.get('/api/v1/battles/trending', async (c) => {
   }));
   return c.json({ items });
 });
+// ── FEATURED THIS WEEK ───────────────────────────────────────────────────────
+app.get('/api/v1/featured', async (c) => {
+  const topBattle = await pg.query(`
+    SELECT b.id, b.title, b.total_votes_cached, b.ends_at,
+      la.player_name as lp, la.image_url as li,
+      ra.player_name as rp, ra.image_url as ri
+    FROM battles b
+    LEFT JOIN card_assets la ON la.id=b.left_asset_id
+    LEFT JOIN card_assets ra ON ra.id=b.right_asset_id
+    WHERE b.status='live'
+    ORDER BY b.total_votes_cached DESC LIMIT 1
+  `);
+  const topCard = await pg.query(`
+    SELECT ca.id, ca.player_name, ca.image_url, ca.year, ca.sport, COUNT(v.id) as votes
+    FROM card_assets ca
+    JOIN battles b ON b.left_asset_id=ca.id OR b.right_asset_id=ca.id
+    JOIN votes v ON v.battle_id=b.id
+    GROUP BY ca.id ORDER BY votes DESC LIMIT 1
+  `);
+  const risingBattle = await pg.query(`
+    SELECT b.id, b.title, b.total_votes_cached,
+      la.player_name as lp, la.image_url as li,
+      ra.player_name as rp, ra.image_url as ri
+    FROM battles b
+    LEFT JOIN card_assets la ON la.id=b.left_asset_id
+    LEFT JOIN card_assets ra ON ra.id=b.right_asset_id
+    WHERE b.status='live'
+    ORDER BY RANDOM() LIMIT 1
+  `);
+  const battle = (topBattle.rows as Record<string,unknown>[])[0];
+  const card = (topCard.rows as Record<string,unknown>[])[0];
+  const rising = (risingBattle.rows as Record<string,unknown>[])[0];
+  return c.json({
+    weekOf: new Date().toISOString().slice(0, 10),
+    featuredBattle: battle || null,
+    cardOfTheWeek: card ? { ...card, estimatedValue: 280 } : null,
+    risingBattle: rising || null,
+    editorsPick: {
+      title: "GOAT Showdown: Brady vs Mahomes",
+      description: "The debate that never ends. Cast your vote before Sunday.",
+      battleId: battle?.id,
+    }
+  });
+});
+
+// ── TRENDING PLAYERS ──────────────────────────────────────────────────────────
+app.get('/api/v1/trending/players', async (c) => {
+  const r = await pg.query(`
+    SELECT ca.player_name, ca.sport, ca.image_url, COUNT(DISTINCT b.id) as battle_count, SUM(b.total_votes_cached) as total_votes
+    FROM card_assets ca
+    JOIN battles b ON b.left_asset_id=ca.id OR b.right_asset_id=ca.id
+    WHERE b.created_at > NOW() - INTERVAL '7 days'
+    GROUP BY ca.player_name, ca.sport, ca.image_url
+    ORDER BY total_votes DESC LIMIT 10
+  `);
+  // Fallback: if no results from last 7 days, return all-time top players
+  let players = r.rows as Record<string,unknown>[];
+  if (players.length === 0) {
+    const fallback = await pg.query(`
+      SELECT ca.player_name, ca.sport, ca.image_url, COUNT(DISTINCT b.id) as battle_count, SUM(b.total_votes_cached) as total_votes
+      FROM card_assets ca
+      JOIN battles b ON b.left_asset_id=ca.id OR b.right_asset_id=ca.id
+      GROUP BY ca.player_name, ca.sport, ca.image_url
+      ORDER BY total_votes DESC LIMIT 10
+    `);
+    players = fallback.rows as Record<string,unknown>[];
+  }
+  return c.json({ players, period: '7 days' });
+});
+
 // ── SEARCH (must be before /:id) ─────────────────────────────────────────────
 app.get('/api/v1/battles/search', async (c) => {
   const q = c.req.query('q') || '';
@@ -913,7 +983,7 @@ app.get('/api/v1/share/:battleId/og', async (c) => {
     <text x="600" y="580" text-anchor="middle" fill="#6c47ff" font-size="16" font-family="system-ui">${Number(b.total_votes_cached||0).toLocaleString()} votes · cardbattles.app</text>
   </svg>`;
 
-  return new Response(svg, { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=300' }});
+  return new Response(svg, { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff' }});
 });
 
 // ── SSE LIVE VOTES ────────────────────────────────────────────────────────────

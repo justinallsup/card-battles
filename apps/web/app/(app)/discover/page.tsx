@@ -238,6 +238,22 @@ export default function DiscoverPage() {
       </div>
 
       <div className="px-4 py-4">
+        {/* Trending Players Quick Link */}
+        <div className="mb-4 rounded-xl border border-[#1e1e2e] p-3 flex items-center justify-between" style={{ background: '#12121a' }}>
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📈</span>
+            <div>
+              <p className="text-xs font-bold text-white">Trending Players</p>
+              <p className="text-[10px] text-[#64748b]">Top players by vote activity this week</p>
+            </div>
+          </div>
+          <Link href="/trending"
+            className="px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg, #6c47ff, #8b5cf6)' }}>
+            View →
+          </Link>
+        </div>
+
         {/* Suggested for You */}
         {!loading && suggested.length > 0 && (
           <div className="mb-6">

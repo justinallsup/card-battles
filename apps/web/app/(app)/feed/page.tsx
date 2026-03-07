@@ -7,7 +7,7 @@ import { BattleCard } from '../../../components/battle/BattleCard';
 import { BattleCardSkeleton } from '../../../components/ui/LoadingSpinner';
 import { trending as trendingApi, getToken } from '../../../lib/api';
 import { formatNumber } from '../../../lib/utils';
-import { RefreshCw, X } from 'lucide-react';
+import { RefreshCw, X, TrendingUp, Star } from 'lucide-react';
 import type { Battle } from '@card-battles/types';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
@@ -433,6 +433,119 @@ function Recommendations() {
   );
 }
 
+// ── Featured This Week ────────────────────────────────────────────────────────
+interface FeaturedData {
+  weekOf: string;
+  featuredBattle: { id: string; title: string; total_votes_cached: number; lp: string; li: string; rp: string; ri: string; ends_at: string } | null;
+  cardOfTheWeek: { id: string; player_name: string; image_url: string; year: number; sport: string; votes: number; estimatedValue: number } | null;
+  risingBattle: { id: string; title: string; total_votes_cached: number; lp: string; li: string; rp: string; ri: string } | null;
+  editorsPick: { title: string; description: string; battleId: string };
+}
+
+function FeaturedThisWeek() {
+  const { data, isLoading } = useQuery<FeaturedData>({
+    queryKey: ['featured-this-week'],
+    queryFn: async () => {
+      const res = await fetch(`${BASE_URL}/featured`);
+      if (!res.ok) throw new Error('No featured');
+      return res.json();
+    },
+    staleTime: 300_000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-[#1e1e2e] p-4 animate-pulse" style={{ background: '#12121a' }}>
+        <div className="h-3 w-40 bg-[#1e1e2e] rounded mb-3" />
+        <div className="grid grid-cols-3 gap-2">
+          {[1,2,3].map(i => <div key={i} className="h-24 bg-[#1e1e2e] rounded-xl" />)}
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const { featuredBattle, cardOfTheWeek, risingBattle } = data;
+
+  return (
+    <div className="rounded-2xl border overflow-hidden" style={{ background: '#12121a', borderColor: 'rgba(108,71,255,0.2)' }}>
+      {/* Header */}
+      <div className="px-4 pt-3 pb-2 flex items-center justify-between border-b border-[#1e1e2e]">
+        <div className="flex items-center gap-2">
+          <Star size={14} className="text-[#f59e0b]" />
+          <span className="text-xs font-black text-[#f59e0b] uppercase tracking-widest">Featured This Week</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
+            {data.weekOf}
+          </span>
+        </div>
+        <Link href="/trending" className="text-[10px] text-[#6c47ff] hover:underline font-semibold">See all →</Link>
+      </div>
+
+      <div className="p-3 grid grid-cols-3 gap-2">
+        {/* Battle of the Week */}
+        {featuredBattle && (
+          <Link href={`/battles/${featuredBattle.id}`} className="col-span-1 rounded-xl border border-[#1e1e2e] overflow-hidden hover:border-[#ef4444]/40 transition-all group" style={{ background: '#0a0a0f' }}>
+            <div className="relative h-20 overflow-hidden">
+              <div className="flex h-full">
+                <img src={featuredBattle.li || `https://placehold.co/80x100/6c47ff/fff?text=${encodeURIComponent(featuredBattle.lp?.[0] ?? 'L')}`}
+                  alt={featuredBattle.lp} className="w-1/2 h-full object-cover" />
+                <img src={featuredBattle.ri || `https://placehold.co/80x100/1e1e2e/fff?text=${encodeURIComponent(featuredBattle.rp?.[0] ?? 'R')}`}
+                  alt={featuredBattle.rp} className="w-1/2 h-full object-cover" />
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-[10px] font-black text-white bg-[#ef4444] rounded-full w-5 h-5 flex items-center justify-center">🔥</span>
+              </div>
+            </div>
+            <div className="p-2">
+              <p className="text-[9px] font-black text-[#ef4444] uppercase">Battle of the Week</p>
+              <p className="text-[10px] text-white font-bold truncate leading-tight mt-0.5">{featuredBattle.title}</p>
+              <p className="text-[9px] text-[#64748b] mt-0.5">🗳️ {formatNumber(featuredBattle.total_votes_cached ?? 0)}</p>
+            </div>
+          </Link>
+        )}
+
+        {/* Card of the Week */}
+        {cardOfTheWeek && (
+          <div className="col-span-1 rounded-xl border border-[#1e1e2e] overflow-hidden" style={{ background: '#0a0a0f', borderColor: 'rgba(255,215,0,0.2)' }}>
+            <div className="h-20 overflow-hidden">
+              <img src={cardOfTheWeek.image_url || `https://placehold.co/120x160/ffd700/000?text=${encodeURIComponent(cardOfTheWeek.player_name?.[0] ?? 'C')}`}
+                alt={cardOfTheWeek.player_name} className="w-full h-full object-cover" />
+            </div>
+            <div className="p-2">
+              <p className="text-[9px] font-black text-[#ffd700] uppercase">🃏 Card of Week</p>
+              <p className="text-[10px] text-white font-bold truncate leading-tight mt-0.5">{cardOfTheWeek.player_name}</p>
+              <p className="text-[9px] text-[#ffd700] font-bold mt-0.5">${cardOfTheWeek.estimatedValue}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Rising Battle */}
+        {risingBattle && (
+          <Link href={`/battles/${risingBattle.id}`} className="col-span-1 rounded-xl border border-[#1e1e2e] overflow-hidden hover:border-[#22c55e]/40 transition-all group" style={{ background: '#0a0a0f' }}>
+            <div className="relative h-20 overflow-hidden">
+              <div className="flex h-full">
+                <img src={risingBattle.li || `https://placehold.co/80x100/22c55e/fff?text=${encodeURIComponent(risingBattle.lp?.[0] ?? 'L')}`}
+                  alt={risingBattle.lp} className="w-1/2 h-full object-cover" />
+                <img src={risingBattle.ri || `https://placehold.co/80x100/1e1e2e/fff?text=${encodeURIComponent(risingBattle.rp?.[0] ?? 'R')}`}
+                  alt={risingBattle.rp} className="w-1/2 h-full object-cover" />
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <TrendingUp size={14} className="text-[#22c55e] drop-shadow" />
+              </div>
+            </div>
+            <div className="p-2">
+              <p className="text-[9px] font-black text-[#22c55e] uppercase">📈 Rising</p>
+              <p className="text-[10px] text-white font-bold truncate leading-tight mt-0.5">{risingBattle.title}</p>
+              <p className="text-[9px] text-[#64748b] mt-0.5">🗳️ {formatNumber(risingBattle.total_votes_cached ?? 0)}</p>
+            </div>
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function FeedPage() {
   const [sportFilter, setSportFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -485,6 +598,9 @@ export default function FeedPage() {
 
       {/* ⭐ Card Spotlight */}
       <CardSpotlight />
+
+      {/* ⭐ Featured This Week */}
+      <FeaturedThisWeek />
 
       {/* Hero Banner */}
       <div
