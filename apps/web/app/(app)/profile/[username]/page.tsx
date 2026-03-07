@@ -521,6 +521,51 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         </div>
       )}
 
+      {/* Collector Trading Card */}
+      <div>
+        <h2 className="text-xs font-semibold text-[#64748b] uppercase tracking-widest mb-3">
+          {isOwnProfile ? 'My Collector Card' : `${username}'s Card`}
+        </h2>
+        <div className="flex flex-col items-center gap-4">
+          <img
+            src={`${BASE_URL}/users/${username}/card`}
+            alt={`${username}'s collector card`}
+            className="w-[200px] rounded-2xl shadow-lg shadow-[#6c47ff]/20"
+            style={{ border: '2px solid #1e1e2e' }}
+          />
+          <div className="flex gap-2 w-full">
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`${BASE_URL}/users/${username}/card`);
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${username}-collector-card.svg`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                } catch { /* ignore */ }
+              }}
+              className="flex-1 py-2 rounded-xl bg-[#12121a] border border-[#1e1e2e] text-sm font-bold text-white hover:border-[#6c47ff]/50 transition-colors flex items-center justify-center gap-1.5"
+            >
+              ⬇️ Download
+            </button>
+            <button
+              onClick={() => {
+                const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/api/v1/users/${username}/card`;
+                navigator.clipboard.writeText(url).then(() => {
+                  alert('Card URL copied!');
+                }).catch(() => {});
+              }}
+              className="flex-1 py-2 rounded-xl bg-[#6c47ff]/10 border border-[#6c47ff]/30 text-sm font-bold text-[#6c47ff] hover:bg-[#6c47ff]/20 transition-colors flex items-center justify-center gap-1.5"
+            >
+              🔗 Share Card
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* My Content: Collection + Watchlist (own profile only) */}
       {isOwnProfile && (
         <div>

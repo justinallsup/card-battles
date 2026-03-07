@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const config = {
-  output: 'export',
+  // output: 'export' removed — incompatible with dynamic routes ([id], [username], etc.)
+  // Using server rendering proxied through combo-server
   trailingSlash: true,
   images: {
     unoptimized: true,

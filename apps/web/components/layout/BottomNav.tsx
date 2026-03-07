@@ -17,6 +17,7 @@ const EXPLORE_CATEGORIES = [
       { href: '/daily-picks',  label: 'Daily Picks', icon: '📅',  desc: "Today's picks"        },
       { href: '/events',       label: 'Events',      icon: '🎉',  desc: 'Limited-time battles' },
       { href: '/multi-battles',label: 'Best of 3',   icon: '⚔️',  desc: '3-round series'       },
+      { href: '/series',       label: 'Battle Series', icon: '📺', desc: 'Recurring battles'     },
     ],
   },
   {
@@ -52,6 +53,7 @@ const EXPLORE_CATEGORIES = [
       { href: '/rank',         label: 'Rank',        icon: '🏆',  desc: 'Your collector rank'  },
       { href: '/predictions',  label: 'Predictions', icon: '🔮',  desc: 'Forecast battles'     },
       { href: '/multi-battles',label: 'Best of 3',   icon: '⚔️',  desc: '3-round battle series'},
+      { href: '/digest',       label: 'Digest',      icon: '📧',  desc: 'Weekly email digest'   },
     ],
   },
   {
