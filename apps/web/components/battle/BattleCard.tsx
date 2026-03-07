@@ -1,6 +1,5 @@
 'use client';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useState, useEffect, useRef } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { formatNumber } from '../../lib/utils';
@@ -33,14 +32,15 @@ function CardImage({ imageUrl, title, playerName, onVoted, midValue }: { imageUr
         {!loaded && (
           <div className="absolute inset-0 shimmer rounded-xl" />
         )}
-        <Image
+        <img
           src={fullImageUrl}
           alt={title}
-          fill
-          className={`object-cover transition-all duration-500 group-hover:scale-105 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-          sizes="(max-width: 480px) 45vw, 200px"
-          unoptimized
+          className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${loaded ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => setLoaded(true)}
+          onError={(e) => {
+            console.error('Image failed to load:', fullImageUrl);
+            e.currentTarget.style.display = 'none';
+          }}
         />
         {/* Player name overlay */}
         {playerName && (
