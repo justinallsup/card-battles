@@ -10,6 +10,7 @@ import Link from 'next/link';
 import type { UserStats } from '@card-battles/types';
 import { useAuth } from '../../../../hooks/useAuth';
 import { ReportButton } from '../../../../components/ui/ReportModal';
+import { AchievementUnlock } from '../../../../components/AchievementUnlock';
 
 // ── Follow Button ─────────────────────────────────────────────────────────────
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
@@ -304,6 +305,18 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   return (
     <div className="space-y-5 pb-2">
       <BackButton />
+      {/* Achievement unlock overlay — only shown on own profile when new badges earned */}
+      {isOwnProfile && earnedBadges.length > 0 && (
+        <AchievementUnlock
+          badges={earnedBadges.map(b => ({
+            id: b.id,
+            name: b.label,
+            icon: b.icon,
+            description: b.desc,
+            earned: true,
+          }))}
+        />
+      )}
       {/* Profile header */}
       <div className="bg-[#12121a] rounded-2xl border border-[#1e1e2e] p-5">
         <div className="flex items-start gap-4">
