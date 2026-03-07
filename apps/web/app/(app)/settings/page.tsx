@@ -337,6 +337,10 @@ export default function SettingsPage() {
           onChange={() => toggleNotif('dailyPicks')}
         />
         <p className="text-[10px] text-[#374151]">Notification preferences are saved locally (demo mode)</p>
+        <div className="pt-2 border-t border-[#1e1e2e]">
+          <p className="text-xs font-semibold text-[#94a3b8] mb-2">Browser Push Notifications</p>
+          <PushNotificationSetup />
+        </div>
       </Section>
 
       {/* Preferences section */}

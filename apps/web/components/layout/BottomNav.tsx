@@ -9,7 +9,6 @@ import { useAuth } from '../../hooks/useAuth';
 // Explore drawer feature tiles
 const EXPLORE_TILES = [
   { href: '/marketplace',  label: 'Marketplace',  icon: '🏪', desc: 'Buy & sell cards'    },
-  { href: '/players',      label: 'Players',       icon: '🏅', desc: 'Player profiles'    },
   { href: '/scanner',      label: 'Card Scanner',  icon: '📸', desc: 'Scan & identify'    },
   { href: '/hall-of-fame', label: 'Hall of Fame',  icon: '🏛️', desc: 'Greatest cards ever' },
   { href: '/get-app',      label: 'Get the App',   icon: '📱', desc: 'Install PWA / app'  },
@@ -33,6 +32,7 @@ const EXPLORE_TILES = [
   { href: '/trades',       label: 'Trades',         icon: '🔄', desc: 'Trade proposals'    },
   { href: '/portfolio',    label: 'Portfolio',      icon: '💼', desc: 'Collection value'   },
   { href: '/discover',     label: 'Discover',      icon: '🔍', desc: 'Find collectors'    },
+  { href: '/calculator',   label: 'Calculator',    icon: '💰', desc: 'Card ROI estimator' },
   { href: '/search',       label: 'Search',        icon: '🔎', desc: 'Find anything'      },
   { href: '/pro',          label: 'Pro',           icon: '⭐', desc: 'Upgrade account'    },
 ];
