@@ -233,21 +233,30 @@ export default async function SharePage({ params }: { params: { id: string } }) 
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
   const battle = await getBattleData(params.id);
-  if (!battle) return { title: 'Card Battle' };
-  const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
+  if (!battle) return { title: 'Card Battle | Card Battles' };
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://card-battles-web.vercel.app';
   return {
     title: `${battle.title} — Card Battles`,
-    description: `${battle.lp} vs ${battle.rp}. ${battle.total_votes_cached} votes. Cast yours!`,
+    description: `${battle.lp} vs ${battle.rp}. ${battle.total_votes_cached.toLocaleString()} votes cast. Who wins? You decide!`,
     openGraph: {
-      title: battle.title,
-      description: `Vote: ${battle.lp} vs ${battle.rp}`,
-      images: [`${API}/share/${battle.id}/og`],
+      title: `⚔️ ${battle.title}`,
+      description: `${battle.lp} vs ${battle.rp} · ${battle.total_votes_cached.toLocaleString()} votes · Cast yours!`,
+      images: [
+        {
+          url: `${siteUrl}/(app)/battles/${battle.id}/opengraph-image`,
+          width: 1200,
+          height: 630,
+          alt: `${battle.lp} vs ${battle.rp}`,
+        },
+      ],
+      type: 'website',
+      siteName: 'Card Battles',
     },
     twitter: {
       card: 'summary_large_image',
-      title: battle.title,
-      description: `Vote: ${battle.lp} vs ${battle.rp}`,
-      images: [`${API}/share/${battle.id}/og`],
+      title: `⚔️ ${battle.title}`,
+      description: `${battle.lp} vs ${battle.rp} · Vote now!`,
+      images: [`${siteUrl}/(app)/battles/${battle.id}/opengraph-image`],
     },
   };
 }

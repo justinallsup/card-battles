@@ -191,6 +191,24 @@ export default function CommunityPage() {
         </div>
       )}
 
+      {/* Community Challenges CTA */}
+      <div
+        className="rounded-2xl border border-[#6c47ff]/30 p-4 flex items-center justify-between"
+        style={{ background: 'linear-gradient(135deg, #6c47ff15 0%, #9b7aff10 100%)' }}
+      >
+        <div>
+          <p className="text-white font-black text-sm">🎯 Community Challenges</p>
+          <p className="text-[#64748b] text-xs mt-0.5">Join or create mini-challenges</p>
+        </div>
+        <Link
+          href="/community/challenges"
+          className="px-4 py-2 rounded-xl text-sm font-bold text-white flex items-center gap-1.5 transition-all active:scale-95"
+          style={{ background: 'linear-gradient(135deg, #6c47ff 0%, #9b7aff 100%)' }}
+        >
+          View Challenges
+        </Link>
+      </div>
+
       {/* Live Feed */}
       <div className="rounded-2xl border border-[#1e1e2e] overflow-hidden" style={{ background: '#12121a' }}>
         <div className="px-4 py-3 border-b border-[#1e1e2e] flex items-center gap-2">

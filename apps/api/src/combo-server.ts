@@ -194,9 +194,7 @@ async function seedDb() {
   const assetIds: string[] = [];
   for (const c of cards) {
     const id = randomUUID(); assetIds.push(id);
-    const last = c.p.split(' ').pop()!;
-    const displayText = `${last}+${c.y}+${c.s.toUpperCase()}`;
-    const img = `https://placehold.co/400x560/${c.c}?text=${encodeURIComponent(displayText)}`;
+    const img = `/api/v1/cards/image?player=${encodeURIComponent(c.p)}&year=${c.y}&sport=${c.s}&colors=${encodeURIComponent(c.c)}&title=${encodeURIComponent(c.t)}`;
     await pg.query('INSERT INTO card_assets (id,created_by_user_id,image_url,thumb_url,title,sport,player_name,year) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
       [id, users[0].id, img, img, c.t, c.s, c.p, c.y]);
   }
@@ -363,9 +361,24 @@ function rateLimit(ip: string, max = 100, windowMs = 60_000): boolean {
   return entry.count <= max; // false = rate limited
 }
 
-const app = new Hono();
+const app = new Hono({ strict: false });
 app.use('*', logger());
 app.use('*', cors({origin: process.env.CORS_ORIGIN || '*', credentials: true}));
+
+// Card image generator — handled as middleware to avoid Hono's trailing-slash redirect
+app.use('/api/v1/cards/image', async (c, next) => {
+  if (c.req.method !== 'GET') return next();
+  const player = c.req.query('player') || 'Unknown Player';
+  const year = c.req.query('year') || '2024';
+  const sport = c.req.query('sport') || 'nfl';
+  const colors = c.req.query('colors') || '1a1a4e/ffd700';
+  const title = c.req.query('title') || player;
+  const grade = c.req.query('grade') || '10';
+  const svg = generateCardSVG({ player, year, sport, colors, title, grade });
+  c.header('Content-Type', 'image/svg+xml');
+  c.header('Cache-Control', 'public, max-age=86400');
+  return c.body(svg);
+});
 
 // Apply rate limiting to all API routes
 app.use('/api/*', async (c, next) => {
@@ -775,10 +788,10 @@ app.post('/api/v1/assets/upload', async (c) => {
     imageUrl = `data:${mime};base64,${imageBase64}`;
   }
 
-  // If still no image, use a placeholder
+  // If still no image, generate a card SVG
   if (!imageUrl) {
-    const name = (playerName || title).split(' ').pop() || 'Card';
-    imageUrl = `https://placehold.co/400x560/6c47ff/ffffff?text=${encodeURIComponent(name)}`;
+    const name = playerName || title || 'Card';
+    imageUrl = `/api/v1/cards/image?player=${encodeURIComponent(name)}&year=${year || new Date().getFullYear()}&sport=${sport || 'nfl'}&colors=6c47ff%2Fffffff`;
   }
 
   const id = randomUUID();
@@ -916,6 +929,256 @@ app.get('/api/v1/cards/search', async (c) => {
     [`%${q}%`]
   );
   return c.json({ cards: r.rows });
+});
+
+// ── CARD IMAGE GENERATOR ──────────────────────────────────────────────────────
+// Generates a beautiful SVG trading card image on-the-fly
+function generateCardSVG(params: {
+  player: string; year: string | number; sport: string;
+  colors: string; title: string; grade?: string;
+}): string {
+  const { player, year, sport, grade } = params;
+  // Parse colors: "primaryHex/accentHex"
+  const [primaryHex, accentHex] = params.colors.split('/');
+  const primary = `#${primaryHex || '1a1a4e'}`;
+  const accent = `#${accentHex || 'ffd700'}`;
+
+  // Sport label and emoji
+  const sportLabels: Record<string, { label: string; emoji: string }> = {
+    nfl: { label: 'NFL', emoji: '🏈' },
+    nba: { label: 'NBA', emoji: '🏀' },
+    mlb: { label: 'MLB', emoji: '⚾' },
+    nhl: { label: 'NHL', emoji: '🏒' },
+    soccer: { label: 'SOCCER', emoji: '⚽' },
+  };
+  const sportInfo = sportLabels[sport?.toLowerCase()] || { label: 'SPORTS', emoji: '🏆' };
+
+  // Parse player name for display
+  const nameParts = player.trim().split(' ');
+  const firstName = nameParts[0];
+  const lastName = nameParts.slice(1).join(' ') || firstName;
+
+  // Grade badge
+  const gradeNum = grade || '10';
+  const gradeColor = gradeNum === '10' ? '#FFD700' : gradeNum === '9' ? '#C0C0C0' : '#CD7F32';
+
+  // Determine if we need light text on the accent (check luminance roughly)
+  const accentIsLight = parseInt(accentHex || '000000', 16) > 0x888888;
+  const accentText = accentIsLight ? '#111111' : '#ffffff';
+
+  // Generate unique shimmer ID (avoid conflicts if multiple on page)
+  const uid2 = Math.random().toString(36).slice(2, 8);
+
+  // Build silhouette based on sport
+  const silhouettesByYear = parseInt(String(year)) < 1980
+    ? `<text x="200" y="290" text-anchor="middle" font-size="100" opacity="0.15">📸</text>`
+    : '';
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 560" width="400" height="560">
+  <defs>
+    <!-- Card background gradient -->
+    <linearGradient id="bg-${uid2}" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:${primary};stop-opacity:1"/>
+      <stop offset="60%" style="stop-color:${primary};stop-opacity:0.85"/>
+      <stop offset="100%" style="stop-color:#0a0a0f;stop-opacity:1"/>
+    </linearGradient>
+    <!-- Holographic shimmer overlay -->
+    <linearGradient id="holo-${uid2}" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:${accent};stop-opacity:0.08"/>
+      <stop offset="30%" style="stop-color:#ffffff;stop-opacity:0.04"/>
+      <stop offset="50%" style="stop-color:${accent};stop-opacity:0.12"/>
+      <stop offset="70%" style="stop-color:#ffffff;stop-opacity:0.04"/>
+      <stop offset="100%" style="stop-color:${accent};stop-opacity:0.08"/>
+    </linearGradient>
+    <!-- Photo area gradient -->
+    <linearGradient id="photo-${uid2}" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:${primary};stop-opacity:0.2"/>
+      <stop offset="100%" style="stop-color:#000000;stop-opacity:0.5"/>
+    </linearGradient>
+    <!-- Name plate gradient -->
+    <linearGradient id="plate-${uid2}" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:${accent};stop-opacity:0.95"/>
+      <stop offset="100%" style="stop-color:${accent};stop-opacity:0.75"/>
+    </linearGradient>
+    <!-- Outer glow filter -->
+    <filter id="glow-${uid2}" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- Card border clip -->
+    <clipPath id="card-clip-${uid2}">
+      <rect x="0" y="0" width="400" height="560" rx="18" ry="18"/>
+    </clipPath>
+    <!-- Photo clip -->
+    <clipPath id="photo-clip-${uid2}">
+      <rect x="16" y="52" width="368" height="320" rx="8" ry="8"/>
+    </clipPath>
+    <!-- Prismatic lines pattern -->
+    <pattern id="prism-${uid2}" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="40" x2="40" y2="0" stroke="${accent}" stroke-width="0.4" opacity="0.15"/>
+      <line x1="-20" y1="40" x2="20" y2="0" stroke="${accent}" stroke-width="0.3" opacity="0.08"/>
+    </pattern>
+  </defs>
+
+  <!-- Card outer border glow -->
+  <rect x="0" y="0" width="400" height="560" rx="18" ry="18"
+    fill="${accent}" opacity="0.25"/>
+
+  <!-- Main card body -->
+  <g clip-path="url(#card-clip-${uid2})">
+    <!-- Background -->
+    <rect x="0" y="0" width="400" height="560" fill="url(#bg-${uid2})"/>
+
+    <!-- Prismatic pattern overlay -->
+    <rect x="0" y="0" width="400" height="560" fill="url(#prism-${uid2})"/>
+
+    <!-- Holographic shimmer -->
+    <rect x="0" y="0" width="400" height="560" fill="url(#holo-${uid2})"/>
+
+    <!-- Top banner -->
+    <rect x="0" y="0" width="400" height="48" fill="${primary}" opacity="0.95"/>
+    <rect x="0" y="44" width="400" height="4" fill="${accent}" opacity="0.9"/>
+
+    <!-- Set name top left -->
+    <text x="18" y="30" font-family="'Arial Black', Arial, sans-serif" font-size="11"
+      font-weight="900" fill="${accent}" letter-spacing="3" opacity="0.95">PRIZM</text>
+
+    <!-- Year top center -->
+    <text x="200" y="30" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif"
+      font-size="13" font-weight="900" fill="white" opacity="0.9">${year}</text>
+
+    <!-- Sport badge top right -->
+    <rect x="310" y="12" width="72" height="24" rx="4" fill="${accent}" opacity="0.95"/>
+    <text x="346" y="28" text-anchor="middle" font-family="Arial, sans-serif"
+      font-size="11" font-weight="700" fill="${accentText}">${sportInfo.label}</text>
+
+    <!-- Photo area background -->
+    <rect x="16" y="52" width="368" height="320" rx="8" fill="${primary}" opacity="0.4"/>
+
+    <!-- Dynamic sport silhouette art (abstract geometric) -->
+    <!-- Large player number / abstract background element -->
+    <text x="200" y="260" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif"
+      font-size="220" font-weight="900" fill="${accent}" opacity="0.06">${lastName.charAt(0)}</text>
+
+    <!-- Sport emoji as large decorative element -->
+    <text x="200" y="230" text-anchor="middle" font-size="110" opacity="0.18">${sportInfo.emoji}</text>
+
+    <!-- Dynamic action lines (speed/energy effect) -->
+    <line x1="0" y1="150" x2="130" y2="52" stroke="${accent}" stroke-width="1.5" opacity="0.15"/>
+    <line x1="0" y1="200" x2="150" y2="52" stroke="${accent}" stroke-width="1" opacity="0.1"/>
+    <line x1="400" y1="150" x2="270" y2="52" stroke="${accent}" stroke-width="1.5" opacity="0.15"/>
+    <line x1="400" y1="200" x2="250" y2="52" stroke="${accent}" stroke-width="1" opacity="0.1"/>
+    <line x1="0" y1="300" x2="400" y2="100" stroke="${accent}" stroke-width="0.5" opacity="0.06"/>
+
+    <!-- Geometric accent shapes -->
+    <polygon points="370,52 400,52 400,100 350,90"
+      fill="${accent}" opacity="0.12"/>
+    <polygon points="0,52 50,52 30,100 0,90"
+      fill="${accent}" opacity="0.12"/>
+
+    <!-- Photo overlay gradient (bottom of photo area) -->
+    <rect x="16" y="52" width="368" height="320" fill="url(#photo-${uid2})" clip-path="url(#photo-clip-${uid2})"/>
+
+    <!-- Photo area top-right corner accent -->
+    <polygon points="384,52 400,52 400,88" fill="${accent}" opacity="0.3"/>
+
+    ${silhouettesByYear}
+
+    <!-- Rookie / Auto badge (if year is recent) -->
+    ${parseInt(String(year)) >= 2010 ? `
+    <rect x="26" y="320" width="54" height="20" rx="3" fill="${accent}" opacity="0.9"/>
+    <text x="53" y="333" text-anchor="middle" font-family="Arial, sans-serif"
+      font-size="9" font-weight="700" fill="${accentText}">ROOKIE</text>
+    ` : `
+    <rect x="26" y="320" width="58" height="20" rx="3" fill="${primary}" opacity="0.9"/>
+    <text x="55" y="333" text-anchor="middle" font-family="Arial, sans-serif"
+      font-size="9" font-weight="700" fill="${accent}">VINTAGE</text>
+    `}
+
+    <!-- PSA Grade badge -->
+    <rect x="310" y="308" width="74" height="36" rx="5" fill="#1a1a1a" opacity="0.95"/>
+    <rect x="312" y="310" width="70" height="14" rx="3" fill="${gradeColor}" opacity="0.95"/>
+    <text x="347" y="320" text-anchor="middle" font-family="Arial, sans-serif"
+      font-size="8" font-weight="700" fill="#111">PSA</text>
+    <text x="347" y="338" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif"
+      font-size="14" font-weight="900" fill="white">${gradeNum}</text>
+
+    <!-- Name plate area -->
+    <rect x="0" y="374" width="400" height="70" fill="url(#plate-${uid2})"/>
+
+    <!-- First name -->
+    <text x="20" y="400" font-family="'Arial Black', Arial, sans-serif"
+      font-size="12" font-weight="400" fill="${accentText}" opacity="0.85"
+      letter-spacing="2">${firstName.toUpperCase()}</text>
+
+    <!-- Last name (big) -->
+    <text x="20" y="432" font-family="'Arial Black', Arial, sans-serif"
+      font-size="28" font-weight="900" fill="${accentText}"
+      letter-spacing="1">${lastName.toUpperCase()}</text>
+
+    <!-- Holographic foil stripe on name plate -->
+    <rect x="0" y="438" width="400" height="6" fill="white" opacity="0.12"/>
+
+    <!-- Bottom stats area -->
+    <rect x="0" y="444" width="400" height="116" fill="#0a0a0f" opacity="0.92"/>
+
+    <!-- Divider line -->
+    <line x1="0" y1="444" x2="400" y2="444" stroke="${accent}" stroke-width="1.5" opacity="0.6"/>
+
+    <!-- Card number / serial -->
+    <text x="20" y="464" font-family="'Courier New', monospace" font-size="10"
+      fill="${accent}" opacity="0.7">#CB-${Math.abs(player.charCodeAt(0) * 37 + (parseInt(String(year)) % 100) * 13) % 999 + 1}/999</text>
+
+    <!-- Sport icon row -->
+    <text x="200" y="464" text-anchor="middle" font-size="14" opacity="0.4">${sportInfo.emoji} ${sportInfo.emoji} ${sportInfo.emoji}</text>
+
+    <!-- Set info line -->
+    <text x="20" y="488" font-family="Arial, sans-serif" font-size="10"
+      fill="white" opacity="0.5">PANINI PRIZM • ${year} COLLECTION</text>
+
+    <!-- Player stats placeholder bars -->
+    <rect x="20" y="500" width="120" height="4" rx="2" fill="${accent}" opacity="0.3"/>
+    <rect x="20" y="500" width="${Math.min(120, 40 + (player.charCodeAt(0) % 80))}" height="4" rx="2" fill="${accent}" opacity="0.8"/>
+    <text x="20" y="518" font-family="Arial, sans-serif" font-size="9" fill="white" opacity="0.4">STATS</text>
+
+    <rect x="160" y="500" width="120" height="4" rx="2" fill="${accent}" opacity="0.3"/>
+    <rect x="160" y="500" width="${Math.min(120, 30 + (player.charCodeAt(1) % 90))}" height="4" rx="2" fill="${accent}" opacity="0.8"/>
+    <text x="160" y="518" font-family="Arial, sans-serif" font-size="9" fill="white" opacity="0.4">POWER</text>
+
+    <rect x="300" y="500" width="80" height="4" rx="2" fill="${accent}" opacity="0.3"/>
+    <rect x="300" y="500" width="${Math.min(80, 20 + (player.charCodeAt(2) % 60))}" height="4" rx="2" fill="${accent}" opacity="0.8"/>
+    <text x="300" y="518" font-family="Arial, sans-serif" font-size="9" fill="white" opacity="0.4">RANK</text>
+
+    <!-- Brand watermark bottom right -->
+    <text x="380" y="548" text-anchor="end" font-family="'Arial Black', Arial, sans-serif"
+      font-size="9" fill="white" opacity="0.25" letter-spacing="2">CARDBATTLES</text>
+
+    <!-- Sheen highlight (top-left glare effect) -->
+    <ellipse cx="80" cy="120" rx="60" ry="30" fill="white" opacity="0.04" transform="rotate(-30, 80, 120)"/>
+  </g>
+
+  <!-- Card border stroke -->
+  <rect x="1" y="1" width="398" height="558" rx="17" ry="17"
+    fill="none" stroke="${accent}" stroke-width="1.5" opacity="0.4"/>
+</svg>`;
+
+  return svg;
+}
+
+// GET /api/v1/cards/image — generate card SVG on-the-fly
+app.get('/api/v1/cards/image', async (c) => {
+  const player = c.req.query('player') || 'Unknown Player';
+  const year = c.req.query('year') || '2024';
+  const sport = c.req.query('sport') || 'nfl';
+  const colors = c.req.query('colors') || '1a1a4e/ffd700';
+  const title = c.req.query('title') || player;
+  const grade = c.req.query('grade') || '10';
+
+  const svg = generateCardSVG({ player, year, sport, colors, title, grade });
+
+  c.header('Content-Type', 'image/svg+xml');
+  c.header('Cache-Control', 'public, max-age=86400');
+  return c.body(svg);
 });
 
 // ── USER FOLLOWING ────────────────────────────────────────────────────────────

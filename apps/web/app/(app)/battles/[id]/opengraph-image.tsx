@@ -1,74 +1,93 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
-export const alt = 'Card Battle';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
 export default async function OGImage({ params }: { params: { id: string } }) {
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
-
-  let title = 'Card Battle ⚔️';
-  let leftName = 'Left Card';
-  let rightName = 'Right Card';
-  let votes = 0;
-
+  const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://card-battles-1.onrender.com/api/v1';
+  let battle: {
+    title?: string;
+    left?: { playerName?: string; votes?: number };
+    right?: { playerName?: string; votes?: number };
+  } | null = null;
   try {
-    const res = await fetch(`${apiBase}/battles/${params.id}`, { next: { revalidate: 60 } });
-    if (res.ok) {
-      const battle = await res.json();
-      title = battle.title ?? title;
-      leftName = battle.left?.playerName ?? battle.left?.title ?? leftName;
-      rightName = battle.right?.playerName ?? battle.right?.title ?? rightName;
-      votes = battle.totalVotesCached ?? 0;
-    }
+    const res = await fetch(`${API}/battles/${params.id}`, { next: { revalidate: 3600 } });
+    battle = await res.json();
   } catch {}
 
   return new ImageResponse(
     (
-      <div style={{
-        display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
-        background: 'linear-gradient(135deg, #0a0a0f 0%, #12121a 100%)',
-        fontFamily: 'Arial Black, Arial, sans-serif',
-        alignItems: 'center', justifyContent: 'center', padding: '48px',
-      }}>
-        {/* Logo */}
-        <div style={{ fontSize: 28, color: '#6c47ff', fontWeight: 900, letterSpacing: 4, marginBottom: 16 }}>
-          ⚔️ CARDBATTLES
+      <div
+        style={{
+          display: 'flex',
+          width: '100%',
+          height: '100%',
+          background: '#0a0a0f',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'column',
+          fontFamily: 'sans-serif',
+        }}
+      >
+        <div style={{ display: 'flex', color: '#6c47ff', fontSize: 28, fontWeight: 900, marginBottom: 16 }}>
+          ⚔️ CARD BATTLES
         </div>
-
-        {/* Title */}
-        <div style={{ fontSize: 22, color: '#94a3b8', marginBottom: 40, textAlign: 'center' }}>
-          {title}
+        <div
+          style={{
+            display: 'flex',
+            color: 'white',
+            fontSize: 42,
+            fontWeight: 800,
+            textAlign: 'center',
+            marginBottom: 32,
+            maxWidth: 900,
+          }}
+        >
+          {battle?.title || 'Head-to-Head Card Battle'}
         </div>
-
-        {/* Cards */}
-        <div style={{ display: 'flex', gap: 40, alignItems: 'center', width: '100%', justifyContent: 'center' }}>
-          <div style={{
-            flex: 1, maxWidth: 440, background: '#12121a', border: '2px solid #1e1e2e',
-            borderRadius: 20, padding: '48px 32px', textAlign: 'center',
-          }}>
-            <div style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9' }}>{leftName}</div>
+        <div style={{ display: 'flex', gap: 60, alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div
+              style={{
+                width: 160,
+                height: 224,
+                background: '#1e1e2e',
+                borderRadius: 12,
+                border: '3px solid #6c47ff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontSize: 14,
+              }}
+            >
+              {battle?.left?.playerName || 'Card 1'}
+            </div>
+            <div style={{ color: '#94a3b8', marginTop: 8, fontSize: 18 }}>{battle?.left?.votes || 0} votes</div>
           </div>
-
-          <div style={{
-            width: 64, height: 64, borderRadius: 32, background: '#1e1e2e',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 16, fontWeight: 900, color: '#64748b',
-          }}>VS</div>
-
-          <div style={{
-            flex: 1, maxWidth: 440, background: '#12121a', border: '2px solid #1e1e2e',
-            borderRadius: 20, padding: '48px 32px', textAlign: 'center',
-          }}>
-            <div style={{ fontSize: 36, fontWeight: 900, color: '#f1f5f9' }}>{rightName}</div>
+          <div style={{ color: '#6c47ff', fontSize: 48, fontWeight: 900 }}>VS</div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div
+              style={{
+                width: 160,
+                height: 224,
+                background: '#1e1e2e',
+                borderRadius: 12,
+                border: '3px solid #ef4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontSize: 14,
+              }}
+            >
+              {battle?.right?.playerName || 'Card 2'}
+            </div>
+            <div style={{ color: '#94a3b8', marginTop: 8, fontSize: 18 }}>{battle?.right?.votes || 0} votes</div>
           </div>
         </div>
-
-        {/* Footer */}
-        <div style={{ marginTop: 40, fontSize: 18, color: '#64748b' }}>
-          {votes.toLocaleString()} votes • cardbattles.app
-        </div>
+        <div style={{ color: '#64748b', fontSize: 20, marginTop: 32 }}>card-battles-web.vercel.app · Vote now!</div>
       </div>
     ),
     { ...size }

@@ -145,6 +145,15 @@ export default function MarketPage() {
     },
   });
 
+  const { data: movingData } = useQuery<MarketMoversData>({
+    queryKey: ['market-movers-mini'],
+    queryFn: async () => {
+      const r = await fetch(`${BASE_URL}/market/movers`);
+      return r.json();
+    },
+    staleTime: 60_000,
+  });
+
   useEffect(() => { document.title = 'Market | Card Battles'; }, []);
 
   useEffect(() => {
@@ -195,6 +204,42 @@ export default function MarketPage() {
             {moversData.losers.map(l => (
               <TopMoverChip key={l.playerName} mover={l} isGainer={false} />
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Market Movers Widget */}
+      {movingData && (movingData.gainers.length > 0 || movingData.losers.length > 0) && (
+        <div className="rounded-2xl border border-[#1e1e2e] p-4" style={{ background: '#12121a' }}>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-black text-white flex items-center gap-1.5">📊 Market Movers</p>
+            <Link href="/market/movers" className="text-[#6c47ff] text-xs font-semibold hover:underline">
+              View All →
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] font-bold text-[#22c55e] uppercase tracking-wide mb-2">📈 Top Gainers</p>
+              <div className="space-y-1.5">
+                {movingData.gainers.slice(0, 3).map((m, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <span className="text-xs text-white truncate flex-1">{m.playerName.split(' ').pop()}</span>
+                    <span className="text-xs font-black text-[#22c55e] ml-1">+{m.changePct}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-[#ef4444] uppercase tracking-wide mb-2">📉 Top Losers</p>
+              <div className="space-y-1.5">
+                {movingData.losers.slice(0, 3).map((m, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <span className="text-xs text-white truncate flex-1">{m.playerName.split(' ').pop()}</span>
+                    <span className="text-xs font-black text-[#ef4444] ml-1">{m.changePct}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
