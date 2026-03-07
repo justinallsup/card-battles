@@ -22,7 +22,7 @@ interface MarketMoversData {
   updatedAt: string;
 }
 
-
+interface MarketCard {
   cardId: string;
   title: string;
   playerName: string;
@@ -88,7 +88,7 @@ function TopMoverChip({ mover, isGainer }: { mover: TopMover; isGainer: boolean 
   );
 }
 
-function MarketRow({ item }: { item: MarketItem }) {
+function MarketRow({ item }: { item: MarketCard }) {
   const priceColor = item.trend === 'up' ? 'text-[#22c55e]' : item.trend === 'down' ? 'text-[#ef4444]' : 'text-[#94a3b8]';
 
   return (
@@ -132,7 +132,7 @@ export default function MarketPage() {
     queryKey: ['market-feed'],
     queryFn: async () => {
       const r = await fetch(`${BASE_URL}/market/feed`);
-      return r.json() as Promise<{ items: MarketItem[]; updatedAt: string }>;
+      return r.json() as Promise<{ items: MarketCard[]; updatedAt: string }>;
     },
     refetchInterval: 60000,
   });
