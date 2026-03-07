@@ -1178,6 +1178,8 @@ app.get('/api/v1/cards/image', async (c) => {
 
   c.header('Content-Type', 'image/svg+xml');
   c.header('Cache-Control', 'public, max-age=86400');
+  c.header('Access-Control-Allow-Origin', '*');
+  c.header('Access-Control-Allow-Methods', 'GET');
   return c.body(svg);
 });
 
