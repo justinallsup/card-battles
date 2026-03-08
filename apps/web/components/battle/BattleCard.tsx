@@ -18,37 +18,60 @@ interface BattleCardProps {
 
 function CardImage({ imageUrl, title, playerName, onVoted, midValue }: { imageUrl: string; title: string; playerName?: string | null; onVoted?: boolean; midValue?: number | null }) {
   const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState(false);
   
-  // For MVP: use placeholder until we fix external SVG loading
-  const placeholderUrl = '/card-placeholder.svg';
-  const imgSrc = placeholderUrl; // TODO: Fix external SVG loading
+  // Extract player name from title for display
+  const displayName = playerName || title.split(' ')[0] || '?';
+  
+  // Generate a color based on player name for variety
+  const hashCode = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return hash;
+  };
+  const hue = Math.abs(hashCode(displayName)) % 360;
 
   return (
     <div className="flex-1 min-w-0">
       <div
         className={`relative rounded-xl overflow-hidden border transition-all duration-300 group-hover:border-[#6c47ff]/40 ${onVoted ? 'animate-vote-pulse' : ''}`}
-        style={{ aspectRatio: '3/4', background: '#1e1e2e', borderColor: '#252535' }}
+        style={{ 
+          aspectRatio: '3/4', 
+          background: `linear-gradient(135deg, hsl(${hue}, 40%, 20%) 0%, #0a0a0f 100%)`,
+          borderColor: '#252535' 
+        }}
       >
-        {/* Shimmer skeleton while loading */}
-        {!loaded && !error && (
-          <div className="absolute inset-0 shimmer rounded-xl" />
-        )}
-        {error && (
-          <div className="absolute inset-0 flex items-center justify-center text-[#64748b] text-sm">
-            Failed to load
+        {/* Card design */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
+          {/* Top banner */}
+          <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-r from-[#6c47ff]/20 to-transparent" />
+          
+          {/* Center emoji */}
+          <div className="text-8xl opacity-20 mb-4">⚔️</div>
+          
+          {/* Player name */}
+          <div className="text-white font-black text-2xl text-center mb-2 px-2 line-clamp-2">
+            {displayName}
+          </div>
+          
+          {/* Subtitle */}
+          <div className="text-[#94a3b8] text-sm font-medium">
+            CARD BATTLES
+          </div>
+          
+          {/* Bottom accent */}
+          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/50 to-transparent" />
+          
+          {/* Border accent */}
+          <div className="absolute inset-0 border-2 border-[#6c47ff]/20 rounded-xl pointer-events-none" />
+        </div>
+        
+        {midValue && (
+          <div className="absolute top-2 right-2 px-2 py-1 bg-[#6c47ff]/90 rounded text-white text-xs font-bold">
+            ${midValue.toLocaleString()}
           </div>
         )}
-        <img
-          src={imgSrc}
-          alt={title}
-          className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-          onLoad={() => setLoaded(true)}
-          onError={(e) => {
-            console.error('Image failed to load:', imgSrc);
-            setError(true);
-          }}
-        />
         {/* Player name overlay */}
         {playerName && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 py-2">
