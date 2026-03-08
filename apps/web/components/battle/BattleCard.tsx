@@ -17,9 +17,10 @@ interface BattleCardProps {
 }
 
 function CardImage({ imageUrl, title, playerName, onVoted, midValue }: { imageUrl: string; title: string; playerName?: string | null; onVoted?: boolean; midValue?: number | null }) {
-  // Extract card ID from imageUrl if it's an API path
-  const cardIdMatch = imageUrl.match(/\/cards\/([^\/\?]+)/);
-  const imgSrc = cardIdMatch ? `${API_BASE.replace('/api/v1', '')}/api/v1/cards/${cardIdMatch[1]}/image` : imageUrl;
+  // Convert relative URLs to absolute
+  const imgSrc = imageUrl.startsWith('http') 
+    ? imageUrl 
+    : `${API_BASE.replace('/api/v1', '')}${imageUrl}`;
 
   return (
     <div className="flex-1 min-w-0">
