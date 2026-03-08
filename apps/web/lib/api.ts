@@ -90,7 +90,7 @@ export const battles = {
     if (params?.status) qs.set('status', params.status);
     if (params?.sport) qs.set('sport', params.sport);
     const q = qs.toString();
-    const response = await request<FeedResponse>(`/battles/feed${q ? `?${q}` : ''}`, { auth: true });
+    const response = await request<FeedResponse>(`/battles/feed/${q ? `?${q}` : ''}`, { auth: true });
     return {
       ...response,
       items: normalizeBattles(response.items),
@@ -98,7 +98,7 @@ export const battles = {
   },
 
   get: async (id: string) => {
-    const battle = await request<Battle>(`/battles/${id}`, { auth: true });
+    const battle = await request<Battle>(`/battles/${id}/`, { auth: true });
     return normalizeBattle(battle);
   },
 
