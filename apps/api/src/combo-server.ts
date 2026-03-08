@@ -35,7 +35,9 @@ async function initDb() {
     CREATE TABLE IF NOT EXISTS card_assets (
       id TEXT PRIMARY KEY, created_by_user_id TEXT, image_url TEXT NOT NULL,
       thumb_url TEXT, title TEXT NOT NULL, sport TEXT, player_name TEXT,
-      year INTEGER, source TEXT DEFAULT 'upload', created_at TIMESTAMPTZ DEFAULT NOW()
+      year INTEGER, set_name TEXT, variant TEXT, grade TEXT, cert_number TEXT,
+      source TEXT DEFAULT 'upload', metadata TEXT DEFAULT '{}',
+      created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS battles (
       id TEXT PRIMARY KEY, created_by_user_id TEXT,
@@ -195,8 +197,8 @@ async function seedDb() {
   for (const c of cards) {
     const id = randomUUID(); assetIds.push(id);
     const img = `/api/v1/cards/image?player=${encodeURIComponent(c.p)}&year=${c.y}&sport=${c.s}&colors=${encodeURIComponent(c.c)}&title=${encodeURIComponent(c.t)}`;
-    await pg.query('INSERT INTO card_assets (id,created_by_user_id,image_url,thumb_url,title,sport,player_name,year) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-      [id, users[0].id, img, img, c.t, c.s, c.p, c.y]);
+    await pg.query('INSERT INTO card_assets (id,created_by_user_id,image_url,thumb_url,title,sport,player_name,year,source) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+      [id, users[0].id, img, img, c.t, c.s, c.p, c.y, 'seeded']);
   }
   // Card index reference (0-based):
   // 0=Mahomes, 1=Brady, 2=Allen, 3=Burrow, 4=LeBron, 5=Jordan, 6=Wemby, 7=Luka, 8=Ohtani, 9=Trout

@@ -44,6 +44,11 @@ interface CardInput {
   title: string;
   playerName: string;
   sport: string;
+  year?: string;
+  setName?: string;
+  variant?: string;
+  grade?: string;
+  certNumber?: string;
   mode: InputMode;
   existingAssetId?: string; // if selected from search
 }
@@ -56,6 +61,11 @@ const emptyCard = (): CardInput => ({
   title: '',
   playerName: '',
   sport: 'nfl',
+  year: '',
+  setName: '',
+  variant: '',
+  grade: '',
+  certNumber: '',
   mode: 'url',
 });
 
@@ -321,6 +331,65 @@ function CardSlot({
           ))}
         </select>
       </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label htmlFor={`${label}-year`} className="sr-only">Year</label>
+          <input
+            id={`${label}-year`}
+            type="text"
+            placeholder="Year (e.g., 2000)"
+            value={card.year || ''}
+            onChange={(e) => onChange({ ...card, year: e.target.value })}
+            className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
+          />
+        </div>
+        <div>
+          <label htmlFor={`${label}-grade`} className="sr-only">Grade</label>
+          <input
+            id={`${label}-grade`}
+            type="text"
+            placeholder="Grade (PSA 10)"
+            value={card.grade || ''}
+            onChange={(e) => onChange({ ...card, grade: e.target.value })}
+            className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
+          />
+        </div>
+      </div>
+      <div>
+        <label htmlFor={`${label}-setName`} className="sr-only">Set Name</label>
+        <input
+          id={`${label}-setName`}
+          type="text"
+          placeholder="Set name (e.g., Topps Chrome)"
+          value={card.setName || ''}
+          onChange={(e) => onChange({ ...card, setName: e.target.value })}
+          className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label htmlFor={`${label}-variant`} className="sr-only">Variant</label>
+          <input
+            id={`${label}-variant`}
+            type="text"
+            placeholder="Variant (Refractor)"
+            value={card.variant || ''}
+            onChange={(e) => onChange({ ...card, variant: e.target.value })}
+            className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
+          />
+        </div>
+        <div>
+          <label htmlFor={`${label}-certNumber`} className="sr-only">Cert Number</label>
+          <input
+            id={`${label}-certNumber`}
+            type="text"
+            placeholder="Cert #"
+            value={card.certNumber || ''}
+            onChange={(e) => onChange({ ...card, certNumber: e.target.value })}
+            className="w-full bg-[#12121a] border border-[#1e1e2e] rounded-lg px-3 py-2 text-xs text-[#f1f5f9] placeholder:text-[#374151] focus:outline-none focus:border-[#6c47ff] transition-colors"
+          />
+        </div>
+      </div>
     </div>
   );
 }
@@ -474,20 +543,60 @@ async function uploadAsset(card: CardInput): Promise<{ id: string }> {
   }
 
   const token = getToken();
+  
+  // If uploading a file, use FormData
+  if (card.imageBase64) {
+    const formData = new FormData();
+    
+    // Convert base64 to blob
+    const byteString = atob(card.imageBase64);
+    const arrayBuffer = new ArrayBuffer(byteString.length);
+    const uint8Array = new Uint8Array(arrayBuffer);
+    for (let i = 0; i < byteString.length; i++) {
+      uint8Array[i] = byteString.charCodeAt(i);
+    }
+    const blob = new Blob([uint8Array], { type: card.mimeType || 'image/jpeg' });
+    const filename = card.title ? `${card.title.replace(/[^a-z0-9]/gi, '_')}.jpg` : 'card.jpg';
+    
+    formData.append('image', blob, filename);
+    formData.append('title', card.title || 'Untitled Card');
+    formData.append('sport', card.sport);
+    if (card.playerName) formData.append('playerName', card.playerName);
+    if (card.year) formData.append('year', card.year);
+    if (card.setName) formData.append('setName', card.setName);
+    if (card.variant) formData.append('variant', card.variant);
+    if (card.grade) formData.append('grade', card.grade);
+    if (card.certNumber) formData.append('certNumber', card.certNumber);
+
+    const res = await fetch(`${BASE_URL}/assets/upload`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+    
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+      throw new Error(err.error || 'Upload failed');
+    }
+    return res.json();
+  }
+  
+  // For URL-based cards, use JSON API
   const body: Record<string, string | undefined> = {
     title: card.title,
     sport: card.sport,
     playerName: card.playerName,
+    year: card.year,
+    setName: card.setName,
+    variant: card.variant,
+    grade: card.grade,
+    certNumber: card.certNumber,
+    imageUrl: card.imageUrl || `https://placehold.co/400x560/6c47ff/ffffff?text=${encodeURIComponent(card.title)}`,
   };
 
-  if (card.imageBase64) {
-    body.imageBase64 = card.imageBase64;
-    body.mimeType = card.mimeType || 'image/jpeg';
-  } else {
-    body.imageUrl = card.imageUrl || `https://placehold.co/400x560/6c47ff/ffffff?text=${encodeURIComponent(card.title)}`;
-  }
-
-  const res = await fetch(`${BASE_URL}/assets/upload`, {
+  const res = await fetch(`${BASE_URL}/assets/create-from-url`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -434,12 +434,16 @@ export const cardAssets = pgTable(
     year: integer('year'),
     setName: varchar('set_name', { length: 120 }),
     variant: varchar('variant', { length: 120 }),
+    grade: varchar('grade', { length: 30 }),
+    certNumber: varchar('cert_number', { length: 100 }),
     source: varchar('source', { length: 30 }).notNull().default('upload'),
     metadata: jsonb('metadata').notNull().default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
     playerNameIdx: index('idx_card_assets_player_name').on(table.playerName),
+    yearIdx: index('idx_card_assets_year').on(table.year),
+    sourceIdx: index('idx_card_assets_source').on(table.source),
   })
 );
 
