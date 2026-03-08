@@ -4,7 +4,8 @@ import Link from 'next/link';
 
 export default function Error({ error, reset }: { error: Error; reset: () => void }) {
   useEffect(() => {
-    console.error('Root error:', error.message);
+    console.error('Root error:', error);
+    console.error('Stack:', error.stack);
   }, [error]);
 
   return (
@@ -12,6 +13,12 @@ export default function Error({ error, reset }: { error: Error; reset: () => voi
       <div className="text-6xl mb-6">💥</div>
       <h2 className="text-2xl font-black text-white mb-3">Something went wrong</h2>
       <p className="text-[#64748b] mb-8 max-w-sm text-sm">{error.message || 'An unexpected error occurred'}</p>
+      {error.stack && (
+        <details className="mb-4 text-left max-w-2xl">
+          <summary className="text-xs text-[#64748b] cursor-pointer hover:text-[#94a3b8]">Stack trace</summary>
+          <pre className="text-[10px] text-[#475569] mt-2 overflow-auto max-h-40 bg-[#12121a] p-2 rounded">{error.stack}</pre>
+        </details>
+      )}
       <div className="flex gap-3 flex-wrap justify-center">
         <button
           onClick={reset}

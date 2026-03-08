@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Eye, Trash2, Swords } from 'lucide-react';
 import { BackButton } from '../../../components/ui/BackButton';
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
+const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:3333/api/v1');
 
 interface WatchedBattle {
   id: string;

@@ -6,7 +6,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { getToken } from '../../../lib/api';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:3333/api/v1');
 
 async function adminFetch(path: string, method = 'GET', body?: unknown) {
   const res = await fetch(`${BASE_URL}${path}`, {

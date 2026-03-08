@@ -26,7 +26,7 @@ import { CardPriceComparison } from '../../../../components/CardPriceComparison'
 import Link from 'next/link';
 import type { Battle } from '@card-battles/types';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:3333/api/v1');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatTimeAgo(iso: string): string {
@@ -115,7 +115,7 @@ function ShareModal({ battle, onClose }: { battle: Battle; onClose: () => void }
   const shareUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/battles/${battle.id}`
     : `https://cardbattles.app/battles/${battle.id}`;
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:3333/api/v1');
   const ogImageUrl = `${apiBase}/share/${battle.id}/og`;
   const embedPageUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/embed/battle/${battle.id}`

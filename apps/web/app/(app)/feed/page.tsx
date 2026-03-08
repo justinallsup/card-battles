@@ -11,7 +11,7 @@ import { RefreshCw, X, TrendingUp, Star } from 'lucide-react';
 import type { Battle } from '@card-battles/types';
 import { useBattleOfTheDay } from '../../../hooks/useBattleOfTheDay';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3333/api/v1';
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:3333/api/v1');
 
 const SPORT_FILTERS = [
   { label: 'All', value: '' },
