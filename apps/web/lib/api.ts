@@ -1,4 +1,5 @@
 import type { Battle, FeedResponse, AuthResponse, User, UserStats, LeaderboardResponse, DailyPick, CardAsset, VoteResponse } from '@card-battles/types';
+import { normalizeBattle, normalizeBattles } from './normalizeBattle';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
 
@@ -83,16 +84,23 @@ export const auth = {
 // ─── Battles ──────────────────────────────────────────────────────────────────
 
 export const battles = {
-  feed: (params?: { cursor?: string; status?: string; sport?: string }) => {
+  feed: async (params?: { cursor?: string; status?: string; sport?: string }) => {
     const qs = new URLSearchParams();
     if (params?.cursor) qs.set('cursor', params.cursor);
     if (params?.status) qs.set('status', params.status);
     if (params?.sport) qs.set('sport', params.sport);
     const q = qs.toString();
-    return request<FeedResponse>(`/battles/feed${q ? `?${q}` : ''}`, { auth: true });
+    const response = await request<FeedResponse>(`/battles/feed${q ? `?${q}` : ''}`, { auth: true });
+    return {
+      ...response,
+      items: normalizeBattles(response.items),
+    };
   },
 
-  get: (id: string) => request<Battle>(`/battles/${id}`, { auth: true }),
+  get: async (id: string) => {
+    const battle = await request<Battle>(`/battles/${id}`, { auth: true });
+    return normalizeBattle(battle);
+  },
 
   create: (data: {
     title: string;
@@ -192,7 +200,13 @@ export const leaderboards = {
 // ─── Trending ─────────────────────────────────────────────────────────────────
 
 export const trending = {
-  get: () => request<{ items: Battle[] }>('/battles/trending', { auth: true }),
+  get: async () => {
+    const response = await request<{ items: Battle[] }>('/battles/trending', { auth: true });
+    return {
+      ...response,
+      items: normalizeBattles(response.items),
+    };
+  },
 };
 
 // ─── Comments ─────────────────────────────────────────────────────────────────
