@@ -329,9 +329,18 @@ function CardSpotlight() {
         {/* Card image */}
         <Link href={`/search?q=${encodeURIComponent(card.player_name)}`} className="flex-shrink-0">
           <div className="w-24 rounded-xl overflow-hidden border-2 shadow-lg transition-transform hover:scale-105"
-            style={{ aspectRatio: '3/4', borderColor: 'rgba(255,215,0,0.3)', boxShadow: '0 0 20px rgba(255,215,0,0.15)' }}>
-            <img src={card.image_url} alt={card.player_name}
-              className="w-full h-full object-cover" />
+            style={{ 
+              aspectRatio: '3/4', 
+              borderColor: 'rgba(255,215,0,0.3)', 
+              boxShadow: '0 0 20px rgba(255,215,0,0.15)',
+              background: 'linear-gradient(135deg, hsl(45, 50%, 25%), hsl(45, 30%, 10%))'
+            }}>
+            <div className="w-full h-full flex flex-col items-center justify-center p-2">
+              <div className="text-4xl opacity-20 mb-2">⚔️</div>
+              <div className="text-white font-black text-xs text-center leading-tight">
+                {card.player_name}
+              </div>
+            </div>
           </div>
         </Link>
 
@@ -537,10 +546,14 @@ function FeaturedThisWeek() {
           <Link href={`/battles/${featuredBattle.id}`} className="col-span-1 rounded-xl border border-[#1e1e2e] overflow-hidden hover:border-[#ef4444]/40 transition-all group" style={{ background: '#0a0a0f' }}>
             <div className="relative h-20 overflow-hidden">
               <div className="flex h-full">
-                <img src={featuredBattle.li || `https://placehold.co/80x100/6c47ff/fff?text=${encodeURIComponent(featuredBattle.lp?.[0] ?? 'L')}`}
-                  alt={featuredBattle.lp} className="w-1/2 h-full object-cover" />
-                <img src={featuredBattle.ri || `https://placehold.co/80x100/1e1e2e/fff?text=${encodeURIComponent(featuredBattle.rp?.[0] ?? 'R')}`}
-                  alt={featuredBattle.rp} className="w-1/2 h-full object-cover" />
+                <div className="w-1/2 h-full flex items-center justify-center text-white font-black text-2xl" 
+                  style={{ background: 'linear-gradient(135deg, hsl(0, 70%, 30%), hsl(0, 50%, 15%))' }}>
+                  {featuredBattle.lp?.split(' ')[0]?.[0] || 'L'}
+                </div>
+                <div className="w-1/2 h-full flex items-center justify-center text-white font-black text-2xl"
+                  style={{ background: 'linear-gradient(135deg, hsl(220, 40%, 25%), hsl(220, 30%, 10%))' }}>
+                  {featuredBattle.rp?.split(' ')[0]?.[0] || 'R'}
+                </div>
               </div>
               <div className="absolute inset-0 flex items-center justify-center">
                 <span className="text-[10px] font-black text-white bg-[#ef4444] rounded-full w-5 h-5 flex items-center justify-center">🔥</span>
@@ -557,9 +570,14 @@ function FeaturedThisWeek() {
         {/* Card of the Week */}
         {cardOfTheWeek && (
           <div className="col-span-1 rounded-xl border border-[#1e1e2e] overflow-hidden" style={{ background: '#0a0a0f', borderColor: 'rgba(255,215,0,0.2)' }}>
-            <div className="h-20 overflow-hidden">
-              <img src={cardOfTheWeek.image_url || `https://placehold.co/120x160/ffd700/000?text=${encodeURIComponent(cardOfTheWeek.player_name?.[0] ?? 'C')}`}
-                alt={cardOfTheWeek.player_name} className="w-full h-full object-cover" />
+            <div className="h-20 overflow-hidden flex items-center justify-center" 
+              style={{ background: 'linear-gradient(135deg, hsl(45, 60%, 30%), hsl(45, 40%, 15%))' }}>
+              <div className="text-center p-2">
+                <div className="text-2xl opacity-30 mb-1">🃏</div>
+                <div className="text-white font-black text-xs">
+                  {cardOfTheWeek.player_name?.split(' ')[0] || 'Card'}
+                </div>
+              </div>
             </div>
             <div className="p-2">
               <p className="text-[9px] font-black text-[#ffd700] uppercase">🃏 Card of Week</p>
@@ -574,10 +592,14 @@ function FeaturedThisWeek() {
           <Link href={`/battles/${risingBattle.id}`} className="col-span-1 rounded-xl border border-[#1e1e2e] overflow-hidden hover:border-[#22c55e]/40 transition-all group" style={{ background: '#0a0a0f' }}>
             <div className="relative h-20 overflow-hidden">
               <div className="flex h-full">
-                <img src={risingBattle.li || `https://placehold.co/80x100/22c55e/fff?text=${encodeURIComponent(risingBattle.lp?.[0] ?? 'L')}`}
-                  alt={risingBattle.lp} className="w-1/2 h-full object-cover" />
-                <img src={risingBattle.ri || `https://placehold.co/80x100/1e1e2e/fff?text=${encodeURIComponent(risingBattle.rp?.[0] ?? 'R')}`}
-                  alt={risingBattle.rp} className="w-1/2 h-full object-cover" />
+                <div className="w-1/2 h-full flex items-center justify-center text-white font-black text-2xl"
+                  style={{ background: 'linear-gradient(135deg, hsl(142, 60%, 30%), hsl(142, 40%, 15%))' }}>
+                  {risingBattle.lp?.split(' ')[0]?.[0] || 'L'}
+                </div>
+                <div className="w-1/2 h-full flex items-center justify-center text-white font-black text-2xl"
+                  style={{ background: 'linear-gradient(135deg, hsl(220, 40%, 25%), hsl(220, 30%, 10%))' }}>
+                  {risingBattle.rp?.split(' ')[0]?.[0] || 'R'}
+                </div>
               </div>
               <div className="absolute inset-0 flex items-center justify-center">
                 <TrendingUp size={14} className="text-[#22c55e] drop-shadow" />
