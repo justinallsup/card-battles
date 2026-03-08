@@ -931,6 +931,25 @@ app.get('/api/v1/cards/search', async (c) => {
   return c.json({ cards: r.rows });
 });
 
+// ── CARD IMAGE FETCH ──────────────────────────────────────────────────────────
+async function fetchCardImageFromEbay(playerName: string, year: number, sport: string): Promise<string | null> {
+  try {
+    const query = `${playerName} ${year} ${sport} card`;
+    const res = await fetch(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}&_ipg=3`);
+    const html = await res.text();
+    
+    // Extract first image URL from search results
+    const imgMatch = html.match(/<img[^>]+src="([^"]+)"[^>]*class="[^"]*s-item__image-img[^"]*"/);
+    if (imgMatch && imgMatch[1]) {
+      return imgMatch[1];
+    }
+    return null;
+  } catch (err) {
+    console.error('eBay fetch failed:', err);
+    return null;
+  }
+}
+
 // ── CARD IMAGE GENERATOR ──────────────────────────────────────────────────────
 // Generates a beautiful SVG trading card image on-the-fly
 function generateCardSVG(params: {
@@ -1166,6 +1185,31 @@ function generateCardSVG(params: {
 }
 
 // GET /api/v1/cards/image — generate card SVG on-the-fly
+app.get('/api/v1/cards/:id/image', async (c) => {
+  const cardId = c.req.param('id');
+  
+  // Get card from database
+  const r = await pg.query('SELECT player_name, year, sport, image_url FROM card_assets WHERE id=$1', [cardId]);
+  if (r.rows.length === 0) return c.notFound();
+  
+  const card = r.rows[0] as {player_name: string; year: number; sport: string; image_url: string};
+  
+  // If already has cached image URL, return it
+  if (card.image_url && card.image_url.startsWith('http')) {
+    return c.redirect(card.image_url);
+  }
+  
+  // Fetch from eBay and cache
+  const ebayImage = await fetchCardImageFromEbay(card.player_name, card.year, card.sport);
+  if (ebayImage) {
+    await pg.query('UPDATE card_assets SET image_url=$1 WHERE id=$2', [ebayImage, cardId]);
+    return c.redirect(ebayImage);
+  }
+  
+  // Fallback to generated SVG
+  return c.redirect(`/api/v1/cards/image?player=${encodeURIComponent(card.player_name)}&year=${card.year}&sport=${card.sport}&colors=6c47ff%2Fffffff`);
+});
+
 app.get('/api/v1/cards/image', async (c) => {
   const player = c.req.query('player') || 'Unknown Player';
   const year = c.req.query('year') || '2024';

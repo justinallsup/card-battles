@@ -17,16 +17,9 @@ interface BattleCardProps {
 }
 
 function CardImage({ imageUrl, title, playerName, onVoted, midValue }: { imageUrl: string; title: string; playerName?: string | null; onVoted?: boolean; midValue?: number | null }) {
-  // Immediately show CSS card, then try to load SVG
-  const displayName = playerName || title.split(' ').slice(0, 2).join(' ') || 'Card';
-  const hashCode = (str: string) => {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return hash;
-  };
-  const hue = Math.abs(hashCode(displayName)) % 360;
+  // Extract card ID from imageUrl if it's an API path
+  const cardIdMatch = imageUrl.match(/\/cards\/([^\/\?]+)/);
+  const imgSrc = cardIdMatch ? `${API_BASE.replace('/api/v1', '')}/api/v1/cards/${cardIdMatch[1]}/image` : imageUrl;
 
   return (
     <div className="flex-1 min-w-0">
@@ -34,37 +27,12 @@ function CardImage({ imageUrl, title, playerName, onVoted, midValue }: { imageUr
         className={`relative rounded-xl overflow-hidden border transition-all duration-300 group-hover:border-[#6c47ff]/40 ${onVoted ? 'animate-vote-pulse' : ''}`}
         style={{ aspectRatio: '3/4', borderColor: '#252535' }}
       >
-        {/* CSS Card - always visible */}
-        <div 
-          className="absolute inset-0"
-          style={{ 
-            background: `linear-gradient(135deg, hsl(${hue}, 50%, 25%) 0%, hsl(${hue}, 30%, 10%) 100%)` 
-          }}
-        >
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
-            {/* Top stripe */}
-            <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-[#6c47ff]/30 to-transparent" />
-            
-            {/* Large emoji */}
-            <div className="text-9xl opacity-15 mb-4">⚔️</div>
-            
-            {/* Player name */}
-            <div className="text-white font-black text-2xl text-center mb-3 px-4 leading-tight" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-              {displayName}
-            </div>
-            
-            {/* Subtitle */}
-            <div className="text-[#a5b4fc] text-sm font-bold tracking-wider">
-              CARD BATTLES
-            </div>
-            
-            {/* Bottom gradient */}
-            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/60 to-transparent" />
-            
-            {/* Border glow */}
-            <div className="absolute inset-0 border-2 border-[#6c47ff]/30 rounded-xl" />
-          </div>
-        </div>
+        <img 
+          src={imgSrc}
+          alt={title}
+          className="w-full h-full object-cover"
+          loading="lazy"
+        />
         
         {midValue && (
           <div className="absolute top-3 right-3 px-3 py-1.5 bg-[#6c47ff] rounded-lg text-white text-sm font-black shadow-lg z-10">
