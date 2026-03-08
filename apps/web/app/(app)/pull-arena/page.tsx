@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Sparkles, Share2, Package, TrendingUp, TrendingDown, RotateCcw, Star, X } from 'lucide-react';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:3333/api/v1');
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "/api/v1";
 const FAKE_USERS = ['cardking','slabmaster','rookiehunter','packripper','gradegod','holomaster','prizmpull','refractorking','autochaser','rccollector'];
 const REACTIONS = [{ emoji: '🔥', label: 'Fire' },{ emoji: '💎', label: 'Diamond' },{ emoji: '🗑️', label: 'Trash' }];
 const RARITY_STYLES: Record<string,{bg:string;border:string;glow:string;label:string}> = {

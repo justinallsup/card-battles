@@ -8,7 +8,7 @@ import { BackButton } from '../../../components/ui/BackButton';
 import { showToast } from '../../../components/ui/Toast';
 import { RarityBadge, getRarityTier } from '../../../components/ui/RarityBadge';
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:3333/api/v1');
+const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "/api/v1";
 
 interface CollectedCard {
   id: string;

@@ -1,7 +1,7 @@
 import type { Battle, FeedResponse, AuthResponse, User, UserStats, LeaderboardResponse, DailyPick, CardAsset, VoteResponse } from '@card-battles/types';
 import { normalizeBattle, normalizeBattles } from './normalizeBattle';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:8000/api/v1');
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api/v1';
 
 // ─── Token storage ────────────────────────────────────────────────────────────
 

@@ -86,7 +86,7 @@ function CardSlot({
   const [searching, setSearching] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const BASE_URL_SEARCH = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:3333/api/v1');
+  const BASE_URL_SEARCH = process.env.NEXT_PUBLIC_API_BASE_URL || "/api/v1";
 
   const clearImage = () => onChange({ ...card, imageUrl: '', imageBase64: '', mimeType: '', previewSrc: '', existingAssetId: undefined });
 
@@ -394,7 +394,7 @@ function CardSlot({
   );
 }
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:3333/api/v1');
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "/api/v1";
 
 // ── Battle Templates ──────────────────────────────────────────────────────────
 

@@ -5,7 +5,7 @@ import { Trophy, Plus, X, ChevronRight, Search, Check } from 'lucide-react';
 import { BackButton } from '../../../components/ui/BackButton';
 import { showToast } from '../../../components/ui/Toast';
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:3333/api/v1');
+const API = process.env.NEXT_PUBLIC_API_BASE_URL || "/api/v1";
 
 type Tournament = { id: string; name: string; sport: string; status: 'open'|'active'|'complete'; participants: string[]; bracket: Record<string,string>; createdAt: string; type?: string; };
 type Participant = { username: string; cardName: string; seeded: number; };

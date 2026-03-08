@@ -5,7 +5,7 @@ import { BattleTimer } from './BattleTimer';
 import { useVote } from '../../hooks/useVote';
 import type { Battle, VoteChoice } from '@card-battles/types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:8000/api/v1');
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "/api/v1";
 
 // Category display config
 const CATEGORY_CONFIG: Record<string, { emoji: string; label: string; color: string }> = {

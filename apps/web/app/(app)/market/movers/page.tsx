@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, TrendingDown, Zap, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:3333/api/v1');
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "/api/v1";
 
 interface Mover {
   playerName: string;

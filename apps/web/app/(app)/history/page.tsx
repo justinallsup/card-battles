@@ -7,7 +7,7 @@ import { History, Clock, Users, ArrowRight, Download, ChevronDown } from 'lucide
 import Link from 'next/link';
 import { showToast } from '../../../components/ui/Toast';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:3333/api/v1');
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "/api/v1";
 
 interface VoteRow {
   category: string;

@@ -13,7 +13,7 @@ import { ReportButton } from '../../../../components/ui/ReportModal';
 import { AchievementUnlock } from '../../../../components/AchievementUnlock';
 
 // ── Follow Button ─────────────────────────────────────────────────────────────
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:3333/api/v1');
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "/api/v1";
 
 function FollowButton({ username }: { username: string }) {
   const [isFollowing, setIsFollowing] = useState(false);

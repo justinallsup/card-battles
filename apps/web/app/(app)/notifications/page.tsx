@@ -154,7 +154,7 @@ export default function NotificationsPage() {
   // Load battle reminders
   useEffect(() => {
     if (!user) return;
-    const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:3333/api/v1');
+    const BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "/api/v1";
     fetch(`${BASE}/me/reminders`, { headers: { Authorization: `Bearer ${getToken()}` } })
       .then(r => r.json())
       .then((d: { reminders: typeof reminders }) => setReminders(d.reminders || []))

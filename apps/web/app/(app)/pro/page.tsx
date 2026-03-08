@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Crown, Check, Sparkles, Zap, BarChart2, BadgeCheck, Lock, Copy, Twitter, Users, Gift, CreditCard, ClipboardCheck, Trophy } from 'lucide-react';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:3333/api/v1');
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "/api/v1";
 
 const FEATURE_ICONS: Record<string, React.ReactNode> = {
   'Unlimited battle creation': <Zap size={16} className="text-[#f59e0b]" />,

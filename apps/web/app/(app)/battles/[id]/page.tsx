@@ -26,7 +26,7 @@ import { CardPriceComparison } from '../../../../components/CardPriceComparison'
 import Link from 'next/link';
 import type { Battle } from '@card-battles/types';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api/v1` : 'http://localhost:3333/api/v1');
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "/api/v1";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatTimeAgo(iso: string): string {
