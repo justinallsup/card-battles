@@ -19,6 +19,7 @@ interface BattleCardProps {
 function CardImage({ imageUrl, title, playerName, onVoted, midValue }: { imageUrl: string; title: string; playerName?: string | null; onVoted?: boolean; midValue?: number | null }) {
   const [svgData, setSvgData] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     // Fetch SVG from API and convert to data URL
@@ -26,18 +27,37 @@ function CardImage({ imageUrl, title, playerName, onVoted, midValue }: { imageUr
       ? imageUrl 
       : `${API_BASE.replace('/api/v1', '')}${imageUrl}`;
     
-    fetch(fullUrl)
-      .then(res => res.text())
+    console.log('Fetching card image:', fullUrl);
+    
+    fetch(fullUrl, { mode: 'cors' })
+      .then(res => {
+        console.log('Fetch response:', res.status, res.statusText);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      })
       .then(svg => {
+        console.log('SVG received, length:', svg.length);
         const encoded = btoa(unescape(encodeURIComponent(svg)));
         setSvgData(`data:image/svg+xml;base64,${encoded}`);
         setLoading(false);
       })
       .catch(err => {
-        console.error('Failed to fetch SVG:', err);
+        console.error('Failed to fetch card image:', err, fullUrl);
+        setError(err.message);
         setLoading(false);
       });
   }, [imageUrl]);
+
+  // Fallback: CSS card if fetch fails
+  const displayName = playerName || title.split(' ')[0] || '?';
+  const hashCode = (str: string) => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return hash;
+  };
+  const hue = Math.abs(hashCode(displayName)) % 360;
 
   return (
     <div className="flex-1 min-w-0">
@@ -45,22 +65,36 @@ function CardImage({ imageUrl, title, playerName, onVoted, midValue }: { imageUr
         className={`relative rounded-xl overflow-hidden border transition-all duration-300 group-hover:border-[#6c47ff]/40 ${onVoted ? 'animate-vote-pulse' : ''}`}
         style={{ aspectRatio: '3/4', background: '#1e1e2e', borderColor: '#252535' }}
       >
-        {loading && (
+        {loading && !error && (
           <div className="absolute inset-0 shimmer rounded-xl" />
         )}
-        {svgData ? (
+        
+        {svgData && !error ? (
           <img
             src={svgData}
             alt={title}
             className="w-full h-full object-cover transition-all duration-500 group-hover:scale-105"
           />
-        ) : !loading ? (
-          <div className="absolute inset-0 flex items-center justify-center text-[#64748b] text-sm">
-            Card Loading...
+        ) : error || !loading ? (
+          // Fallback CSS card
+          <div 
+            className="absolute inset-0"
+            style={{ background: `linear-gradient(135deg, hsl(${hue}, 40%, 20%) 0%, #0a0a0f 100%)` }}
+          >
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
+              <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-r from-[#6c47ff]/20 to-transparent" />
+              <div className="text-6xl opacity-20 mb-4">⚔️</div>
+              <div className="text-white font-black text-xl text-center mb-2 px-2 line-clamp-2">
+                {displayName}
+              </div>
+              <div className="text-[#94a3b8] text-xs font-medium">CARD BATTLES</div>
+              <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/50 to-transparent" />
+            </div>
           </div>
         ) : null}
+        
         {midValue && (
-          <div className="absolute top-2 right-2 px-2 py-1 bg-[#6c47ff]/90 rounded text-white text-xs font-bold">
+          <div className="absolute top-2 right-2 px-2 py-1 bg-[#6c47ff]/90 rounded text-white text-xs font-bold z-10">
             ${midValue.toLocaleString()}
           </div>
         )}
