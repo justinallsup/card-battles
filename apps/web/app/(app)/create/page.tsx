@@ -69,6 +69,8 @@ function CardSlot({
   onChange: (c: CardInput) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<CardSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -78,16 +80,55 @@ function CardSlot({
 
   const clearImage = () => onChange({ ...card, imageUrl: '', imageBase64: '', mimeType: '', previewSrc: '', existingAssetId: undefined });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (card.mode === 'upload') setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget === dropZoneRef.current) setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    if (card.mode !== 'upload') return;
+    
+    const files = e.dataTransfer.files;
+    if (files && files[0]) {
+      processFile(files[0]);
+    }
+  };
+
+  const processFile = (file: File) => {
+    if (!file.type.startsWith('image/')) return;
+    
     const reader = new FileReader();
     reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      const base64 = dataUrl.split(',')[1] ?? '';
-      onChange({ ...card, imageBase64: base64, mimeType: file.type, previewSrc: dataUrl, imageUrl: '', existingAssetId: undefined });
+      const b64 = ev.target?.result as string;
+      onChange({
+        ...card,
+        imageBase64: b64.split(',')[1] || '',
+        mimeType: file.type,
+        previewSrc: b64,
+      });
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
   };
 
   const handleUrlChange = (url: string) => {
@@ -196,6 +237,7 @@ function CardSlot({
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            capture="environment"
             className="hidden"
             onChange={handleFileChange}
           />
