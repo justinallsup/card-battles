@@ -32,9 +32,12 @@ export function VoteButtons({
   leftPlayerName = 'Left card',
   rightPlayerName = 'Right card',
 }: VoteButtonsProps) {
+  // Safety check: ensure categories is always an array
+  const safeCategories = categories || ['investment', 'coolest', 'rarity'];
+  
   return (
     <div className="space-y-2" role="group" aria-label="Vote categories">
-      {categories.map((cat) => {
+      {safeCategories.map((cat) => {
         const voted = localVotes[cat];
         const percents = localPercents[cat];
         const label = CATEGORY_LABELS[cat] ?? cat;
