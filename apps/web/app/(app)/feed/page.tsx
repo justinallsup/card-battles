@@ -404,15 +404,13 @@ function RecommendedBattleCard({ battle }: { battle: RecommendedBattle }) {
     >
       {/* Card images preview */}
       <div className="flex h-28 overflow-hidden relative">
-        <div className="w-1/2 overflow-hidden">
-          <img src={battle.li || `https://placehold.co/120x160/6c47ff/ffffff?text=${encodeURIComponent(battle.lp?.split(' ')[0] ?? 'L')}`}
-            alt={battle.lp}
-            className="w-full h-full object-cover" />
+        <div className="w-1/2 overflow-hidden flex items-center justify-center text-white font-black text-3xl"
+          style={{ background: 'linear-gradient(135deg, hsl(260, 70%, 35%), hsl(260, 50%, 20%))' }}>
+          {battle.lp?.split?.(' ')?.[0]?.[0] || 'L'}
         </div>
-        <div className="w-1/2 overflow-hidden">
-          <img src={battle.ri || `https://placehold.co/120x160/1e1e2e/64748b?text=${encodeURIComponent(battle.rp?.split(' ')[0] ?? 'R')}`}
-            alt={battle.rp}
-            className="w-full h-full object-cover" />
+        <div className="w-1/2 overflow-hidden flex items-center justify-center text-white font-black text-3xl"
+          style={{ background: 'linear-gradient(135deg, hsl(220, 40%, 25%), hsl(220, 30%, 10%))' }}>
+          {battle.rp?.split?.(' ')?.[0]?.[0] || 'R'}
         </div>
         {/* VS badge */}
         <div className="absolute inset-0 flex items-center justify-center">
