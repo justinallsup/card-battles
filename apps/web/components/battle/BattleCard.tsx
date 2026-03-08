@@ -106,7 +106,7 @@ export function BattleCard({ battle, compact = false }: BattleCardProps) {
   const [valuations, setValuations] = useState<{ left: { mid: number; trend: string } | null; right: { mid: number; trend: string } | null } | null>(null);
   const isFirstRender = useRef(true);
 
-  const categories = battle.categories as string[];
+  const categories = (battle.categories as string[] | undefined) || ['investment', 'coolest', 'rarity'];
   const isHot = (battle.totalVotesCached ?? 0) > 5000;
 
   useEffect(() => {

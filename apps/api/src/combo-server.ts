@@ -607,7 +607,14 @@ app.get('/api/v1/battles/:id', async (c) => {
   const rows=r.rows as Record<string,unknown>[];if(!rows.length)return c.json({error:'Not found'},404);const row=rows[0];
   let mv:Record<string,string>={};
   if(u){const vr=await pg.query('SELECT category,choice FROM votes WHERE battle_id=$1 AND user_id=$2',[id,u]);for(const v of vr.rows as{category:string;choice:string}[])mv[v.category]=v.choice;}
-  return c.json({id:row.id,title:row.title,status:row.status,categories:JSON.parse(row.categories as string),endsAt:row.ends_at,startsAt:row.starts_at,totalVotesCached:row.total_votes_cached,isSponsored:!!row.is_sponsored,sponsorCta:row.sponsor_cta?JSON.parse(row.sponsor_cta as string):null,createdByUsername:row.creator,left:{assetId:row.lid,title:row.lt,imageUrl:row.li,playerName:row.lp},right:{assetId:row.rid,title:row.rt,imageUrl:row.ri,playerName:row.rp},myVotes:mv});
+  // Parse categories safely - fallback to default if missing/invalid
+  let parsedCategories: string[];
+  try {
+    parsedCategories = row.categories ? JSON.parse(row.categories as string) : ['investment', 'coolest', 'rarity'];
+  } catch {
+    parsedCategories = ['investment', 'coolest', 'rarity'];
+  }
+  return c.json({id:row.id,title:row.title,status:row.status,categories:parsedCategories,endsAt:row.ends_at,startsAt:row.starts_at,totalVotesCached:row.total_votes_cached,isSponsored:!!row.is_sponsored,sponsorCta:row.sponsor_cta?JSON.parse(row.sponsor_cta as string):null,createdByUsername:row.creator,left:{assetId:row.lid,title:row.lt,imageUrl:row.li,playerName:row.lp},right:{assetId:row.rid,title:row.rt,imageUrl:row.ri,playerName:row.rp},myVotes:mv});
 });
 app.post('/api/v1/battles/:id/vote', async (c) => {
   const u=uid(c.req.header('Authorization'));if(!u)return c.json({error:'Unauthorized'},401);
