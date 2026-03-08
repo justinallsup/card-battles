@@ -20,15 +20,9 @@ function CardImage({ imageUrl, title, playerName, onVoted, midValue }: { imageUr
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   
-  // Convert relative image URLs to absolute
-  // API_BASE is like "https://card-battles-1.onrender.com/api/v1"
-  // imageUrl is like "/api/v1/cards/image?..."
-  // We want: "https://card-battles-1.onrender.com/api/v1/cards/image?..."
-  const fullImageUrl = imageUrl.startsWith('http') 
-    ? imageUrl 
-    : imageUrl.startsWith('/api/v1')
-      ? API_BASE.replace('/api/v1', '') + imageUrl
-      : `${API_BASE}${imageUrl}`;
+  // For MVP: use placeholder until we fix external SVG loading
+  const placeholderUrl = '/card-placeholder.svg';
+  const imgSrc = placeholderUrl; // TODO: Fix external SVG loading
 
   return (
     <div className="flex-1 min-w-0">
@@ -46,12 +40,12 @@ function CardImage({ imageUrl, title, playerName, onVoted, midValue }: { imageUr
           </div>
         )}
         <img
-          src={fullImageUrl}
+          src={imgSrc}
           alt={title}
           className={`w-full h-full object-cover transition-all duration-500 group-hover:scale-105 ${loaded ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => setLoaded(true)}
           onError={(e) => {
-            console.error('Image failed to load:', fullImageUrl);
+            console.error('Image failed to load:', imgSrc);
             setError(true);
           }}
         />
