@@ -18,9 +18,17 @@ interface BattleCardProps {
 
 function CardImage({ imageUrl, title, playerName, onVoted, midValue }: { imageUrl: string; title: string; playerName?: string | null; onVoted?: boolean; midValue?: number | null }) {
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState(false);
   
   // Convert relative image URLs to absolute
-  const fullImageUrl = imageUrl.startsWith('http') ? imageUrl : `${API_BASE.replace('/api/v1', '')}${imageUrl}`;
+  // API_BASE is like "https://card-battles-1.onrender.com/api/v1"
+  // imageUrl is like "/api/v1/cards/image?..."
+  // We want: "https://card-battles-1.onrender.com/api/v1/cards/image?..."
+  const fullImageUrl = imageUrl.startsWith('http') 
+    ? imageUrl 
+    : imageUrl.startsWith('/api/v1')
+      ? API_BASE.replace('/api/v1', '') + imageUrl
+      : `${API_BASE}${imageUrl}`;
 
   return (
     <div className="flex-1 min-w-0">
@@ -29,8 +37,13 @@ function CardImage({ imageUrl, title, playerName, onVoted, midValue }: { imageUr
         style={{ aspectRatio: '3/4', background: '#1e1e2e', borderColor: '#252535' }}
       >
         {/* Shimmer skeleton while loading */}
-        {!loaded && (
+        {!loaded && !error && (
           <div className="absolute inset-0 shimmer rounded-xl" />
+        )}
+        {error && (
+          <div className="absolute inset-0 flex items-center justify-center text-[#64748b] text-sm">
+            Failed to load
+          </div>
         )}
         <img
           src={fullImageUrl}
@@ -39,7 +52,7 @@ function CardImage({ imageUrl, title, playerName, onVoted, midValue }: { imageUr
           onLoad={() => setLoaded(true)}
           onError={(e) => {
             console.error('Image failed to load:', fullImageUrl);
-            e.currentTarget.style.display = 'none';
+            setError(true);
           }}
         />
         {/* Player name overlay */}
