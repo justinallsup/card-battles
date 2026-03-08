@@ -635,7 +635,7 @@ export default function FeedPage() {
 
   if (sportFilter) {
     battles = battles.filter((b) => {
-      const cats = b.categories as string[];
+      const cats = (b.categories as string[] | undefined) || [];
       return cats.some((c: string) => c.toLowerCase().includes(sportFilter)) ||
         (b.left.playerName ?? '').toLowerCase().includes(sportFilter) ||
         (b.right.playerName ?? '').toLowerCase().includes(sportFilter) ||
@@ -645,7 +645,7 @@ export default function FeedPage() {
 
   if (categoryFilter) {
     battles = battles.filter((b) => {
-      const cats = b.categories as string[];
+      const cats = (b.categories as string[] | undefined) || [];
       return cats.some((c: string) => c.toLowerCase() === categoryFilter);
     });
   }

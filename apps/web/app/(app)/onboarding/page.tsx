@@ -188,7 +188,8 @@ function StepVote({ onNext }: { onNext: () => void }) {
     if (!battle || voted) return;
     setVoted(choice);
     try {
-      const category = battle.categories[0] ?? 'overall';
+      const categories = (battle.categories as string[] | undefined) || ['investment'];
+      const category = categories[0] ?? 'overall';
       await battlesApi.vote(battle.id, category, choice);
     } catch {
       // Vote may fail without auth — that's OK, proceed anyway
