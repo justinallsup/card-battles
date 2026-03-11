@@ -81,10 +81,12 @@ router.get('/:battleId/card', async (c) => {
   const [battle] = await db.select().from(battles).where(eq(battles.id, battleId)).limit(1);
   if (!battle) return c.json({ error: 'Battle not found' }, 404);
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace('/api/v1', '') ?? 'http://localhost:3000';
+  const apiBaseUrl = process.env.API_BASE_URL ?? 'https://card-battles-api.onrender.com/api/v1';
+  const frontendBaseUrl = process.env.FRONTEND_BASE_URL ?? 'https://cardbattle.app';
+  
   return c.json({
-    shareUrl: `${baseUrl}/battles/${battleId}`,
-    ogImageUrl: `${process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8000/api/v1'}/share/${battleId}/og`,
+    shareUrl: `${frontendBaseUrl}/battles/${battleId}`,
+    ogImageUrl: `${apiBaseUrl}/share/${battleId}/og`,
     title: battle.title,
     description: `Vote on this Card Battle — ${battle.totalVotesCached} votes so far!`,
   });
