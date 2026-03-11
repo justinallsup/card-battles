@@ -2,8 +2,12 @@ services:
   - type: web
     name: card-battles-api
     runtime: node
-    buildCommand: npm install -g pnpm && pnpm install --no-frozen-lockfile && cd apps/api && pnpm run build:combo
-    startCommand: cd apps/api && node dist/combo-server.js
+    buildCommand: |
+      npm install -g pnpm
+      pnpm install --no-frozen-lockfile
+      cd apps/api
+      npx esbuild src/combo-server.ts --bundle --platform=node --outfile=dist/combo-server.js --external:@electric-sql/pglite --external:pg-native
+    startCommand: node apps/api/dist/combo-server.js
     envVars:
       - key: NODE_ENV
         value: production
